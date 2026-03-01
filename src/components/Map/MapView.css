@@ -1,0 +1,30 @@
+.map-container {
+  flex: 1;
+  position: relative;
+}
+
+.leaflet-map {
+  width: 100%;
+  height: 100%;
+}
+
+/* Remove default Leaflet marker icon background */
+.numbered-marker {
+  background: none !important;
+  border: none !important;
+}
+
+.marker-popup {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.marker-popup strong {
+  color: #1e293b;
+}
+
+.popup-time {
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 12px;
+}
