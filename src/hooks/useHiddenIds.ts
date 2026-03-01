@@ -1,10 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
-import { JSONBIN_API_KEY, JSONBIN_BIN_ID } from "../config";
+import { USE_CLOUD, cloudFetch, cloudPatch } from "../utils/cloudSync";
 
 const LS_KEY = "open-house-hidden-ids";
-const USE_CLOUD = JSONBIN_API_KEY !== "" && JSONBIN_BIN_ID !== "";
-const BIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
-const HEADERS = { "X-Access-Key": JSONBIN_API_KEY };
 
 function lsLoad(): Set<string> {
   try {
@@ -17,22 +14,6 @@ function lsLoad(): Set<string> {
 
 function lsSave(ids: Set<string>) {
   localStorage.setItem(LS_KEY, JSON.stringify(Array.from(ids)));
-}
-
-async function cloudFetch(): Promise<Set<string>> {
-  const res = await fetch(`${BIN_URL}/latest`, { headers: HEADERS });
-  if (!res.ok) throw new Error(`JSONBin ${res.status}`);
-  const json = await res.json();
-  return new Set((json.record?.hiddenIds ?? []) as string[]);
-}
-
-async function cloudSave(ids: Set<string>): Promise<void> {
-  const res = await fetch(BIN_URL, {
-    method: "PUT",
-    headers: { ...HEADERS, "Content-Type": "application/json" },
-    body: JSON.stringify({ hiddenIds: Array.from(ids) }),
-  });
-  if (!res.ok) throw new Error(`JSONBin ${res.status}`);
 }
 
 interface UseHiddenIdsResult {
@@ -48,7 +29,8 @@ export function useHiddenIds(): UseHiddenIdsResult {
   useEffect(() => {
     if (!USE_CLOUD) return;
     cloudFetch()
-      .then((ids) => {
+      .then((state) => {
+        const ids = new Set(state.hiddenIds);
         setHiddenIds(ids);
         lsSave(ids);
       })
@@ -60,18 +42,22 @@ export function useHiddenIds(): UseHiddenIdsResult {
   const persist = useCallback((ids: Set<string>) => {
     lsSave(ids);
     if (USE_CLOUD) {
-      cloudSave(ids).catch(() => {}); // fire-and-forget; localStorage already updated
+      // cloudPatch does GET-then-PUT, so visits are preserved
+      cloudPatch({ hiddenIds: Array.from(ids) }).catch(() => {});
     }
   }, []);
 
-  const hide = useCallback((id: string) => {
-    setHiddenIds((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      persist(next);
-      return next;
-    });
-  }, [persist]);
+  const hide = useCallback(
+    (id: string) => {
+      setHiddenIds((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        persist(next);
+        return next;
+      });
+    },
+    [persist]
+  );
 
   const clearHidden = useCallback(() => {
     const empty = new Set<string>();

@@ -14,17 +14,111 @@
   border: none !important;
 }
 
-.marker-popup {
-  font-size: 13px;
-  line-height: 1.5;
+/* Remove the browser's 300ms synthetic-click delay so ghost clicks
+   never fire after a touch tap. Leaflet fires its own click events
+   from touchend, so this doesn't break marker or map interaction. */
+.leaflet-container {
+  touch-action: manipulation;
 }
 
-.marker-popup strong {
-  color: #1e293b;
+/* ── Selected listing preview card ────────────────────────────
+   Renders in React's DOM outside <MapContainer>, so no Leaflet
+   ghost-click interference on mobile touch events.            */
+.map-selected-preview {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 1000;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  padding: 12px 36px 12px 14px; /* right padding leaves room for ✕ */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: all;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.popup-time {
-  color: #2563eb;
-  font-weight: 600;
+.preview-dismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: none;
+  color: #94a3b8;
   font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.preview-dismiss:hover {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.preview-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.preview-address {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #1a1a2e;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  margin-right: 5px;
+  flex-shrink: 0;
+}
+
+.preview-sub {
+  font-size: 12px;
+  color: #475569;
+  margin-top: 2px;
+}
+
+.preview-time {
+  font-size: 11px;
+  font-weight: 600;
+  color: #2563eb;
+  margin-top: 2px;
+}
+
+.preview-nav-chevron {
+  flex-shrink: 0;
+  font-size: 22px;
+  color: #94a3b8;
+  line-height: 1;
+}
+
+@media (max-width: 767px) {
+  .map-selected-preview {
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+  }
 }

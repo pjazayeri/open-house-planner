@@ -115,6 +115,13 @@ html, body, #root {
     width: 100%;
     min-width: 0;
     border-right: none;
+    /* flex:1 gives the sidebar a defined height within the column flex
+       container. min-height:0 allows it to shrink below content size so
+       overflow-y:auto actually kicks in and the sidebar becomes scrollable.
+       Without these, height is 'auto' (unconstrained) and scrollIntoView
+       finds no scrollable ancestor → always shows the first card. */
+    flex: 1;
+    min-height: 0;
   }
 
   .app-body.show-map .map-container {

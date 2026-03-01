@@ -1,14 +1,13 @@
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import {
   MapContainer,
   TileLayer,
   Marker,
   Polyline,
-  Popup,
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
-import type { TimeSlotGroup } from "../../types";
+import type { Listing, TimeSlotGroup } from "../../types";
 import { SLOT_COLORS } from "../Sidebar/TimeSlotGroup";
 import { formatPrice, formatBedsBaths, formatTimeRange } from "../../utils/formatters";
 import "./MapView.css";
@@ -18,6 +17,8 @@ interface MapViewProps {
   selectedId: string | null;
   hoveredId: string | null;
   onSelect: (id: string) => void;
+  onDeselect: () => void;
+  onNavigate: (id: string) => void;
   onHover: (id: string | null) => void;
 }
 
@@ -101,21 +102,81 @@ function PanToSelected({
   return null;
 }
 
+/**
+ * Preview card shown at the bottom of the map when a marker is selected.
+ * Lives in React's DOM (outside Leaflet), so no touch-event ghost-click issues.
+ */
+function SelectedPreview({
+  listing,
+  onNavigate,
+  onDismiss,
+}: {
+  listing: Listing;
+  onNavigate: (id: string) => void;
+  onDismiss: () => void;
+}) {
+  // Block pointer events for 350ms after mount to absorb the browser's
+  // 300ms ghost-click that follows a touch tap on a map marker.
+  const [interactive, setInteractive] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setInteractive(true), 350);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div
+      className="map-selected-preview"
+      style={interactive ? undefined : { pointerEvents: "none" }}
+      onClick={() => onNavigate(listing.id)}
+    >
+      <button
+        className="preview-dismiss"
+        onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+        aria-label="Close"
+      >✕</button>
+      <div className="preview-info">
+        <div className="preview-address">
+          <span className="preview-num">#{listing.visitOrder}</span>
+          {listing.address}
+        </div>
+        <div className="preview-sub">
+          {formatPrice(listing.price)} &middot; {formatBedsBaths(listing.beds, listing.baths)}
+        </div>
+        <div className="preview-time">
+          {formatTimeRange(listing.openHouseStart, listing.openHouseEnd)}
+        </div>
+      </div>
+      <span className="preview-nav-chevron">›</span>
+    </div>
+  );
+}
+
 export function MapView({
   timeSlotGroups,
   selectedId,
   hoveredId,
   onSelect,
+  onDeselect,
+  onNavigate,
   onHover,
 }: MapViewProps) {
   const mapRef = useRef<L.Map | null>(null);
 
+  const allListings = useMemo(
+    () => timeSlotGroups.flatMap((g) => g.listings),
+    [timeSlotGroups]
+  );
+
+  const selectedListing = useMemo(
+    () => (selectedId ? allListings.find((l) => l.id === selectedId) ?? null : null),
+    [selectedId, allListings]
+  );
+
   // Collect all coordinates for overlap detection
-  const allCoords = useMemo(() => {
-    return timeSlotGroups.flatMap((g) =>
-      g.listings.map((l) => [l.lat, l.lng] as [number, number])
-    );
-  }, [timeSlotGroups]);
+  const allCoords = useMemo(
+    () => allListings.map((l) => [l.lat, l.lng] as [number, number]),
+    [allListings]
+  );
 
   // Build route polyline coordinates (all listings in visit order)
   const routeCoords = useMemo(() => {
@@ -160,7 +221,7 @@ export function MapView({
           />
         )}
 
-        {/* Markers */}
+        {/* Markers — click selects only; navigation is via the preview card below */}
         {(() => {
           let coordIdx = 0;
           return timeSlotGroups.flatMap((group, groupIdx) => {
@@ -185,43 +246,26 @@ export function MapView({
                     isActive
                   )}
                   eventHandlers={{
-                    click: () => {
-                      onSelect(listing.id);
-                      // Scroll sidebar card into view
-                      const card = document.getElementById(
-                        `card-${listing.id}`
-                      );
-                      card?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center",
-                      });
-                    },
+                    click: () => onSelect(listing.id),
                     mouseover: () => onHover(listing.id),
                     mouseout: () => onHover(null),
                   }}
-                >
-                  <Popup>
-                    <div className="marker-popup">
-                      <strong>#{listing.visitOrder}</strong>{" "}
-                      {listing.address}
-                      <br />
-                      {formatPrice(listing.price)} &middot;{" "}
-                      {formatBedsBaths(listing.beds, listing.baths)}
-                      <br />
-                      <span className="popup-time">
-                        {formatTimeRange(
-                          listing.openHouseStart,
-                          listing.openHouseEnd
-                        )}
-                      </span>
-                    </div>
-                  </Popup>
-                </Marker>
+                />
               );
             });
           });
         })()}
       </MapContainer>
+
+      {/* Selected listing preview — rendered in React DOM, not Leaflet, so no ghost-click issues */}
+      {selectedListing && (
+        <SelectedPreview
+          key={selectedListing.id}
+          listing={selectedListing}
+          onNavigate={onNavigate}
+          onDismiss={onDeselect}
+        />
+      )}
     </div>
   );
 }

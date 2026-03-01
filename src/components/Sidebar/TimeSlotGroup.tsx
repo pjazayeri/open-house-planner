@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { TimeSlotGroup as TimeSlotGroupType } from "../../types";
+import type { TimeSlotGroup as TimeSlotGroupType, VisitRecord } from "../../types";
 import { PropertyCard } from "./PropertyCard";
 import "./Sidebar.css";
 
@@ -11,6 +11,12 @@ interface TimeSlotGroupProps {
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
   onHide: (id: string) => void;
+  visits: Record<string, VisitRecord>;
+  nearbyId: string | null;
+  onMarkVisited: (id: string) => void;
+  onSetLiked: (id: string, liked: boolean | null) => void;
+  onSetNotes: (id: string, notes: string) => void;
+  onClearVisit: (id: string) => void;
 }
 
 const SLOT_COLORS = [
@@ -30,6 +36,12 @@ export function TimeSlotGroup({
   onSelect,
   onHover,
   onHide,
+  visits,
+  nearbyId,
+  onMarkVisited,
+  onSetLiked,
+  onSetNotes,
+  onClearVisit,
 }: TimeSlotGroupProps) {
   const [collapsed, setCollapsed] = useState(false);
   const color = SLOT_COLORS[slotIndex % SLOT_COLORS.length];
@@ -55,6 +67,12 @@ export function TimeSlotGroup({
               onSelect={onSelect}
               onHover={onHover}
               onHide={onHide}
+              visit={visits[listing.id] ?? null}
+              isNearby={nearbyId === listing.id}
+              onMarkVisited={onMarkVisited}
+              onSetLiked={onSetLiked}
+              onSetNotes={onSetNotes}
+              onClearVisit={onClearVisit}
             />
           ))}
         </div>
