@@ -1,10 +1,38 @@
+import { useState } from "react";
 import { useListings } from "./hooks/useListings";
 import { Header } from "./components/Header/Header";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { MapView } from "./components/Map/MapView";
 import "./App.css";
 
+type MobileTab = "map" | "list";
+
+function MapIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+      <line x1="9" y1="3" x2="9" y2="18" />
+      <line x1="15" y1="6" x2="15" y2="21" />
+    </svg>
+  );
+}
+
+function ListIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="8" y1="6" x2="21" y2="6" />
+      <line x1="8" y1="12" x2="21" y2="12" />
+      <line x1="8" y1="18" x2="21" y2="18" />
+      <line x1="3" y1="6" x2="3.01" y2="6" />
+      <line x1="3" y1="12" x2="3.01" y2="12" />
+      <line x1="3" y1="18" x2="3.01" y2="18" />
+    </svg>
+  );
+}
+
 function App() {
+  const [mobileTab, setMobileTab] = useState<MobileTab>("map");
+
   const {
     loading,
     error,
@@ -45,7 +73,7 @@ function App() {
         timeSlotGroups={timeSlotGroups}
         totalListings={allListings.length}
       />
-      <div className="app-body">
+      <div className={`app-body show-${mobileTab}`}>
         <Sidebar
           timeSlotGroups={timeSlotGroups}
           selectedId={selectedId}
@@ -57,10 +85,29 @@ function App() {
           timeSlotGroups={timeSlotGroups}
           selectedId={selectedId}
           hoveredId={hoveredId}
-          onSelect={setSelectedId}
+          onSelect={(id) => {
+            setSelectedId(id);
+            setMobileTab("list");
+          }}
           onHover={setHoveredId}
         />
       </div>
+      <nav className="mobile-tab-bar">
+        <button
+          className={`tab-btn ${mobileTab === "map" ? "active" : ""}`}
+          onClick={() => setMobileTab("map")}
+        >
+          <MapIcon />
+          <span>Map</span>
+        </button>
+        <button
+          className={`tab-btn ${mobileTab === "list" ? "active" : ""}`}
+          onClick={() => setMobileTab("list")}
+        >
+          <ListIcon />
+          <span>List</span>
+        </button>
+      </nav>
     </div>
   );
 }

@@ -6,6 +6,8 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  /* Smooth momentum scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
 }
 
 .sidebar-content {

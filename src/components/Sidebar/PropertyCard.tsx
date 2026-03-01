@@ -119,6 +119,7 @@ export function PropertyCard({
           className="card-rent"
           onMouseEnter={() => setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
+          onClick={(e) => { e.stopPropagation(); setShowTooltip((v) => !v); }}
         >
           Est. rent {fmtDollar(b.monthlyRent)}/mo
           {b.sqftImputed && <span className="rent-imputed-flag">*</span>}

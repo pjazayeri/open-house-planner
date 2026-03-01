@@ -135,6 +135,18 @@
   min-width: 340px;
 }
 
+@media (max-width: 767px) {
+  .rent-tooltip {
+    position: static;
+    margin-top: 8px;
+    min-width: 0;
+    width: 100%;
+    white-space: pre-wrap;
+    font-size: 10px;
+    pointer-events: auto;
+  }
+}
+
 .rent-tooltip pre {
   margin: 0;
   font-family: "SF Mono", "Menlo", "Consolas", monospace;
