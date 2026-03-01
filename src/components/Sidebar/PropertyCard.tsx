@@ -10,6 +10,7 @@ interface PropertyCardProps {
   isHovered: boolean;
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
+  onHide: (id: string) => void;
 }
 
 function fmtDollar(n: number): string {
@@ -66,6 +67,7 @@ export function PropertyCard({
   isHovered,
   onSelect,
   onHover,
+  onHide,
 }: PropertyCardProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [thumbError, setThumbError] = useState(false);
@@ -98,6 +100,13 @@ export function PropertyCard({
         >
           {listing.capRate.toFixed(1)}% cap
         </span>
+        <button
+          className="hide-btn"
+          title="Hide this property"
+          onClick={(e) => { e.stopPropagation(); onHide(listing.id); }}
+        >
+          ✕
+        </button>
       </div>
       {!thumbError && (
         <img

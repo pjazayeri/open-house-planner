@@ -45,6 +45,9 @@ function App() {
     setSelectedId,
     hoveredId,
     setHoveredId,
+    hiddenCount,
+    hideListing,
+    clearHidden,
   } = useListings();
 
   if (loading) {
@@ -72,6 +75,8 @@ function App() {
         onCityChange={setSelectedCity}
         timeSlotGroups={timeSlotGroups}
         totalListings={allListings.length}
+        hiddenCount={hiddenCount}
+        onRestoreHidden={clearHidden}
       />
       <div className={`app-body show-${mobileTab}`}>
         <Sidebar
@@ -80,6 +85,7 @@ function App() {
           hoveredId={hoveredId}
           onSelect={setSelectedId}
           onHover={setHoveredId}
+          onHide={hideListing}
         />
         <MapView
           timeSlotGroups={timeSlotGroups}

@@ -8,6 +8,7 @@ interface SidebarProps {
   hoveredId: string | null;
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
+  onHide: (id: string) => void;
 }
 
 export function Sidebar({
@@ -16,6 +17,7 @@ export function Sidebar({
   hoveredId,
   onSelect,
   onHover,
+  onHide,
 }: SidebarProps) {
   return (
     <aside className="sidebar">
@@ -29,6 +31,7 @@ export function Sidebar({
             hoveredId={hoveredId}
             onSelect={onSelect}
             onHover={onHover}
+            onHide={onHide}
           />
         ))}
       </div>

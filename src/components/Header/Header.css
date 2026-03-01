@@ -56,6 +56,25 @@
   color: #fff;
 }
 
+.restore-btn {
+  padding: 3px 10px;
+  border: 1px solid #f87171;
+  border-radius: 20px;
+  background: transparent;
+  color: #f87171;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.restore-btn:hover {
+  background: #f87171;
+  color: #fff;
+}
+
 /* ── Mobile header ────────────────────────────── */
 @media (max-width: 767px) {
   .header {

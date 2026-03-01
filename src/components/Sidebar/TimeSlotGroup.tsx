@@ -10,6 +10,7 @@ interface TimeSlotGroupProps {
   hoveredId: string | null;
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
+  onHide: (id: string) => void;
 }
 
 const SLOT_COLORS = [
@@ -28,6 +29,7 @@ export function TimeSlotGroup({
   hoveredId,
   onSelect,
   onHover,
+  onHide,
 }: TimeSlotGroupProps) {
   const [collapsed, setCollapsed] = useState(false);
   const color = SLOT_COLORS[slotIndex % SLOT_COLORS.length];
@@ -52,6 +54,7 @@ export function TimeSlotGroup({
               isHovered={hoveredId === listing.id}
               onSelect={onSelect}
               onHover={onHover}
+              onHide={onHide}
             />
           ))}
         </div>

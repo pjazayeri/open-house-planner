@@ -7,6 +7,8 @@ interface HeaderProps {
   onCityChange: (city: string) => void;
   timeSlotGroups: TimeSlotGroup[];
   totalListings: number;
+  hiddenCount: number;
+  onRestoreHidden: () => void;
 }
 
 export function Header({
@@ -15,6 +17,8 @@ export function Header({
   onCityChange,
   timeSlotGroups,
   totalListings,
+  hiddenCount,
+  onRestoreHidden,
 }: HeaderProps) {
   const cityCount = timeSlotGroups.reduce(
     (sum, g) => sum + g.listings.length,
@@ -29,6 +33,11 @@ export function Header({
           {cityCount} open houses in {selectedCity} &middot; {totalListings}{" "}
           total
         </span>
+        {hiddenCount > 0 && (
+          <button className="restore-btn" onClick={onRestoreHidden}>
+            {hiddenCount} hidden &middot; Restore
+          </button>
+        )}
       </div>
       <div className="header-right">
         {cities.map((city) => (
