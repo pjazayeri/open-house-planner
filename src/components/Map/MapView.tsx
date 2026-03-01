@@ -124,8 +124,16 @@ function SelectedPreview({
   }, []);
 
   return (
-    <div className="map-selected-preview" style={interactive ? undefined : { pointerEvents: "none" }}>
-      <button className="preview-dismiss" onClick={onDismiss} aria-label="Close">✕</button>
+    <div
+      className="map-selected-preview"
+      style={interactive ? undefined : { pointerEvents: "none" }}
+      onClick={() => onNavigate(listing.id)}
+    >
+      <button
+        className="preview-dismiss"
+        onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+        aria-label="Close"
+      >✕</button>
       <div className="preview-info">
         <div className="preview-address">
           <span className="preview-num">#{listing.visitOrder}</span>
@@ -138,12 +146,7 @@ function SelectedPreview({
           {formatTimeRange(listing.openHouseStart, listing.openHouseEnd)}
         </div>
       </div>
-      <button
-        className="preview-nav-btn"
-        onClick={() => onNavigate(listing.id)}
-      >
-        View in list →
-      </button>
+      <span className="preview-nav-chevron">›</span>
     </div>
   );
 }
