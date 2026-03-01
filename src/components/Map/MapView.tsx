@@ -92,6 +92,23 @@ function FitBounds({ timeSlotGroups }: { timeSlotGroups: TimeSlotGroup[] }) {
   return null;
 }
 
+/** Pan to user location when first obtained */
+function PanToUserPosition({
+  userPosition,
+}: {
+  userPosition: { lat: number; lng: number } | null;
+}) {
+  const map = useMap();
+  const prevPosition = useRef<{ lat: number; lng: number } | null>(null);
+  useEffect(() => {
+    if (userPosition && !prevPosition.current) {
+      map.panTo([userPosition.lat, userPosition.lng], { animate: true });
+    }
+    prevPosition.current = userPosition;
+  }, [userPosition, map]);
+  return null;
+}
+
 /** Pan to selected marker */
 function PanToSelected({
   timeSlotGroups,
@@ -221,6 +238,7 @@ export function MapView({
           timeSlotGroups={timeSlotGroups}
           selectedId={selectedId}
         />
+        <PanToUserPosition userPosition={userPosition} />
 
         {/* Route polyline */}
         {routeCoords.length > 1 && (
