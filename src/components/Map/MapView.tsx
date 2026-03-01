@@ -260,6 +260,7 @@ export function MapView({
       {/* Selected listing preview — rendered in React DOM, not Leaflet, so no ghost-click issues */}
       {selectedListing && (
         <SelectedPreview
+          key={selectedListing.id}
           listing={selectedListing}
           onNavigate={onNavigate}
           onDismiss={onDeselect}

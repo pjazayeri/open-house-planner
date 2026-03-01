@@ -14,6 +14,13 @@
   border: none !important;
 }
 
+/* Remove the browser's 300ms synthetic-click delay so ghost clicks
+   never fire after a touch tap. Leaflet fires its own click events
+   from touchend, so this doesn't break marker or map interaction. */
+.leaflet-container {
+  touch-action: manipulation;
+}
+
 /* ── Selected listing preview card ────────────────────────────
    Renders in React's DOM outside <MapContainer>, so no Leaflet
    ghost-click interference on mobile touch events.            */
