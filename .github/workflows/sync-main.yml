@@ -1,0 +1,30 @@
+name: Sync claude branch → main
+
+# Fast-forwards main to the tip of the active claude/* branch so the
+# existing deploy.yml triggers and publishes the updated site.
+on:
+  push:
+    branches: ["claude/*"]
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          # Use a PAT if you have branch protection on main that blocks
+          # the default GITHUB_TOKEN; otherwise GITHUB_TOKEN is enough.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fast-forward main to claude branch
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git fetch origin ${{ github.ref_name }}
+          git merge --ff-only origin/${{ github.ref_name }}
+          git push origin main
