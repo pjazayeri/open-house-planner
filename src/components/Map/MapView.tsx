@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -115,8 +115,16 @@ function SelectedPreview({
   onNavigate: (id: string) => void;
   onDismiss: () => void;
 }) {
+  // Block pointer events for 350ms after mount to absorb the browser's
+  // 300ms ghost-click that follows a touch tap on a map marker.
+  const [interactive, setInteractive] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setInteractive(true), 350);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
-    <div className="map-selected-preview">
+    <div className="map-selected-preview" style={interactive ? undefined : { pointerEvents: "none" }}>
       <button className="preview-dismiss" onClick={onDismiss} aria-label="Close">✕</button>
       <div className="preview-info">
         <div className="preview-address">
