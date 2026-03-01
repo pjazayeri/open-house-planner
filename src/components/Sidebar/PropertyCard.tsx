@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Listing } from "../../types";
+import type { Listing, VisitRecord } from "../../types";
 import type { CapRateBreakdown } from "../../utils/capRate";
 import { formatPrice, formatBedsBaths, formatTimeRange } from "../../utils/formatters";
 import "./PropertyCard.css";
@@ -11,6 +11,12 @@ interface PropertyCardProps {
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
   onHide: (id: string) => void;
+  visit: VisitRecord | null;
+  isNearby: boolean;
+  onMarkVisited: (id: string) => void;
+  onSetLiked: (id: string, liked: boolean | null) => void;
+  onSetNotes: (id: string, notes: string) => void;
+  onClearVisit: (id: string) => void;
 }
 
 function fmtDollar(n: number): string {
@@ -24,7 +30,6 @@ function fmtPct(n: number): string {
 function buildTooltipLines(b: CapRateBreakdown): string[] {
   const lines: string[] = [];
 
-  // Rent section
   lines.push("RENT ESTIMATE");
   lines.push(`  ${fmtDollar(b.monthlyRent)}/mo gross`);
   lines.push(`  ${b.effectiveSqft.toLocaleString()} sqft${b.sqftImputed ? " (imputed)" : ""} × $${b.rentPsf.toFixed(2)}/sqft (${b.rentPsfSource})`);
@@ -35,7 +40,6 @@ function buildTooltipLines(b: CapRateBreakdown): string[] {
     lines.push(`  × ${b.units} units (est. from baths)`);
   }
 
-  // Expenses section
   lines.push("");
   lines.push("ANNUAL EXPENSES");
   lines.push(`  Property tax   ${fmtDollar(b.propertyTax)}  (1.1% Prop 13)`);
@@ -54,11 +58,18 @@ function buildTooltipLines(b: CapRateBreakdown): string[] {
   }
   lines.push(`  Total          ${fmtDollar(b.totalExpenses)}`);
 
-  // Bottom line
   lines.push("");
   lines.push(`NOI ${fmtDollar(b.noi)}  →  ${b.capRate.toFixed(1)}% cap rate`);
 
   return lines;
+}
+
+function fmtVisitTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  } catch {
+    return "";
+  }
 }
 
 export function PropertyCard({
@@ -68,6 +79,12 @@ export function PropertyCard({
   onSelect,
   onHover,
   onHide,
+  visit,
+  isNearby,
+  onMarkVisited,
+  onSetLiked,
+  onSetNotes,
+  onClearVisit,
 }: PropertyCardProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [thumbError, setThumbError] = useState(false);
@@ -76,6 +93,7 @@ export function PropertyCard({
     "property-card",
     isSelected ? "selected" : "",
     isHovered ? "hovered" : "",
+    visit ? "visited" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -100,6 +118,11 @@ export function PropertyCard({
         >
           {listing.capRate.toFixed(1)}% cap
         </span>
+        {visit && (
+          <span className={`visited-badge ${visit.liked === true ? "liked" : visit.liked === false ? "disliked" : ""}`}>
+            {visit.liked === true ? "👍 Visited" : visit.liked === false ? "👎 Visited" : "✓ Visited"}
+          </span>
+        )}
         <button
           className="hide-btn"
           title="Hide this property"
@@ -108,6 +131,7 @@ export function PropertyCard({
           ✕
         </button>
       </div>
+
       {!thumbError && (
         <img
           className="card-thumbnail"
@@ -117,12 +141,14 @@ export function PropertyCard({
           onError={() => setThumbError(true)}
         />
       )}
+
       <div className="card-address">{listing.address}</div>
       <div className="card-details">
         <span>{formatBedsBaths(listing.beds, listing.baths)}</span>
         {listing.sqft && <span>&middot; {listing.sqft.toLocaleString()} sqft</span>}
         {listing.propertyType && <span>&middot; {listing.propertyType}</span>}
       </div>
+
       <div className="card-rent-row">
         <span
           className="card-rent"
@@ -142,6 +168,7 @@ export function PropertyCard({
           </div>
         )}
       </div>
+
       <div className="card-meta">
         <span className="card-time">
           {formatTimeRange(listing.openHouseStart, listing.openHouseEnd)}
@@ -150,6 +177,71 @@ export function PropertyCard({
           <span className="card-dom">{listing.daysOnMarket}d on market</span>
         )}
       </div>
+
+      {/* Check-in / Mark visited row */}
+      {!visit && (
+        <div className="card-checkin-row" onClick={(e) => e.stopPropagation()}>
+          {isNearby ? (
+            <button
+              className="checkin-btn nearby"
+              onClick={() => onMarkVisited(listing.id)}
+            >
+              📍 You're here · Check In
+            </button>
+          ) : (
+            <button
+              className="checkin-btn"
+              onClick={() => onMarkVisited(listing.id)}
+            >
+              Mark as visited
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Visit panel — shown after check-in */}
+      {visit && (
+        <div className="visit-panel" onClick={(e) => e.stopPropagation()}>
+          <div className="visit-panel-header">
+            <span className="visit-time">Visited at {fmtVisitTime(visit.visitedAt)}</span>
+            <button
+              className="clear-visit-btn"
+              onClick={() => onClearVisit(listing.id)}
+              title="Clear visit record"
+            >
+              Clear
+            </button>
+          </div>
+          <div className="liked-row">
+            <span className="liked-label">How'd it go?</span>
+            <button
+              className={`liked-btn thumbs-up ${visit.liked === true ? "active" : ""}`}
+              onClick={() => onSetLiked(listing.id, visit.liked === true ? null : true)}
+              title="I liked it"
+            >
+              👍
+            </button>
+            <button
+              className={`liked-btn thumbs-down ${visit.liked === false ? "active" : ""}`}
+              onClick={() => onSetLiked(listing.id, visit.liked === false ? null : false)}
+              title="Not for me — will hide"
+            >
+              👎
+            </button>
+            {visit.liked === false && (
+              <span className="dislike-hint">Will be hidden</span>
+            )}
+          </div>
+          <textarea
+            className="visit-notes"
+            placeholder="Add notes about this property…"
+            value={visit.notes}
+            rows={2}
+            onChange={(e) => onSetNotes(listing.id, e.target.value)}
+          />
+        </div>
+      )}
+
       <a
         className="card-link"
         href={listing.url}

@@ -18,6 +18,7 @@ interface MapViewProps {
   selectedId: string | null;
   hoveredId: string | null;
   onSelect: (id: string) => void;
+  onNavigate: (id: string) => void;
   onHover: (id: string | null) => void;
 }
 
@@ -106,6 +107,7 @@ export function MapView({
   selectedId,
   hoveredId,
   onSelect,
+  onNavigate,
   onHover,
 }: MapViewProps) {
   const mapRef = useRef<L.Map | null>(null);
@@ -185,17 +187,7 @@ export function MapView({
                     isActive
                   )}
                   eventHandlers={{
-                    click: () => {
-                      onSelect(listing.id);
-                      // Scroll sidebar card into view
-                      const card = document.getElementById(
-                        `card-${listing.id}`
-                      );
-                      card?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center",
-                      });
-                    },
+                    click: () => onSelect(listing.id),
                     mouseover: () => onHover(listing.id),
                     mouseout: () => onHover(null),
                   }}
@@ -214,6 +206,13 @@ export function MapView({
                           listing.openHouseEnd
                         )}
                       </span>
+                      <br />
+                      <button
+                        className="popup-nav-btn"
+                        onClick={() => onNavigate(listing.id)}
+                      >
+                        View in list →
+                      </button>
                     </div>
                   </Popup>
                 </Marker>

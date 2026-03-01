@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useListings } from "./hooks/useListings";
 import { Header } from "./components/Header/Header";
 import { Sidebar } from "./components/Sidebar/Sidebar";
@@ -32,6 +32,8 @@ function ListIcon() {
 
 function App() {
   const [mobileTab, setMobileTab] = useState<MobileTab>("map");
+  // ID to scroll into view after switching to list tab
+  const scrollPendingRef = useRef<string | null>(null);
 
   const {
     loading,
@@ -48,7 +50,36 @@ function App() {
     hiddenCount,
     hideListing,
     clearHidden,
+    visits,
+    markVisited,
+    setLiked,
+    setNotes,
+    clearVisit,
+    nearbyId,
+    geoWatching,
+    geoError,
+    startGeo,
   } = useListings();
+
+  // After switching to list tab, scroll the pending card into view
+  useEffect(() => {
+    if (mobileTab !== "list" || !scrollPendingRef.current) return;
+    const id = scrollPendingRef.current;
+    scrollPendingRef.current = null;
+    requestAnimationFrame(() => {
+      document.getElementById(`card-${id}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+  }, [mobileTab]);
+
+  // Navigate from map popup → list tab with correct scroll
+  const navigateToListing = (id: string) => {
+    setSelectedId(id);
+    scrollPendingRef.current = id;
+    setMobileTab("list");
+  };
 
   if (loading) {
     return (
@@ -86,15 +117,22 @@ function App() {
           onSelect={setSelectedId}
           onHover={setHoveredId}
           onHide={hideListing}
+          visits={visits}
+          nearbyId={nearbyId}
+          geoWatching={geoWatching}
+          geoError={geoError}
+          onStartGeo={startGeo}
+          onMarkVisited={markVisited}
+          onSetLiked={setLiked}
+          onSetNotes={setNotes}
+          onClearVisit={clearVisit}
         />
         <MapView
           timeSlotGroups={timeSlotGroups}
           selectedId={selectedId}
           hoveredId={hoveredId}
-          onSelect={(id) => {
-            setSelectedId(id);
-            setMobileTab("list");
-          }}
+          onSelect={setSelectedId}
+          onNavigate={navigateToListing}
           onHover={setHoveredId}
         />
       </div>
