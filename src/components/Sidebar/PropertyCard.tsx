@@ -102,7 +102,7 @@ export function PropertyCard({
       {!thumbError && (
         <img
           className="card-thumbnail"
-          src={`/thumbnails/${listing.id}.jpg`}
+          src={`${import.meta.env.BASE_URL}thumbnails/${listing.id}.jpg`}
           alt={listing.address}
           loading="lazy"
           onError={() => setThumbError(true)}
