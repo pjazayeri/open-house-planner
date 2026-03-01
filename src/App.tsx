@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useListings } from "./hooks/useListings";
 import { Header } from "./components/Header/Header";
 import { Sidebar } from "./components/Sidebar/Sidebar";
@@ -32,8 +32,6 @@ function ListIcon() {
 
 function App() {
   const [mobileTab, setMobileTab] = useState<MobileTab>("map");
-  // ID to scroll into view after switching to list tab
-  const scrollPendingRef = useRef<string | null>(null);
 
   const {
     loading,
@@ -61,24 +59,18 @@ function App() {
     startGeo,
   } = useListings();
 
-  // After switching to list tab, scroll the pending card into view
-  useEffect(() => {
-    if (mobileTab !== "list" || !scrollPendingRef.current) return;
-    const id = scrollPendingRef.current;
-    scrollPendingRef.current = null;
-    requestAnimationFrame(() => {
+  // Navigate from map popup → list tab, then scroll to the card.
+  // setTimeout defers the scroll until after the CSS display toggle
+  // and React re-render have both completed.
+  const navigateToListing = (id: string) => {
+    setSelectedId(id);
+    setMobileTab("list");
+    setTimeout(() => {
       document.getElementById(`card-${id}`)?.scrollIntoView({
         behavior: "smooth",
         block: "center",
       });
-    });
-  }, [mobileTab]);
-
-  // Navigate from map popup → list tab with correct scroll
-  const navigateToListing = (id: string) => {
-    setSelectedId(id);
-    scrollPendingRef.current = id;
-    setMobileTab("list");
+    }, 80);
   };
 
   if (loading) {

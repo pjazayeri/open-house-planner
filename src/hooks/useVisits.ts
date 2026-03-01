@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { VisitRecord } from "../types";
+import { USE_CLOUD, cloudFetch, cloudPatch } from "../utils/cloudSync";
 
 const LS_KEY = "open-house-visits";
 
@@ -27,30 +28,57 @@ interface UseVisitsResult {
 export function useVisits(): UseVisitsResult {
   const [visits, setVisits] = useState<Record<string, VisitRecord>>(lsLoad);
 
-  const update = useCallback((id: string, patch: Partial<VisitRecord>) => {
-    setVisits((prev) => {
-      const existing: VisitRecord = prev[id] ?? {
-        visitedAt: new Date().toISOString(),
-        liked: null,
-        notes: "",
-      };
-      const next = { ...prev, [id]: { ...existing, ...patch } };
-      lsSave(next);
-      return next;
-    });
+  // On mount, pull latest from cloud (overrides local cache)
+  useEffect(() => {
+    if (!USE_CLOUD) return;
+    cloudFetch()
+      .then((state) => {
+        setVisits(state.visits);
+        lsSave(state.visits);
+      })
+      .catch(() => {
+        // Network failure — stay with localStorage values silently
+      });
   }, []);
 
-  const markVisited = useCallback((id: string) => {
-    setVisits((prev) => {
-      if (prev[id]) return prev;
-      const next = {
-        ...prev,
-        [id]: { visitedAt: new Date().toISOString(), liked: null, notes: "" },
-      };
-      lsSave(next);
-      return next;
-    });
+  const persist = useCallback((v: Record<string, VisitRecord>) => {
+    lsSave(v);
+    if (USE_CLOUD) {
+      // cloudPatch does GET-then-PUT, so hiddenIds are preserved
+      cloudPatch({ visits: v }).catch(() => {});
+    }
   }, []);
+
+  const update = useCallback(
+    (id: string, patch: Partial<VisitRecord>) => {
+      setVisits((prev) => {
+        const existing: VisitRecord = prev[id] ?? {
+          visitedAt: new Date().toISOString(),
+          liked: null,
+          notes: "",
+        };
+        const next = { ...prev, [id]: { ...existing, ...patch } };
+        persist(next);
+        return next;
+      });
+    },
+    [persist]
+  );
+
+  const markVisited = useCallback(
+    (id: string) => {
+      setVisits((prev) => {
+        if (prev[id]) return prev;
+        const next = {
+          ...prev,
+          [id]: { visitedAt: new Date().toISOString(), liked: null, notes: "" },
+        };
+        persist(next);
+        return next;
+      });
+    },
+    [persist]
+  );
 
   const setLiked = useCallback(
     (id: string, liked: boolean | null) => update(id, { liked }),
@@ -62,14 +90,17 @@ export function useVisits(): UseVisitsResult {
     [update]
   );
 
-  const clearVisit = useCallback((id: string) => {
-    setVisits((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      lsSave(next);
-      return next;
-    });
-  }, []);
+  const clearVisit = useCallback(
+    (id: string) => {
+      setVisits((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        persist(next);
+        return next;
+      });
+    },
+    [persist]
+  );
 
   return { visits, markVisited, setLiked, setNotes, clearVisit };
 }
