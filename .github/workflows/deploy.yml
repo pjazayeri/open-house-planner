@@ -18,7 +18,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # Always checkout main (the only branch allowed to deploy to Pages).
+      # If this run was triggered by a claude/* branch, merge it in so
+      # the built artifact contains those changes.
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Merge claude branch into main (CI only)
+        if: startsWith(github.ref, 'refs/heads/claude/')
+        run: |
+          git config user.email "ci@github.com"
+          git config user.name "CI"
+          git fetch origin ${{ github.ref_name }}
+          git merge --ff-only origin/${{ github.ref_name }}
       - uses: actions/setup-node@v4
         with:
           node-version: 20
