@@ -122,3 +122,68 @@
     right: 8px;
   }
 }
+
+/* ── User location dot ─────────────────────────────────────── */
+.user-location-marker {
+  background: none !important;
+  border: none !important;
+}
+
+.user-dot {
+  width: 18px;
+  height: 18px;
+  background: #2563eb;
+  border: 2.5px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
+  position: relative;
+  margin: 3px; /* centers the 18px dot inside the 24px icon area */
+}
+
+.user-dot-pulse {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.25);
+  animation: user-pulse 2s ease-out infinite;
+}
+
+@keyframes user-pulse {
+  0%   { transform: scale(0.6); opacity: 0.8; }
+  70%  { transform: scale(1.4); opacity: 0; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+/* ── Locate me button ──────────────────────────────────────── */
+.locate-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  background: #fff;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, color 0.15s;
+}
+
+.locate-btn:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.locate-btn--active {
+  color: #2563eb;
+}
+
+.locate-btn--active:hover {
+  background: #eff6ff;
+}

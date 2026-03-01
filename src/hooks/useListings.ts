@@ -44,6 +44,7 @@ interface UseListingsResult {
   setNotes: (id: string, notes: string) => void;
   clearVisit: (id: string) => void;
   // Geolocation
+  geoPosition: { lat: number; lng: number } | null;
   nearbyId: string | null;
   geoWatching: boolean;
   geoError: string | null;
@@ -135,6 +136,7 @@ export function useListings(): UseListingsResult {
     setLiked,
     setNotes,
     clearVisit,
+    geoPosition,
     nearbyId,
     geoWatching,
     geoError,

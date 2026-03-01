@@ -56,6 +56,7 @@ function App() {
     setLiked,
     setNotes,
     clearVisit,
+    geoPosition,
     nearbyId,
     geoWatching,
     geoError,
@@ -141,6 +142,9 @@ function App() {
           onDeselect={() => setSelectedId(null)}
           onNavigate={navigateToListing}
           onHover={setHoveredId}
+          userPosition={geoPosition}
+          geoWatching={geoWatching}
+          onLocate={startGeo}
         />
       </div>
       <nav className="mobile-tab-bar">
