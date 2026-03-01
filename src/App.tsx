@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useListings } from "./hooks/useListings";
 import { Header } from "./components/Header/Header";
 import { Sidebar } from "./components/Sidebar/Sidebar";
@@ -32,6 +32,9 @@ function ListIcon() {
 
 function App() {
   const [mobileTab, setMobileTab] = useState<MobileTab>("map");
+  // scrollTarget drives the post-tab-switch scroll; stored as state so
+  // useEffect re-runs when it's set alongside a mobileTab change.
+  const [scrollTarget, setScrollTarget] = useState<string | null>(null);
 
   const {
     loading,
@@ -59,18 +62,29 @@ function App() {
     startGeo,
   } = useListings();
 
-  // Navigate from map popup → list tab, then scroll to the card.
-  // setTimeout defers the scroll until after the CSS display toggle
-  // and React re-render have both completed.
-  const navigateToListing = (id: string) => {
-    setSelectedId(id);
-    setMobileTab("list");
-    setTimeout(() => {
+  // After the sidebar becomes visible (mobileTab === "list") and a scroll
+  // target is pending, use requestAnimationFrame to scroll. rAF fires after
+  // the browser has completed layout for the newly-visible sidebar, which
+  // means scrollIntoView reliably finds and scrolls to the right card.
+  useEffect(() => {
+    if (!scrollTarget || mobileTab !== "list") return;
+    const id = scrollTarget;
+    const frame = requestAnimationFrame(() => {
       document.getElementById(`card-${id}`)?.scrollIntoView({
         behavior: "smooth",
         block: "center",
       });
-    }, 80);
+      setScrollTarget(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [scrollTarget, mobileTab]);
+
+  // Called from the map preview card's "View in list →" button.
+  // This button lives in React's DOM (outside Leaflet), so no ghost-click.
+  const navigateToListing = (id: string) => {
+    setSelectedId(id);
+    setScrollTarget(id);
+    setMobileTab("list");
   };
 
   if (loading) {
@@ -124,6 +138,7 @@ function App() {
           selectedId={selectedId}
           hoveredId={hoveredId}
           onSelect={setSelectedId}
+          onDeselect={() => setSelectedId(null)}
           onNavigate={navigateToListing}
           onHover={setHoveredId}
         />
