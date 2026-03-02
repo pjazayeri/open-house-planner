@@ -301,7 +301,12 @@ export function MapView({
       {/* Locate me button */}
       <button
         className={`locate-btn${geoWatching && userPosition ? " locate-btn--active" : ""}`}
-        onClick={onLocate}
+        onClick={() => {
+          if (userPosition && mapRef.current) {
+            mapRef.current.panTo([userPosition.lat, userPosition.lng], { animate: true });
+          }
+          onLocate();
+        }}
         aria-label="Show my location"
         title="Show my location"
       >

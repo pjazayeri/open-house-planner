@@ -25,10 +25,15 @@ export function useGeolocation(): UseGeolocationResult {
       return;
     }
     setWatching(true);
+    setError(null);
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) =>
         setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      (err) => setError(err.message),
+      (err) => {
+        setError(err.message);
+        setWatching(false);
+        watchIdRef.current = null;
+      },
       { enableHighAccuracy: true }
     );
   }, []);
