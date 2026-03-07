@@ -13,6 +13,8 @@ interface SidebarProps {
   onHide: (id: string) => void;
   priorityIds: Set<string>;
   onTogglePriority: (id: string) => void;
+  showOnlyPriority: boolean;
+  onTogglePriorityFilter: () => void;
   visits: Record<string, VisitRecord>;
   nearbyId: string | null;
   geoWatching: boolean;
@@ -97,9 +99,9 @@ export function Sidebar({
   onSetLiked,
   onSetNotes,
   onClearVisit,
+  showOnlyPriority,
+  onTogglePriorityFilter,
 }: SidebarProps) {
-  const [showOnlyPriority, setShowOnlyPriority] = useState(false);
-
   const visibleGroups = showOnlyPriority
     ? timeSlotGroups
         .map((g) => ({ ...g, listings: g.listings.filter((l) => priorityIds.has(l.id)) }))
@@ -124,7 +126,7 @@ export function Sidebar({
         {priorityIds.size > 0 && (
           <button
             className={`priority-filter-btn ${showOnlyPriority ? "active" : ""}`}
-            onClick={() => setShowOnlyPriority((v) => !v)}
+            onClick={onTogglePriorityFilter}
           >
             ★ {showOnlyPriority ? "Showing priority only" : `Filter to priority (${priorityIds.size})`}
           </button>

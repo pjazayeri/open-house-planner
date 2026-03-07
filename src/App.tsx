@@ -32,6 +32,7 @@ function ListIcon() {
 
 function App() {
   const [mobileTab, setMobileTab] = useState<MobileTab>("map");
+  const [showOnlyPriority, setShowOnlyPriority] = useState(false);
   // scrollTarget drives the post-tab-switch scroll; stored as state so
   // useEffect re-runs when it's set alongside a mobileTab change.
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
@@ -92,6 +93,12 @@ function App() {
     setMobileTab("list");
   };
 
+  const visibleGroups = showOnlyPriority
+    ? timeSlotGroups
+        .map((g) => ({ ...g, listings: g.listings.filter((l) => priorityIds.has(l.id)) }))
+        .filter((g) => g.listings.length > 0)
+    : timeSlotGroups;
+
   if (syncStatus === "loading" || loading) {
     return (
       <div className="loading-screen">
@@ -149,7 +156,7 @@ function App() {
       />
       <div className={`app-body show-${mobileTab}`}>
         <Sidebar
-          timeSlotGroups={timeSlotGroups}
+          timeSlotGroups={visibleGroups}
           selectedId={selectedId}
           hoveredId={hoveredId}
           onSelect={setSelectedId}
@@ -157,6 +164,8 @@ function App() {
           onHide={hideListing}
           priorityIds={priorityIds}
           onTogglePriority={togglePriority}
+          showOnlyPriority={showOnlyPriority}
+          onTogglePriorityFilter={() => setShowOnlyPriority((v) => !v)}
           visits={visits}
           nearbyId={nearbyId}
           geoWatching={geoWatching}
@@ -168,7 +177,7 @@ function App() {
           onClearVisit={clearVisit}
         />
         <MapView
-          timeSlotGroups={timeSlotGroups}
+          timeSlotGroups={visibleGroups}
           selectedId={selectedId}
           hoveredId={hoveredId}
           onSelect={setSelectedId}
