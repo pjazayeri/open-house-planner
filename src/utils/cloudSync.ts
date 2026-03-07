@@ -15,7 +15,7 @@ export const USE_CLOUD = JSONBIN_API_KEY !== "" && JSONBIN_BIN_ID !== "";
 export type SyncStatus = "unconfigured" | "loading" | "ok" | "error";
 
 const BIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
-const HEADERS = { "X-Access-Key": JSONBIN_API_KEY };
+const HEADERS = { "X-Master-Key": JSONBIN_API_KEY };
 
 export interface CloudState {
   hiddenIds: string[];
@@ -35,7 +35,11 @@ function parseCloudState(record: unknown): CloudState {
 
 export async function cloudFetch(): Promise<CloudState> {
   const res = await fetch(`${BIN_URL}/latest`, { headers: HEADERS });
-  if (!res.ok) throw new Error(`JSONBin ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`[cloudSync] fetch failed ${res.status}:`, body);
+    throw new Error(`JSONBin ${res.status}`);
+  }
   const json = (await res.json()) as { record: unknown };
   return parseCloudState(json.record);
 }
@@ -52,5 +56,9 @@ export async function cloudPatch(patch: Partial<CloudState>): Promise<void> {
     headers: { ...HEADERS, "Content-Type": "application/json" },
     body: JSON.stringify(merged),
   });
-  if (!res.ok) throw new Error(`JSONBin ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`[cloudSync] patch failed ${res.status}:`, body);
+    throw new Error(`JSONBin ${res.status}`);
+  }
 }
