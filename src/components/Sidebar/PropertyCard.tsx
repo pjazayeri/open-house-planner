@@ -88,6 +88,8 @@ export function PropertyCard({
 }: PropertyCardProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [thumbError, setThumbError] = useState(false);
+  const [localNotes, setLocalNotes] = useState(visit?.notes ?? "");
+  const [notesSaved, setNotesSaved] = useState(false);
 
   const classes = [
     "property-card",
@@ -235,10 +237,16 @@ export function PropertyCard({
           <textarea
             className="visit-notes"
             placeholder="Add notes about this property…"
-            value={visit.notes}
+            value={localNotes}
             rows={2}
-            onChange={(e) => onSetNotes(listing.id, e.target.value)}
+            onChange={(e) => { setLocalNotes(e.target.value); setNotesSaved(false); }}
+            onBlur={() => {
+              onSetNotes(listing.id, localNotes);
+              setNotesSaved(true);
+              setTimeout(() => setNotesSaved(false), 2000);
+            }}
           />
+          {notesSaved && <span className="notes-saved">Saved ✓</span>}
         </div>
       )}
 
