@@ -12,6 +12,8 @@ import type { VisitRecord } from "../types";
 
 export const USE_CLOUD = JSONBIN_API_KEY !== "" && JSONBIN_BIN_ID !== "";
 
+export type SyncStatus = "unconfigured" | "loading" | "ok" | "error";
+
 const BIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
 const HEADERS = { "X-Access-Key": JSONBIN_API_KEY };
 

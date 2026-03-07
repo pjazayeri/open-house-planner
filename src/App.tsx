@@ -61,6 +61,8 @@ function App() {
     geoWatching,
     geoError,
     startGeo,
+    syncStatus,
+    saveFailed,
   } = useListings();
 
   // After the sidebar becomes visible (mobileTab === "list") and a scroll
@@ -88,11 +90,36 @@ function App() {
     setMobileTab("list");
   };
 
-  if (loading) {
+  if (syncStatus === "loading" || loading) {
     return (
       <div className="loading-screen">
         <div className="loading-spinner" />
-        <p>Loading listings...</p>
+        <p>{syncStatus === "loading" ? "Syncing from cloud\u2026" : "Loading listings\u2026"}</p>
+      </div>
+    );
+  }
+
+  if (syncStatus === "unconfigured") {
+    return (
+      <div className="error-screen">
+        <h2>Cloud sync not configured</h2>
+        <p>
+          Set <code>VITE_JSONBIN_API_KEY</code> and <code>VITE_JSONBIN_BIN_ID</code> in{" "}
+          GitHub repo Settings &rarr; Secrets and variables &rarr; Actions, then redeploy.
+        </p>
+        <p>For local dev, add these to <code>.env.local</code>.</p>
+      </div>
+    );
+  }
+
+  if (syncStatus === "error") {
+    return (
+      <div className="error-screen">
+        <h2>Could not load data from cloud</h2>
+        <p>Check your network connection or JSONBin credentials, then reload.</p>
+        <button className="retry-btn" onClick={() => window.location.reload()}>
+          Retry
+        </button>
       </div>
     );
   }
@@ -115,6 +142,8 @@ function App() {
         totalListings={allListings.length}
         hiddenCount={hiddenCount}
         onRestoreHidden={clearHidden}
+        syncStatus={syncStatus}
+        saveFailed={saveFailed}
       />
       <div className={`app-body show-${mobileTab}`}>
         <Sidebar

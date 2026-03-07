@@ -1,21 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import type { VisitRecord } from "../types";
 import { USE_CLOUD, cloudFetch, cloudPatch } from "../utils/cloudSync";
-
-const LS_KEY = "open-house-visits";
-
-function lsLoad(): Record<string, VisitRecord> {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    return raw ? (JSON.parse(raw) as Record<string, VisitRecord>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function lsSave(v: Record<string, VisitRecord>) {
-  localStorage.setItem(LS_KEY, JSON.stringify(v));
-}
+import type { SyncStatus } from "../utils/cloudSync";
 
 interface UseVisitsResult {
   visits: Record<string, VisitRecord>;
@@ -23,41 +9,48 @@ interface UseVisitsResult {
   setLiked: (id: string, liked: boolean | null) => void;
   setNotes: (id: string, notes: string) => void;
   clearVisit: (id: string) => void;
+  syncStatus: SyncStatus;
+  saveFailed: boolean;
 }
 
 export function useVisits(): UseVisitsResult {
-  const [visits, setVisits] = useState<Record<string, VisitRecord>>(lsLoad);
+  const [visits, setVisits] = useState<Record<string, VisitRecord> | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(
+    USE_CLOUD ? "loading" : "unconfigured"
+  );
+  const [saveFailed, setSaveFailed] = useState(false);
 
-  // On mount, pull latest from cloud (overrides local cache)
   useEffect(() => {
-    if (!USE_CLOUD) return;
+    if (!USE_CLOUD) {
+      setVisits({});
+      return;
+    }
     cloudFetch()
       .then((state) => {
         setVisits(state.visits);
-        lsSave(state.visits);
+        setSyncStatus("ok");
       })
       .catch(() => {
-        // Network failure — stay with localStorage values silently
+        setSyncStatus("error");
       });
   }, []);
 
   const persist = useCallback((v: Record<string, VisitRecord>) => {
-    lsSave(v);
-    if (USE_CLOUD) {
-      // cloudPatch does GET-then-PUT, so hiddenIds are preserved
-      cloudPatch({ visits: v }).catch(() => {});
-    }
+    if (!USE_CLOUD) return;
+    setSaveFailed(false);
+    cloudPatch({ visits: v }).catch(() => setSaveFailed(true));
   }, []);
 
   const update = useCallback(
     (id: string, patch: Partial<VisitRecord>) => {
       setVisits((prev) => {
-        const existing: VisitRecord = prev[id] ?? {
+        const base = prev ?? {};
+        const existing: VisitRecord = base[id] ?? {
           visitedAt: new Date().toISOString(),
           liked: null,
           notes: "",
         };
-        const next = { ...prev, [id]: { ...existing, ...patch } };
+        const next = { ...base, [id]: { ...existing, ...patch } };
         persist(next);
         return next;
       });
@@ -68,9 +61,10 @@ export function useVisits(): UseVisitsResult {
   const markVisited = useCallback(
     (id: string) => {
       setVisits((prev) => {
-        if (prev[id]) return prev;
+        const base = prev ?? {};
+        if (base[id]) return base;
         const next = {
-          ...prev,
+          ...base,
           [id]: { visitedAt: new Date().toISOString(), liked: null, notes: "" },
         };
         persist(next);
@@ -93,7 +87,7 @@ export function useVisits(): UseVisitsResult {
   const clearVisit = useCallback(
     (id: string) => {
       setVisits((prev) => {
-        const next = { ...prev };
+        const next = { ...(prev ?? {}) };
         delete next[id];
         persist(next);
         return next;
@@ -102,5 +96,5 @@ export function useVisits(): UseVisitsResult {
     [persist]
   );
 
-  return { visits, markVisited, setLiked, setNotes, clearVisit };
+  return { visits: visits ?? {}, markVisited, setLiked, setNotes, clearVisit, syncStatus, saveFailed };
 }

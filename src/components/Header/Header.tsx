@@ -1,4 +1,5 @@
 import type { TimeSlotGroup } from "../../types";
+import type { SyncStatus } from "../../utils/cloudSync";
 import "./Header.css";
 
 interface HeaderProps {
@@ -9,6 +10,29 @@ interface HeaderProps {
   totalListings: number;
   hiddenCount: number;
   onRestoreHidden: () => void;
+  syncStatus: SyncStatus;
+  saveFailed: boolean;
+}
+
+function SyncBadge({ syncStatus, saveFailed }: { syncStatus: SyncStatus; saveFailed: boolean }) {
+  let cls = "sync-badge";
+  let title = "";
+
+  if (saveFailed) {
+    cls += " sync-badge--warn";
+    title = "Last save failed \u2014 changes may not be synced";
+  } else if (syncStatus === "ok") {
+    cls += " sync-badge--ok";
+    title = "Synced to cloud";
+  } else if (syncStatus === "error") {
+    cls += " sync-badge--error";
+    title = "Cloud sync error";
+  } else {
+    cls += " sync-badge--grey";
+    title = syncStatus === "loading" ? "Syncing\u2026" : "Cloud sync not configured";
+  }
+
+  return <span className={cls} title={title} aria-label={title} />;
 }
 
 export function Header({
@@ -19,6 +43,8 @@ export function Header({
   totalListings,
   hiddenCount,
   onRestoreHidden,
+  syncStatus,
+  saveFailed,
 }: HeaderProps) {
   const cityCount = timeSlotGroups.reduce(
     (sum, g) => sum + g.listings.length,
@@ -38,6 +64,7 @@ export function Header({
             {hiddenCount} hidden &middot; Restore
           </button>
         )}
+        <SyncBadge syncStatus={syncStatus} saveFailed={saveFailed} />
       </div>
       <div className="header-right">
         {cities.map((city) => (

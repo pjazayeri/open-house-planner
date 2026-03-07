@@ -1,56 +1,47 @@
 import { useState, useCallback, useEffect } from "react";
 import { USE_CLOUD, cloudFetch, cloudPatch } from "../utils/cloudSync";
-
-const LS_KEY = "open-house-hidden-ids";
-
-function lsLoad(): Set<string> {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function lsSave(ids: Set<string>) {
-  localStorage.setItem(LS_KEY, JSON.stringify(Array.from(ids)));
-}
+import type { SyncStatus } from "../utils/cloudSync";
 
 interface UseHiddenIdsResult {
   hiddenIds: Set<string>;
   hide: (id: string) => void;
   clearHidden: () => void;
+  syncStatus: SyncStatus;
+  saveFailed: boolean;
 }
 
 export function useHiddenIds(): UseHiddenIdsResult {
-  const [hiddenIds, setHiddenIds] = useState<Set<string>>(lsLoad);
+  const [hiddenIds, setHiddenIds] = useState<Set<string> | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(
+    USE_CLOUD ? "loading" : "unconfigured"
+  );
+  const [saveFailed, setSaveFailed] = useState(false);
 
-  // On mount, pull latest from cloud (overrides local cache)
   useEffect(() => {
-    if (!USE_CLOUD) return;
+    if (!USE_CLOUD) {
+      setHiddenIds(new Set());
+      return;
+    }
     cloudFetch()
       .then((state) => {
-        const ids = new Set(state.hiddenIds);
-        setHiddenIds(ids);
-        lsSave(ids);
+        setHiddenIds(new Set(state.hiddenIds));
+        setSyncStatus("ok");
       })
       .catch(() => {
-        // Network failure — stay with localStorage values silently
+        setSyncStatus("error");
       });
   }, []);
 
   const persist = useCallback((ids: Set<string>) => {
-    lsSave(ids);
-    if (USE_CLOUD) {
-      // cloudPatch does GET-then-PUT, so visits are preserved
-      cloudPatch({ hiddenIds: Array.from(ids) }).catch(() => {});
-    }
+    if (!USE_CLOUD) return;
+    setSaveFailed(false);
+    cloudPatch({ hiddenIds: Array.from(ids) }).catch(() => setSaveFailed(true));
   }, []);
 
   const hide = useCallback(
     (id: string) => {
       setHiddenIds((prev) => {
-        const next = new Set(prev);
+        const next = new Set(prev ?? []);
         next.add(id);
         persist(next);
         return next;
@@ -65,5 +56,5 @@ export function useHiddenIds(): UseHiddenIdsResult {
     persist(empty);
   }, [persist]);
 
-  return { hiddenIds, hide, clearHidden };
+  return { hiddenIds: hiddenIds ?? new Set(), hide, clearHidden, syncStatus, saveFailed };
 }

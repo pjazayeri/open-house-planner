@@ -6,6 +6,7 @@ import { optimizeRoute } from "../utils/routeOptimizer";
 import { useHiddenIds } from "./useHiddenIds";
 import { useVisits } from "./useVisits";
 import { useGeolocation } from "./useGeolocation";
+import type { SyncStatus } from "../utils/cloudSync";
 
 /** Haversine distance in miles */
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -49,6 +50,9 @@ interface UseListingsResult {
   geoWatching: boolean;
   geoError: string | null;
   startGeo: () => void;
+  // Cloud sync
+  syncStatus: SyncStatus;
+  saveFailed: boolean;
 }
 
 export function useListings(): UseListingsResult {
@@ -59,8 +63,15 @@ export function useListings(): UseListingsResult {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  const { hiddenIds, hide, clearHidden } = useHiddenIds();
-  const { visits, markVisited, setLiked: rawSetLiked, setNotes, clearVisit } = useVisits();
+  const { hiddenIds, hide, clearHidden, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds();
+  const { visits, markVisited, setLiked: rawSetLiked, setNotes, clearVisit, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits();
+
+  const syncStatus: SyncStatus =
+    hiddenStatus === "loading" || visitsStatus === "loading" ? "loading" :
+    hiddenStatus === "error"   || visitsStatus === "error"   ? "error" :
+    hiddenStatus === "unconfigured"                          ? "unconfigured" :
+    "ok";
+  const saveFailed = hiddenSaveFailed || visitsSaveFailed;
   const { position: geoPosition, error: geoError, watching: geoWatching, startWatching: startGeo } = useGeolocation();
 
   useEffect(() => {
@@ -141,5 +152,7 @@ export function useListings(): UseListingsResult {
     geoWatching,
     geoError,
     startGeo,
+    syncStatus,
+    saveFailed,
   };
 }
