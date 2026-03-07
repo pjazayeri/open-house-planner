@@ -69,6 +69,33 @@
   color: #991b1b;
 }
 
+.property-card.priority {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px #fde68a;
+}
+
+.priority-btn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.priority-btn:hover,
+.priority-btn.active {
+  color: #f59e0b;
+}
+
 .hide-btn {
   margin-left: 4px;
   width: 22px;

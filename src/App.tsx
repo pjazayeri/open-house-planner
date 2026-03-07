@@ -51,6 +51,8 @@ function App() {
     hiddenCount,
     hideListing,
     clearHidden,
+    priorityIds,
+    togglePriority,
     visits,
     markVisited,
     setLiked,
@@ -153,6 +155,8 @@ function App() {
           onSelect={setSelectedId}
           onHover={setHoveredId}
           onHide={hideListing}
+          priorityIds={priorityIds}
+          onTogglePriority={togglePriority}
           visits={visits}
           nearbyId={nearbyId}
           geoWatching={geoWatching}

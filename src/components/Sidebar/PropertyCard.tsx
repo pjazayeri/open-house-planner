@@ -11,6 +11,8 @@ interface PropertyCardProps {
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
   onHide: (id: string) => void;
+  isPriority: boolean;
+  onTogglePriority: (id: string) => void;
   visit: VisitRecord | null;
   isNearby: boolean;
   onMarkVisited: (id: string) => void;
@@ -79,6 +81,8 @@ export function PropertyCard({
   onSelect,
   onHover,
   onHide,
+  isPriority,
+  onTogglePriority,
   visit,
   isNearby,
   onMarkVisited,
@@ -96,6 +100,7 @@ export function PropertyCard({
     isSelected ? "selected" : "",
     isHovered ? "hovered" : "",
     visit ? "visited" : "",
+    isPriority ? "priority" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -125,6 +130,13 @@ export function PropertyCard({
             {visit.liked === true ? "👍 Visited" : visit.liked === false ? "👎 Visited" : "✓ Visited"}
           </span>
         )}
+        <button
+          className={`priority-btn ${isPriority ? "active" : ""}`}
+          title={isPriority ? "Remove from priority list" : "Add to priority list"}
+          onClick={(e) => { e.stopPropagation(); onTogglePriority(listing.id); }}
+        >
+          {isPriority ? "★" : "☆"}
+        </button>
         <button
           className="hide-btn"
           title="Hide this property"

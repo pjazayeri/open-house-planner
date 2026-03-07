@@ -114,9 +114,10 @@ export function optimizeRoute(listings: Listing[]): TimeSlotGroup[] {
 
     const start = ordered[0].openHouseStart;
     const end = ordered[0].openHouseEnd;
+    const dayLabel = start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
     groups.push({
-      label: `${formatTimeRange(start, end)} (${ordered.length} home${ordered.length !== 1 ? "s" : ""})`,
+      label: `${dayLabel} · ${formatTimeRange(start, end)} (${ordered.length} home${ordered.length !== 1 ? "s" : ""})`,
       startTime: start,
       endTime: end,
       listings: ordered,

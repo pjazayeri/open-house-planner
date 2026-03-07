@@ -1,5 +1,7 @@
-import type { TimeSlotGroup as TimeSlotGroupType, VisitRecord } from "../../types";
+import { useState } from "react";
+import type { TimeSlotGroup as TimeSlotGroupType, Listing, VisitRecord } from "../../types";
 import { TimeSlotGroup } from "./TimeSlotGroup";
+import { formatTimeRange } from "../../utils/formatters";
 import "./Sidebar.css";
 
 interface SidebarProps {
@@ -9,6 +11,8 @@ interface SidebarProps {
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
   onHide: (id: string) => void;
+  priorityIds: Set<string>;
+  onTogglePriority: (id: string) => void;
   visits: Record<string, VisitRecord>;
   nearbyId: string | null;
   geoWatching: boolean;
@@ -20,6 +24,61 @@ interface SidebarProps {
   onClearVisit: (id: string) => void;
 }
 
+function PrioritySection({
+  priorityIds,
+  timeSlotGroups,
+  onSelect,
+}: {
+  priorityIds: Set<string>;
+  timeSlotGroups: TimeSlotGroupType[];
+  onSelect: (id: string) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  const priorityListings: { listing: Listing; dayLabel: string }[] = [];
+  for (const group of timeSlotGroups) {
+    for (const listing of group.listings) {
+      if (priorityIds.has(listing.id)) {
+        const dayLabel = listing.openHouseStart.toLocaleDateString("en-US", {
+          weekday: "short", month: "short", day: "numeric",
+        });
+        priorityListings.push({ listing, dayLabel });
+      }
+    }
+  }
+  priorityListings.sort(
+    (a, b) => a.listing.openHouseStart.getTime() - b.listing.openHouseStart.getTime()
+  );
+
+  if (priorityListings.length === 0) return null;
+
+  return (
+    <div className="priority-section">
+      <button className="priority-header" onClick={() => setCollapsed(!collapsed)}>
+        <span className="priority-star">★</span>
+        <span className="priority-title">Planning to Attend ({priorityListings.length})</span>
+        <span className="slot-chevron">{collapsed ? "+" : "\u2212"}</span>
+      </button>
+      {!collapsed && (
+        <div className="priority-list">
+          {priorityListings.map(({ listing, dayLabel }) => (
+            <button
+              key={listing.id}
+              className="priority-item"
+              onClick={() => onSelect(listing.id)}
+            >
+              <span className="priority-item-address">{listing.address}</span>
+              <span className="priority-item-time">
+                {dayLabel} · {formatTimeRange(listing.openHouseStart, listing.openHouseEnd)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Sidebar({
   timeSlotGroups,
   selectedId,
@@ -27,6 +86,8 @@ export function Sidebar({
   onSelect,
   onHover,
   onHide,
+  priorityIds,
+  onTogglePriority,
   visits,
   nearbyId,
   geoWatching,
@@ -52,6 +113,11 @@ export function Sidebar({
           )}
           {geoError && <span className="geo-error">{geoError}</span>}
         </div>
+        <PrioritySection
+          priorityIds={priorityIds}
+          timeSlotGroups={timeSlotGroups}
+          onSelect={onSelect}
+        />
         {timeSlotGroups.map((group, idx) => (
           <TimeSlotGroup
             key={group.label}
@@ -62,6 +128,8 @@ export function Sidebar({
             onSelect={onSelect}
             onHover={onHover}
             onHide={onHide}
+            priorityIds={priorityIds}
+            onTogglePriority={onTogglePriority}
             visits={visits}
             nearbyId={nearbyId}
             onMarkVisited={onMarkVisited}

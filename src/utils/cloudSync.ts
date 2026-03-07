@@ -19,6 +19,7 @@ const HEADERS = { "X-Master-Key": JSONBIN_API_KEY };
 
 export interface CloudState {
   hiddenIds: string[];
+  priorityIds: string[];
   visits: Record<string, VisitRecord>;
 }
 
@@ -26,6 +27,7 @@ function parseCloudState(record: unknown): CloudState {
   const r = record && typeof record === "object" ? (record as Record<string, unknown>) : {};
   return {
     hiddenIds: Array.isArray(r.hiddenIds) ? (r.hiddenIds as string[]) : [],
+    priorityIds: Array.isArray(r.priorityIds) ? (r.priorityIds as string[]) : [],
     visits:
       r.visits && typeof r.visits === "object" && !Array.isArray(r.visits)
         ? (r.visits as Record<string, VisitRecord>)

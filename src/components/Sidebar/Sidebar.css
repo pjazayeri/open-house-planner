@@ -65,3 +65,76 @@
   gap: 8px;
   padding: 8px 0 4px 0;
 }
+
+/* ── Priority section ─────────────────────────── */
+.priority-section {
+  display: flex;
+  flex-direction: column;
+  border: 2px solid #f59e0b;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.priority-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: none;
+  background: #fef3c7;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #92400e;
+  transition: background 0.15s;
+}
+
+.priority-header:hover {
+  background: #fde68a;
+}
+
+.priority-star {
+  color: #f59e0b;
+  font-size: 15px;
+}
+
+.priority-title {
+  flex: 1;
+  text-align: left;
+}
+
+.priority-list {
+  display: flex;
+  flex-direction: column;
+  background: #fffbeb;
+}
+
+.priority-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 8px 12px;
+  border: none;
+  border-top: 1px solid #fde68a;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.priority-item:hover {
+  background: #fef3c7;
+}
+
+.priority-item-address {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.priority-item-time {
+  font-size: 11px;
+  color: #78350f;
+}

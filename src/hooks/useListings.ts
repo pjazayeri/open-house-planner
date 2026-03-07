@@ -38,6 +38,8 @@ interface UseListingsResult {
   hiddenCount: number;
   hideListing: (id: string) => void;
   clearHidden: () => void;
+  priorityIds: Set<string>;
+  togglePriority: (id: string) => void;
   // Visit state
   visits: Record<string, VisitRecord>;
   markVisited: (id: string) => void;
@@ -63,7 +65,7 @@ export function useListings(): UseListingsResult {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  const { hiddenIds, hide, clearHidden, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds();
+  const { hiddenIds, hide, clearHidden, priorityIds, togglePriority, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds();
   const { visits, markVisited, setLiked: rawSetLiked, setNotes, clearVisit, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits();
 
   const syncStatus: SyncStatus =
@@ -142,6 +144,8 @@ export function useListings(): UseListingsResult {
     hiddenCount: hiddenIds.size,
     hideListing,
     clearHidden,
+    priorityIds,
+    togglePriority,
     visits,
     markVisited,
     setLiked,

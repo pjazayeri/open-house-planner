@@ -6,12 +6,15 @@ interface UseHiddenIdsResult {
   hiddenIds: Set<string>;
   hide: (id: string) => void;
   clearHidden: () => void;
+  priorityIds: Set<string>;
+  togglePriority: (id: string) => void;
   syncStatus: SyncStatus;
   saveFailed: boolean;
 }
 
 export function useHiddenIds(): UseHiddenIdsResult {
   const [hiddenIds, setHiddenIds] = useState<Set<string> | null>(null);
+  const [priorityIds, setPriorityIds] = useState<Set<string>>(new Set());
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(
     USE_CLOUD ? "loading" : "unconfigured"
   );
@@ -25,17 +28,25 @@ export function useHiddenIds(): UseHiddenIdsResult {
     cloudFetch()
       .then((state) => {
         setHiddenIds(new Set(state.hiddenIds));
+        setPriorityIds(new Set(state.priorityIds));
         setSyncStatus("ok");
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        console.error("[useHiddenIds] cloud fetch failed:", err);
         setSyncStatus("error");
       });
   }, []);
 
-  const persist = useCallback((ids: Set<string>) => {
+  const persistHidden = useCallback((ids: Set<string>) => {
     if (!USE_CLOUD) return;
     setSaveFailed(false);
     cloudPatch({ hiddenIds: Array.from(ids) }).catch(() => setSaveFailed(true));
+  }, []);
+
+  const persistPriority = useCallback((ids: Set<string>) => {
+    if (!USE_CLOUD) return;
+    setSaveFailed(false);
+    cloudPatch({ priorityIds: Array.from(ids) }).catch(() => setSaveFailed(true));
   }, []);
 
   const hide = useCallback(
@@ -43,18 +54,35 @@ export function useHiddenIds(): UseHiddenIdsResult {
       setHiddenIds((prev) => {
         const next = new Set(prev ?? []);
         next.add(id);
-        persist(next);
+        persistHidden(next);
         return next;
       });
     },
-    [persist]
+    [persistHidden]
   );
 
   const clearHidden = useCallback(() => {
     const empty = new Set<string>();
     setHiddenIds(empty);
-    persist(empty);
-  }, [persist]);
+    persistHidden(empty);
+  }, [persistHidden]);
 
-  return { hiddenIds: hiddenIds ?? new Set(), hide, clearHidden, syncStatus, saveFailed };
+  const togglePriority = useCallback((id: string) => {
+    setPriorityIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      persistPriority(next);
+      return next;
+    });
+  }, [persistPriority]);
+
+  return {
+    hiddenIds: hiddenIds ?? new Set(),
+    hide,
+    clearHidden,
+    priorityIds,
+    togglePriority,
+    syncStatus,
+    saveFailed,
+  };
 }
