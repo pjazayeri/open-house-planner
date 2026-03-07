@@ -98,6 +98,14 @@ export function Sidebar({
   onSetNotes,
   onClearVisit,
 }: SidebarProps) {
+  const [showOnlyPriority, setShowOnlyPriority] = useState(false);
+
+  const visibleGroups = showOnlyPriority
+    ? timeSlotGroups
+        .map((g) => ({ ...g, listings: g.listings.filter((l) => priorityIds.has(l.id)) }))
+        .filter((g) => g.listings.length > 0)
+    : timeSlotGroups;
+
   return (
     <aside className="sidebar">
       <div className="sidebar-content">
@@ -113,12 +121,22 @@ export function Sidebar({
           )}
           {geoError && <span className="geo-error">{geoError}</span>}
         </div>
-        <PrioritySection
-          priorityIds={priorityIds}
-          timeSlotGroups={timeSlotGroups}
-          onSelect={onSelect}
-        />
-        {timeSlotGroups.map((group, idx) => (
+        {priorityIds.size > 0 && (
+          <button
+            className={`priority-filter-btn ${showOnlyPriority ? "active" : ""}`}
+            onClick={() => setShowOnlyPriority((v) => !v)}
+          >
+            ★ {showOnlyPriority ? "Showing priority only" : `Filter to priority (${priorityIds.size})`}
+          </button>
+        )}
+        {!showOnlyPriority && (
+          <PrioritySection
+            priorityIds={priorityIds}
+            timeSlotGroups={timeSlotGroups}
+            onSelect={onSelect}
+          />
+        )}
+        {visibleGroups.map((group, idx) => (
           <TimeSlotGroup
             key={group.label}
             group={group}

@@ -66,6 +66,34 @@
   padding: 8px 0 4px 0;
 }
 
+/* ── Priority filter button ───────────────────── */
+.priority-filter-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 2px solid #f59e0b;
+  border-radius: 8px;
+  background: transparent;
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.priority-filter-btn:hover {
+  background: #fef3c7;
+}
+
+.priority-filter-btn.active {
+  background: #f59e0b;
+  color: #fff;
+}
+
 /* ── Priority section ─────────────────────────── */
 .priority-section {
   display: flex;
