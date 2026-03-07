@@ -5,14 +5,14 @@ import { computeCapRateBreakdown } from "./capRate";
 const URL_COLUMN =
   "URL (SEE https://www.redfin.com/buy-a-home/comparative-market-analysis FOR INFO ON PRICING)";
 
-/** Dates for "this weekend": Saturday Feb 28 and Sunday March 1, 2026 */
+/** Dates for "this weekend": Saturday Mar 7 and Sunday Mar 8, 2026 */
 function isThisWeekend(date: Date): boolean {
   const y = date.getFullYear();
-  const m = date.getMonth(); // 0-indexed: Feb=1, Mar=2
+  const m = date.getMonth(); // 0-indexed: Mar=2
   const d = date.getDate();
   return (
-    (y === 2026 && m === 1 && d === 28) || // Feb 28
-    (y === 2026 && m === 2 && d === 1) // Mar 1
+    (y === 2026 && m === 2 && d === 7) || // Mar 7
+    (y === 2026 && m === 2 && d === 8)    // Mar 8
   );
 }
 

@@ -1,7 +1,7 @@
 import Papa from "papaparse";
 import type { RawListing } from "../types";
 
-const CSV_PATH = `${import.meta.env.BASE_URL}redfin-favorites_2026-03-01-07-44-38.csv`;
+const CSV_PATH = `${import.meta.env.BASE_URL}redfin-favorites_2026-03-07-13-30-19.csv`;
 
 export async function loadCsv(): Promise<RawListing[]> {
   const response = await fetch(CSV_PATH);
