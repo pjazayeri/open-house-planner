@@ -17,6 +17,7 @@ interface PropertyCardProps {
   isNearby: boolean;
   onMarkVisited: (id: string) => void;
   onSetLiked: (id: string, liked: boolean | null) => void;
+  onSetRating: (id: string, rating: number | null) => void;
   onToggleWantOffer: (id: string) => void;
   onSetNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   onClearVisit: (id: string) => void;
@@ -88,12 +89,14 @@ export function PropertyCard({
   isNearby,
   onMarkVisited,
   onSetLiked,
+  onSetRating,
   onToggleWantOffer,
   onSetNoteField,
   onClearVisit,
 }: PropertyCardProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [thumbError, setThumbError] = useState(false);
+  const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [localPros, setLocalPros] = useState(visit?.pros ?? "");
   const [localCons, setLocalCons] = useState(visit?.cons ?? "");
   const [notesSaved, setNotesSaved] = useState(false);
@@ -130,7 +133,10 @@ export function PropertyCard({
         </span>
         {visit && (
           <span className={`visited-badge ${visit.liked === true ? "liked" : visit.liked === false ? "disliked" : ""}`}>
-            {visit.liked === true ? "👍 Visited" : visit.liked === false ? "👎 Visited" : "✓ Visited"}
+            {visit.rating !== null
+              ? `${"★".repeat(visit.rating)}${"☆".repeat(5 - visit.rating)}`
+              : visit.liked === true ? "👍" : visit.liked === false ? "👎" : "✓"}
+            {" "}Visited
           </span>
         )}
         <button
@@ -230,21 +236,36 @@ export function PropertyCard({
             </button>
           </div>
           <div className="liked-row">
-            <span className="liked-label">How'd it go?</span>
+            <span className="liked-label">Liked?</span>
             <button
               className={`liked-btn thumbs-up ${visit.liked === true ? "active" : ""}`}
               onClick={() => onSetLiked(listing.id, visit.liked === true ? null : true)}
               title="I liked it"
-            >
-              👍
-            </button>
+            >👍</button>
             <button
               className={`liked-btn thumbs-down ${visit.liked === false ? "active" : ""}`}
               onClick={() => onSetLiked(listing.id, visit.liked === false ? null : false)}
               title="Not for me"
-            >
-              👎
-            </button>
+            >👎</button>
+          </div>
+          <div className="rating-row">
+            <span className="rating-label">Rating</span>
+            <div className="star-row" onMouseLeave={() => setHoverRating(null)}>
+              {[1, 2, 3, 4, 5].map((n) => {
+                const filled = hoverRating !== null ? n <= hoverRating : visit.rating !== null && n <= visit.rating;
+                return (
+                  <button
+                    key={n}
+                    className={`star-btn ${filled ? "active" : ""}`}
+                    onMouseEnter={() => setHoverRating(n)}
+                    onClick={() => onSetRating(listing.id, visit.rating === n ? null : n)}
+                    title={`${n} star${n > 1 ? "s" : ""}`}
+                  >
+                    {filled ? "★" : "☆"}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div className="offer-row">
             <button

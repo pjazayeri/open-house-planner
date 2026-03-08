@@ -359,12 +359,12 @@
 }
 
 .liked-btn {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border: 1px solid #e2e8f0;
   border-radius: 50%;
   background: transparent;
-  font-size: 15px;
+  font-size: 14px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -373,24 +373,46 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.liked-btn:hover {
-  background: #f1f5f9;
+.liked-btn:hover { background: #f1f5f9; }
+.liked-btn.thumbs-up.active { background: #d1fae5; border-color: #10b981; }
+.liked-btn.thumbs-down.active { background: #fee2e2; border-color: #f87171; }
+
+.rating-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.liked-btn.thumbs-up.active {
-  background: #d1fae5;
-  border-color: #10b981;
+.rating-label {
+  font-size: 12px;
+  color: #475569;
+  flex-shrink: 0;
 }
 
-.liked-btn.thumbs-down.active {
-  background: #fee2e2;
-  border-color: #f87171;
+.star-row {
+  display: flex;
+  gap: 2px;
 }
 
-.dislike-hint {
-  font-size: 11px;
-  color: #dc2626;
-  margin-left: 4px;
+.star-btn {
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  color: #d1d5db;
+  cursor: pointer;
+  padding: 2px 1px;
+  line-height: 1;
+  transition: color 0.1s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.star-btn:hover,
+.star-btn:hover ~ .star-btn {
+  color: #fbbf24;
+}
+
+.star-btn.active {
+  color: #f59e0b;
 }
 
 .offer-row {

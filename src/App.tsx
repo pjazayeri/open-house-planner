@@ -64,6 +64,7 @@ function App() {
     visits,
     markVisited,
     setLiked,
+    setRating,
     setNoteField,
     toggleWantOffer,
     clearVisit,
@@ -161,6 +162,7 @@ function App() {
         onTogglePriority={togglePriority}
         onMarkVisited={markVisited}
         onSetLiked={setLiked}
+        onSetRating={setRating}
         onToggleWantOffer={toggleWantOffer}
         onSetNoteField={setNoteField}
         onClearVisit={clearVisit}
@@ -203,6 +205,7 @@ function App() {
           onStartGeo={startGeo}
           onMarkVisited={markVisited}
           onSetLiked={setLiked}
+          onSetRating={setRating}
         onToggleWantOffer={toggleWantOffer}
           onSetNoteField={setNoteField}
           onClearVisit={clearVisit}

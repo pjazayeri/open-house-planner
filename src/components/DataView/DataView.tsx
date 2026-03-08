@@ -13,6 +13,7 @@ interface DataViewProps {
   onTogglePriority: (id: string) => void;
   onMarkVisited: (id: string) => void;
   onSetLiked: (id: string, liked: boolean | null) => void;
+  onSetRating: (id: string, rating: number | null) => void;
   onToggleWantOffer: (id: string) => void;
   onSetNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   onClearVisit: (id: string) => void;
@@ -41,6 +42,7 @@ interface RowProps {
   onTogglePriority: () => void;
   onMarkVisited: () => void;
   onSetLiked: (liked: boolean | null) => void;
+  onSetRating: (rating: number | null) => void;
   onToggleWantOffer: () => void;
   onSetNoteField: (field: "pros" | "cons", value: string) => void;
   onClearVisit: () => void;
@@ -56,6 +58,7 @@ function DataRow({
   onTogglePriority,
   onMarkVisited,
   onSetLiked,
+  onSetRating,
   onToggleWantOffer,
   onSetNoteField,
   onClearVisit,
@@ -64,11 +67,16 @@ function DataRow({
   const [localCons, setLocalCons] = useState(visit?.cons ?? "");
   const [saved, setSaved] = useState(false);
   const [thumbError, setThumbError] = useState(false);
+  const [hoverRating, setHoverRating] = useState<number | null>(null);
 
-  // If rating is set without an existing visit, auto-create one first
+  // Auto-create visit record when rating or liked is set on unvisited listing
   const handleSetLiked = (liked: boolean | null) => {
     if (!visit && liked !== null) onMarkVisited();
     onSetLiked(liked);
+  };
+  const handleSetRating = (rating: number | null) => {
+    if (!visit && rating !== null) onMarkVisited();
+    onSetRating(rating);
   };
 
   const rowClass = [
@@ -130,8 +138,8 @@ function DataRow({
           <button className="dv-btn dv-visit" onClick={onMarkVisited}>Visit</button>
         )}
 
-        {/* Rating always visible — clicking without a visit auto-marks visited */}
-        <div className="dv-rating">
+        {/* Thumbs */}
+        <div className="dv-thumbs">
           <button
             className={`dv-btn dv-thumb ${visit?.liked === true ? "active-up" : ""}`}
             title="Liked it"
@@ -142,6 +150,24 @@ function DataRow({
             title="Didn't like it"
             onClick={() => handleSetLiked(visit?.liked === false ? null : false)}
           >👎</button>
+        </div>
+
+        {/* Stars — clicking without a visit auto-marks visited */}
+        <div className="dv-stars" onMouseLeave={() => setHoverRating(null)}>
+          {[1, 2, 3, 4, 5].map((n) => {
+            const filled = hoverRating !== null ? n <= hoverRating : visit?.rating !== null && visit?.rating !== undefined && n <= visit.rating;
+            return (
+              <button
+                key={n}
+                className={`dv-star ${filled ? "active" : ""}`}
+                onMouseEnter={() => setHoverRating(n)}
+                onClick={() => handleSetRating(visit?.rating === n ? null : n)}
+                title={`${n} star${n > 1 ? "s" : ""}`}
+              >
+                {filled ? "★" : "☆"}
+              </button>
+            );
+          })}
         </div>
 
         {visit && (
@@ -202,8 +228,8 @@ function DataRow({
   );
 }
 
-type SortKey = "time" | "price" | "capRate" | "pricePerSqft" | "visited" | "liked";
-type FilterKey = "all" | "visited" | "unvisited" | "liked" | "disliked" | "neutral" | "priority" | "hidden" | "wantOffer";
+type SortKey = "time" | "price" | "capRate" | "pricePerSqft" | "visited" | "rating";
+type FilterKey = "all" | "visited" | "unvisited" | "liked" | "disliked" | "rated" | "unrated" | "highRated" | "priority" | "hidden" | "wantOffer";
 
 const SORT_LABELS: Record<SortKey, string> = {
   time: "Time",
@@ -211,16 +237,18 @@ const SORT_LABELS: Record<SortKey, string> = {
   capRate: "Cap Rate",
   pricePerSqft: "\$/sqft",
   visited: "Visited",
-  liked: "Liked",
+  rating: "Rating",
 };
 
 const FILTER_LABELS: Record<FilterKey, string> = {
   all: "All",
   visited: "Visited",
   unvisited: "Not Visited",
-  liked: "Liked",
-  disliked: "Disliked",
-  neutral: "No Rating",
+  liked: "👍 Liked",
+  disliked: "👎 Disliked",
+  rated: "★ Rated",
+  unrated: "No Rating",
+  highRated: "4–5 ★",
   priority: "Priority",
   hidden: "Hidden",
   wantOffer: "Want to Offer",
@@ -236,6 +264,7 @@ export function DataView({
   onTogglePriority,
   onMarkVisited,
   onSetLiked,
+  onSetRating,
   onToggleWantOffer,
   onSetNoteField,
   onClearVisit,
@@ -252,12 +281,10 @@ export function DataView({
     });
   }
 
-  function likedOrder(id: string): number {
+  function ratingOrder(id: string): number {
     const v = visits[id];
-    if (!v) return 3;
-    if (v.liked === true) return 0;
-    if (v.liked === null) return 1;
-    return 2;
+    if (!v || v.rating === null) return 99;
+    return -v.rating; // higher rating = earlier
   }
 
   function visitedOrder(id: string): number {
@@ -271,7 +298,9 @@ export function DataView({
       case "unvisited": return !v;
       case "liked":     return v?.liked === true;
       case "disliked":  return v?.liked === false;
-      case "neutral":   return !!v && v.liked === null;
+      case "rated":     return !!v && v.rating !== null;
+      case "unrated":   return !!v && v.rating === null;
+      case "highRated": return !!v && v.rating !== null && v.rating >= 4;
       case "priority":  return priorityIds.has(id);
       case "hidden":    return hiddenIds.has(id);
       case "wantOffer": return visits[id]?.wantOffer === true;
@@ -292,27 +321,28 @@ export function DataView({
     if (sortKey === "capRate") return b.capRate - a.capRate;
     if (sortKey === "pricePerSqft") { const aPsf = a.sqft ? a.price / a.sqft : Infinity; const bPsf = b.sqft ? b.price / b.sqft : Infinity; return aPsf - bPsf; }
     if (sortKey === "visited") return visitedOrder(a.id) - visitedOrder(b.id);
-    if (sortKey === "liked")   return likedOrder(a.id) - likedOrder(b.id);
+    if (sortKey === "rating")  return ratingOrder(a.id) - ratingOrder(b.id);
     return a.openHouseStart.getTime() - b.openHouseStart.getTime();
   });
 
   const visitedCount  = Object.keys(visits).length;
-  const likedCount    = Object.values(visits).filter((v) => v.liked === true).length;
-  const dislikedCount = Object.values(visits).filter((v) => v.liked === false).length;
+  const ratedCount    = Object.values(visits).filter((v) => v.rating !== null).length;
+  const highRatedCount = Object.values(visits).filter((v) => v.rating !== null && v.rating >= 4).length;
 
   function exportCsv() {
     const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
     const headers = [
       "Address", "Price", "Beds", "Baths", "Sqft", "Cap Rate (%)",
       "Property Type", "Open House Date", "Open House Time",
-      "Priority", "Hidden", "Visited", "Visited At", "Rating", "Want Offer",
+      "Priority", "Hidden", "Visited", "Visited At", "Liked", "Stars (1-5)", "Want Offer",
       "Pros", "Cons", "Redfin URL",
     ];
     const rows = allListings
       .sort((a, b) => a.openHouseStart.getTime() - b.openHouseStart.getTime())
       .map((l) => {
         const v = visits[l.id];
-        const rating = v ? (v.liked === true ? "liked" : v.liked === false ? "disliked" : "neutral") : "";
+        const likedStr = v ? (v.liked === true ? "liked" : v.liked === false ? "disliked" : "") : "";
+        const ratingStr = v?.rating != null ? String(v.rating) : "";
         return [
           esc(l.address),
           l.price,
@@ -327,7 +357,8 @@ export function DataView({
           hiddenIds.has(l.id) ? "yes" : "no",
           v ? "yes" : "no",
           v ? esc(new Date(v.visitedAt).toLocaleString()) : "",
-          esc(rating),
+          esc(likedStr),
+          ratingStr,
           v?.wantOffer ? "yes" : "no",
           esc(v?.pros ?? ""),
           esc(v?.cons ?? ""),
@@ -358,8 +389,8 @@ export function DataView({
               <span>·</span>
               <span>{visitedCount} visited</span>
               <span>·</span>
-              <span>{likedCount} liked</span>
-              {dislikedCount > 0 && <><span>·</span><span>{dislikedCount} disliked</span></>}
+              <span>{ratedCount} rated</span>
+              {highRatedCount > 0 && <><span>·</span><span>{highRatedCount} high-rated ★</span></>}
               {hiddenIds.size > 0 && <><span>·</span><span>{hiddenIds.size} hidden</span></>}
             </div>
           </div>
@@ -421,6 +452,7 @@ export function DataView({
             onTogglePriority={() => onTogglePriority(l.id)}
             onMarkVisited={() => onMarkVisited(l.id)}
             onSetLiked={(liked) => onSetLiked(l.id, liked)}
+            onSetRating={(rating) => onSetRating(l.id, rating)}
             onToggleWantOffer={() => onToggleWantOffer(l.id)}
             onSetNoteField={(field, value) => onSetNoteField(l.id, field, value)}
             onClearVisit={() => onClearVisit(l.id)}

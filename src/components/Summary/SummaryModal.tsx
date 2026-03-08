@@ -49,10 +49,12 @@ function buildSummaryText(
   lines.push("");
 
   function formatEntry({ listing: l, visit: v }: { listing: Listing; visit: VisitRecord }) {
-    const rating = v.liked === true ? "👍 Liked" : v.liked === false ? "👎 Disliked" : "— No rating";
+    const likedStr = v.liked === true ? "👍" : v.liked === false ? "👎" : "";
+    const starsStr = v.rating !== null ? `${"★".repeat(v.rating)}${"☆".repeat(5 - v.rating)}` : "";
+    const ratingStr = [likedStr, starsStr].filter(Boolean).join(" ") || "— No rating";
     lines.push(`${l.address}`);
     lines.push(`  ${formatPrice(l.price)} · ${formatBedsBaths(l.beds, l.baths)}${l.sqft ? ` · ${l.sqft.toLocaleString()} sqft` : ""} · ${l.capRate.toFixed(1)}% cap`);
-    lines.push(`  ${formatTimeRange(l.openHouseStart, l.openHouseEnd)} · ${rating}`);
+    lines.push(`  ${formatTimeRange(l.openHouseStart, l.openHouseEnd)} · ${ratingStr}`);
     lines.push(`  Visited: ${fmtVisitTime(v.visitedAt)}`);
     if (v.wantOffer) lines.push(`  ★ Want to put in an offer`);
     if (v.pros.trim()) lines.push(`  Pros: ${v.pros.trim()}`);

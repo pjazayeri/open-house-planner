@@ -27,9 +27,12 @@ function parseVisitRecord(v: unknown): VisitRecord {
   const r = v && typeof v === "object" ? (v as Record<string, unknown>) : {};
   // Migrate old single `notes` field into `pros`
   const legacyNotes = typeof r.notes === "string" ? r.notes : "";
+  const rating =
+    typeof r.rating === "number" && r.rating >= 1 && r.rating <= 5 ? r.rating : null;
   return {
     visitedAt: typeof r.visitedAt === "string" ? r.visitedAt : new Date().toISOString(),
     liked: r.liked === true ? true : r.liked === false ? false : null,
+    rating,
     pros: typeof r.pros === "string" ? r.pros : legacyNotes,
     cons: typeof r.cons === "string" ? r.cons : "",
     wantOffer: r.wantOffer === true,

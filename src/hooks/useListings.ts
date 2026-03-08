@@ -46,6 +46,7 @@ interface UseListingsResult {
   visits: Record<string, VisitRecord>;
   markVisited: (id: string) => void;
   setLiked: (id: string, liked: boolean | null) => void;
+  setRating: (id: string, rating: number | null) => void;
   setNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   toggleWantOffer: (id: string) => void;
   clearVisit: (id: string) => void;
@@ -69,7 +70,7 @@ export function useListings(): UseListingsResult {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const { hiddenIds, hide, unhide, clearHidden, priorityIds, togglePriority, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds();
-  const { visits, markVisited, setLiked: rawSetLiked, setNoteField, toggleWantOffer, clearVisit, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits();
+  const { visits, markVisited, setLiked, setRating, setNoteField, toggleWantOffer, clearVisit, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits();
 
   const syncStatus: SyncStatus =
     hiddenStatus === "loading"  || visitsStatus === "loading"  ? "loading" :
@@ -99,7 +100,6 @@ export function useListings(): UseListingsResult {
 
   const unhideListing = (id: string) => unhide(id);
 
-  const setLiked = rawSetLiked;
 
   const cities = useMemo(() => getCities(allListings), [allListings]);
 
@@ -149,6 +149,7 @@ export function useListings(): UseListingsResult {
     visits,
     markVisited,
     setLiked,
+    setRating,
     toggleWantOffer,
     setNoteField,
     clearVisit,

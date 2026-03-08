@@ -248,6 +248,31 @@
   gap: 3px;
 }
 
+.dv-thumbs {
+  display: flex;
+  gap: 2px;
+}
+
+.dv-stars {
+  display: flex;
+  gap: 1px;
+}
+
+.dv-star {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  color: #d1d5db;
+  cursor: pointer;
+  padding: 1px;
+  line-height: 1;
+  transition: color 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dv-star.active { color: #f59e0b; }
+.dv-star:hover { color: #fbbf24; }
+
 /* notes row */
 .dv-notes-col {
   grid-column: 2 / 4;

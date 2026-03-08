@@ -65,7 +65,8 @@ export interface TimeSlotGroup {
 
 export interface VisitRecord {
   visitedAt: string; // ISO datetime string
-  liked: boolean | null; // null = no rating yet
+  liked: boolean | null; // quick thumbs up/down
+  rating: number | null; // 1–5 stars, null = no rating yet
   pros: string;
   cons: string;
   wantOffer: boolean;
