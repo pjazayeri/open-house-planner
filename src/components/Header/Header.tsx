@@ -14,6 +14,7 @@ interface HeaderProps {
   saveFailed: boolean;
   onShowSummary: () => void;
   onOpenData: () => void;
+  onOpenFinance: () => void;
 }
 
 function SyncBadge({ syncStatus, saveFailed }: { syncStatus: SyncStatus; saveFailed: boolean }) {
@@ -52,6 +53,7 @@ export function Header({
   saveFailed,
   onShowSummary,
   onOpenData,
+  onOpenFinance,
 }: HeaderProps) {
   const cityCount = timeSlotGroups.reduce(
     (sum, g) => sum + g.listings.length,
@@ -74,6 +76,7 @@ export function Header({
         <SyncBadge syncStatus={syncStatus} saveFailed={saveFailed} />
         <button className="summary-btn" onClick={onShowSummary}>Summary</button>
         <button className="summary-btn" onClick={onOpenData}>Data</button>
+        <button className="summary-btn" onClick={onOpenFinance}>Finance</button>
       </div>
       <div className="header-right">
         {cities.map((city) => (

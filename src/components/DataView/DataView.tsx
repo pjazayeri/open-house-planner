@@ -18,6 +18,7 @@ interface DataViewProps {
   onSetNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   onClearVisit: (id: string) => void;
   onBack: () => void;
+  onOpenFinance: (id: string) => void;
 }
 
 function fmtDate(d: Date) {
@@ -46,6 +47,7 @@ interface RowProps {
   onToggleWantOffer: () => void;
   onSetNoteField: (field: "pros" | "cons", value: string) => void;
   onClearVisit: () => void;
+  onOpenFinance: () => void;
 }
 
 function DataRow({
@@ -62,6 +64,7 @@ function DataRow({
   onToggleWantOffer,
   onSetNoteField,
   onClearVisit,
+  onOpenFinance,
 }: RowProps) {
   const [localPros, setLocalPros] = useState(visit?.pros ?? "");
   const [localCons, setLocalCons] = useState(visit?.cons ?? "");
@@ -181,6 +184,14 @@ function DataRow({
         )}
 
         <button
+          className="dv-btn dv-finance"
+          title="View finance breakdown"
+          onClick={onOpenFinance}
+        >
+          $
+        </button>
+
+        <button
           className={`dv-btn dv-hide ${isHidden ? "is-hidden" : ""}`}
           title={isHidden ? "Restore listing" : "Hide listing"}
           onClick={isHidden ? onUnhide : onHide}
@@ -269,6 +280,7 @@ export function DataView({
   onSetNoteField,
   onClearVisit,
   onBack,
+  onOpenFinance,
 }: DataViewProps) {
   const [sortKey, setSortKey] = useState<SortKey>("time");
   const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
@@ -456,6 +468,7 @@ export function DataView({
             onToggleWantOffer={() => onToggleWantOffer(l.id)}
             onSetNoteField={(field, value) => onSetNoteField(l.id, field, value)}
             onClearVisit={() => onClearVisit(l.id)}
+            onOpenFinance={() => onOpenFinance(l.id)}
           />
         ))}
       </div>
