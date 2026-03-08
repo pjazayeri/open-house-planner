@@ -189,13 +189,14 @@ function DataRow({
   );
 }
 
-type SortKey = "time" | "price" | "capRate" | "visited" | "liked";
+type SortKey = "time" | "price" | "capRate" | "pricePerSqft" | "visited" | "liked";
 type FilterKey = "all" | "visited" | "unvisited" | "liked" | "disliked" | "neutral" | "priority" | "hidden";
 
 const SORT_LABELS: Record<SortKey, string> = {
   time: "Time",
   price: "Price",
   capRate: "Cap Rate",
+  pricePerSqft: "\$/sqft",
   visited: "Visited",
   liked: "Liked",
 };
@@ -273,6 +274,7 @@ export function DataView({
   const sorted = [...filtered].sort((a, b) => {
     if (sortKey === "price")   return a.price - b.price;
     if (sortKey === "capRate") return b.capRate - a.capRate;
+    if (sortKey === "pricePerSqft") { const aPsf = a.sqft ? a.price / a.sqft : Infinity; const bPsf = b.sqft ? b.price / b.sqft : Infinity; return aPsf - bPsf; }
     if (sortKey === "visited") return visitedOrder(a.id) - visitedOrder(b.id);
     if (sortKey === "liked")   return likedOrder(a.id) - likedOrder(b.id);
     return a.openHouseStart.getTime() - b.openHouseStart.getTime();

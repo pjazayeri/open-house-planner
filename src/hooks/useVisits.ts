@@ -46,13 +46,8 @@ export function useVisits(): UseVisitsResult {
     (id: string, patch: Partial<VisitRecord>) => {
       setVisits((prev) => {
         const base = prev ?? {};
-        const existing: VisitRecord = base[id] ?? {
-          visitedAt: new Date().toISOString(),
-          liked: null,
-          pros: "",
-          cons: "",
-        };
-        const next = { ...base, [id]: { ...existing, ...patch } };
+        if (!base[id]) return base; // never implicitly create a visit
+        const next = { ...base, [id]: { ...base[id], ...patch } };
         persist(next);
         return next;
       });
