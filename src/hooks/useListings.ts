@@ -72,9 +72,10 @@ export function useListings(): UseListingsResult {
   const { visits, markVisited, setLiked: rawSetLiked, setNoteField, toggleWantOffer, clearVisit, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits();
 
   const syncStatus: SyncStatus =
-    hiddenStatus === "loading" || visitsStatus === "loading" ? "loading" :
-    hiddenStatus === "error"   || visitsStatus === "error"   ? "error" :
-    hiddenStatus === "unconfigured"                          ? "unconfigured" :
+    hiddenStatus === "loading"  || visitsStatus === "loading"  ? "loading" :
+    hiddenStatus === "error"    || visitsStatus === "error"    ? "error" :
+    hiddenStatus === "unconfigured"                            ? "unconfigured" :
+    hiddenStatus === "degraded" || visitsStatus === "degraded" ? "degraded" :
     "ok";
   const saveFailed = hiddenSaveFailed || visitsSaveFailed;
   const { position: geoPosition, error: geoError, watching: geoWatching, startWatching: startGeo } = useGeolocation();

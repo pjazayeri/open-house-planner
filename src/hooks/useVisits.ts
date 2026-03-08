@@ -33,7 +33,13 @@ export function useVisits(): UseVisitsResult {
       })
       .catch((err: unknown) => {
         console.error("[useVisits] cloud fetch failed:", err);
-        setSyncStatus("error");
+        const isAuth = err instanceof Error && (err as { authError?: boolean }).authError;
+        if (isAuth) {
+          setVisits({});
+          setSyncStatus("degraded");
+        } else {
+          setSyncStatus("error");
+        }
       });
   }, []);
 

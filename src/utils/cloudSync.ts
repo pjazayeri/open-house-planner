@@ -12,7 +12,7 @@ import type { VisitRecord } from "../types";
 
 export const USE_CLOUD = JSONBIN_API_KEY !== "" && JSONBIN_BIN_ID !== "";
 
-export type SyncStatus = "unconfigured" | "loading" | "ok" | "error";
+export type SyncStatus = "unconfigured" | "loading" | "ok" | "error" | "degraded";
 
 const BIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
 const HEADERS = { "X-Master-Key": JSONBIN_API_KEY };
@@ -64,7 +64,10 @@ export async function cloudFetch(): Promise<CloudState> {
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       console.error(`[cloudSync] fetch failed ${res.status}:`, body);
-      throw new Error(`JSONBin ${res.status}`);
+      const err = Object.assign(new Error(`JSONBin ${res.status}`), {
+        authError: res.status === 401,
+      });
+      throw err;
     }
     const json = (await res.json()) as { record: unknown };
     return parseCloudState(json.record);

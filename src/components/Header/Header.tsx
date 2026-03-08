@@ -29,6 +29,9 @@ function SyncBadge({ syncStatus, saveFailed }: { syncStatus: SyncStatus; saveFai
   } else if (syncStatus === "error") {
     cls += " sync-badge--error";
     title = "Cloud sync error";
+  } else if (syncStatus === "degraded") {
+    cls += " sync-badge--warn";
+    title = "Cloud sync unavailable (invalid credentials) \u2014 running locally";
   } else {
     cls += " sync-badge--grey";
     title = syncStatus === "loading" ? "Syncing\u2026" : "Cloud sync not configured";
