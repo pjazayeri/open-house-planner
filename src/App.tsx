@@ -88,7 +88,9 @@ function App() {
     unhideListing,
     clearHidden,
     priorityIds,
+    priorityOrder,
     togglePriority,
+    reorderPriority,
     visits,
     markVisited,
     setLiked,
@@ -277,7 +279,9 @@ function App() {
           onHover={setHoveredId}
           onHide={hideListing}
           priorityIds={priorityIds}
+          priorityOrder={priorityOrder}
           onTogglePriority={togglePriority}
+          onReorderPriority={reorderPriority}
           showOnlyPriority={showOnlyPriority}
           onTogglePriorityFilter={() => setShowOnlyPriority((v) => !v)}
           sortKey={sortKey}
@@ -302,6 +306,7 @@ function App() {
           selectedId={selectedId}
           hoveredId={hoveredId}
           visits={visits}
+          priorityOrder={priorityOrder}
           onSelect={setSelectedId}
           onDeselect={() => setSelectedId(null)}
           onNavigate={navigateToListing}
