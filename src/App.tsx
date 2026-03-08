@@ -4,9 +4,11 @@ import { Header } from "./components/Header/Header";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { MapView } from "./components/Map/MapView";
 import { SummaryModal } from "./components/Summary/SummaryModal";
+import { DataView } from "./components/DataView/DataView";
 import "./App.css";
 
 type MobileTab = "map" | "list";
+type Page = "planner" | "data";
 
 function MapIcon() {
   return (
@@ -32,6 +34,7 @@ function ListIcon() {
 }
 
 function App() {
+  const [page, setPage] = useState<Page>("planner");
   const [mobileTab, setMobileTab] = useState<MobileTab>("map");
   const [showOnlyPriority, setShowOnlyPriority] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
@@ -51,8 +54,10 @@ function App() {
     setSelectedId,
     hoveredId,
     setHoveredId,
+    hiddenIds,
     hiddenCount,
     hideListing,
+    unhideListing,
     clearHidden,
     priorityIds,
     togglePriority,
@@ -143,6 +148,25 @@ function App() {
     );
   }
 
+  if (page === "data") {
+    return (
+      <DataView
+        allListings={allListings}
+        hiddenIds={hiddenIds}
+        visits={visits}
+        priorityIds={priorityIds}
+        onHide={hideListing}
+        onUnhide={unhideListing}
+        onTogglePriority={togglePriority}
+        onMarkVisited={markVisited}
+        onSetLiked={setLiked}
+        onSetNotes={setNotes}
+        onClearVisit={clearVisit}
+        onBack={() => setPage("planner")}
+      />
+    );
+  }
+
   return (
     <div className="app">
       <Header
@@ -156,6 +180,7 @@ function App() {
         syncStatus={syncStatus}
         saveFailed={saveFailed}
         onShowSummary={() => setShowSummary(true)}
+        onOpenData={() => setPage("data")}
       />
       <div className={`app-body show-${mobileTab}`}>
         <Sidebar

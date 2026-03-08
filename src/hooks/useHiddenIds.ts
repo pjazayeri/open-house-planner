@@ -5,6 +5,7 @@ import type { SyncStatus } from "../utils/cloudSync";
 interface UseHiddenIdsResult {
   hiddenIds: Set<string>;
   hide: (id: string) => void;
+  unhide: (id: string) => void;
   clearHidden: () => void;
   priorityIds: Set<string>;
   togglePriority: (id: string) => void;
@@ -61,6 +62,18 @@ export function useHiddenIds(): UseHiddenIdsResult {
     [persistHidden]
   );
 
+  const unhide = useCallback(
+    (id: string) => {
+      setHiddenIds((prev) => {
+        const next = new Set(prev ?? []);
+        next.delete(id);
+        persistHidden(next);
+        return next;
+      });
+    },
+    [persistHidden]
+  );
+
   const clearHidden = useCallback(() => {
     const empty = new Set<string>();
     setHiddenIds(empty);
@@ -79,6 +92,7 @@ export function useHiddenIds(): UseHiddenIdsResult {
   return {
     hiddenIds: hiddenIds ?? new Set(),
     hide,
+    unhide,
     clearHidden,
     priorityIds,
     togglePriority,

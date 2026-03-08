@@ -35,8 +35,10 @@ interface UseListingsResult {
   setSelectedId: (id: string | null) => void;
   hoveredId: string | null;
   setHoveredId: (id: string | null) => void;
+  hiddenIds: Set<string>;
   hiddenCount: number;
   hideListing: (id: string) => void;
+  unhideListing: (id: string) => void;
   clearHidden: () => void;
   priorityIds: Set<string>;
   togglePriority: (id: string) => void;
@@ -65,7 +67,7 @@ export function useListings(): UseListingsResult {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  const { hiddenIds, hide, clearHidden, priorityIds, togglePriority, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds();
+  const { hiddenIds, hide, unhide, clearHidden, priorityIds, togglePriority, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds();
   const { visits, markVisited, setLiked: rawSetLiked, setNotes, clearVisit, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits();
 
   const syncStatus: SyncStatus =
@@ -92,6 +94,8 @@ export function useListings(): UseListingsResult {
     hide(id);
     setSelectedId((prev) => (prev === id ? null : prev));
   };
+
+  const unhideListing = (id: string) => unhide(id);
 
   const setLiked = rawSetLiked;
 
@@ -133,8 +137,10 @@ export function useListings(): UseListingsResult {
     setSelectedId,
     hoveredId,
     setHoveredId,
+    hiddenIds,
     hiddenCount: hiddenIds.size,
     hideListing,
+    unhideListing,
     clearHidden,
     priorityIds,
     togglePriority,
