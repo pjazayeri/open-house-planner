@@ -282,11 +282,56 @@ export function DataView({
   const likedCount    = Object.values(visits).filter((v) => v.liked === true).length;
   const dislikedCount = Object.values(visits).filter((v) => v.liked === false).length;
 
+  function exportCsv() {
+    const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
+    const headers = [
+      "Address", "Price", "Beds", "Baths", "Sqft", "Cap Rate (%)",
+      "Property Type", "Open House Date", "Open House Time",
+      "Priority", "Hidden", "Visited", "Visited At", "Rating",
+      "Pros", "Cons", "Redfin URL",
+    ];
+    const rows = allListings
+      .sort((a, b) => a.openHouseStart.getTime() - b.openHouseStart.getTime())
+      .map((l) => {
+        const v = visits[l.id];
+        const rating = v ? (v.liked === true ? "liked" : v.liked === false ? "disliked" : "neutral") : "";
+        return [
+          esc(l.address),
+          l.price,
+          l.beds,
+          l.baths,
+          l.sqft ?? "",
+          l.capRate.toFixed(2),
+          esc(l.propertyType),
+          esc(l.openHouseStart.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })),
+          esc(`${fmtTime(l.openHouseStart)}–${fmtTime(l.openHouseEnd)}`),
+          priorityIds.has(l.id) ? "yes" : "no",
+          hiddenIds.has(l.id) ? "yes" : "no",
+          v ? "yes" : "no",
+          v ? esc(new Date(v.visitedAt).toLocaleString()) : "",
+          esc(rating),
+          esc(v?.pros ?? ""),
+          esc(v?.cons ?? ""),
+          esc(l.url),
+        ].join(",");
+      });
+
+    const csv = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `open-house-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="dv-page">
       <div className="dv-header">
         <div className="dv-header-top">
           <button className="dv-back" onClick={onBack}>← Back</button>
+          <button className="dv-export" onClick={exportCsv}>Export CSV</button>
           <div className="dv-header-center">
             <h2>All Listings</h2>
             <div className="dv-stats">

@@ -36,6 +36,19 @@
 }
 .dv-back:hover { border-color: #64748b; color: #e2e8f0; }
 
+.dv-export {
+  background: none;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  color: #94a3b8;
+  font-size: 13px;
+  padding: 5px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.dv-export:hover { border-color: #22c55e; color: #22c55e; }
+
 .dv-header-center { min-width: 0; }
 .dv-header-center h2 {
   font-size: 16px;
