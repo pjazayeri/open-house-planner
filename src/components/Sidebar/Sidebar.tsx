@@ -84,10 +84,12 @@ function PrioritySection({
   priorityIds,
   timeSlotGroups,
   onSelect,
+  onTogglePriority,
 }: {
   priorityIds: Set<string>;
   timeSlotGroups: TimeSlotGroupType[];
   onSelect: (id: string) => void;
+  onTogglePriority: (id: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -118,16 +120,22 @@ function PrioritySection({
       {!collapsed && (
         <div className="priority-list">
           {priorityListings.map(({ listing, dayLabel }) => (
-            <button
-              key={listing.id}
-              className="priority-item"
-              onClick={() => onSelect(listing.id)}
-            >
-              <span className="priority-item-address">{listing.address}</span>
-              <span className="priority-item-time">
-                {dayLabel} · {formatTimeRange(listing.openHouseStart, listing.openHouseEnd)}
-              </span>
-            </button>
+            <div key={listing.id} className="priority-item">
+              <button
+                className="priority-item-main"
+                onClick={() => onSelect(listing.id)}
+              >
+                <span className="priority-item-address">{listing.address}</span>
+                <span className="priority-item-time">
+                  {dayLabel} · {formatTimeRange(listing.openHouseStart, listing.openHouseEnd)}
+                </span>
+              </button>
+              <button
+                className="priority-item-remove"
+                onClick={() => onTogglePriority(listing.id)}
+                title="Remove from priority"
+              >★</button>
+            </div>
           ))}
         </div>
       )}
@@ -249,6 +257,7 @@ export function Sidebar({
             priorityIds={priorityIds}
             timeSlotGroups={timeSlotGroups}
             onSelect={onSelect}
+            onTogglePriority={onTogglePriority}
           />
         )}
         {timeSlotGroups.map((group, idx) => (

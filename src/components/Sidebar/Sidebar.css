@@ -139,21 +139,45 @@
 
 .priority-item {
   display: flex;
+  align-items: center;
+  border-top: 1px solid #fde68a;
+}
+
+.priority-item-main {
+  flex: 1;
+  display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 1px;
   padding: 8px 12px;
   border: none;
-  border-top: 1px solid #fde68a;
   background: transparent;
   cursor: pointer;
   text-align: left;
   transition: background 0.15s;
   -webkit-tap-highlight-color: transparent;
+  min-width: 0;
 }
 
-.priority-item:hover {
+.priority-item-main:hover {
   background: #fef3c7;
+}
+
+.priority-item-remove {
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: #f59e0b;
+  font-size: 14px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.priority-item-remove:hover {
+  opacity: 1;
 }
 
 .priority-item-address {
