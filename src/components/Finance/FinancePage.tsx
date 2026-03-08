@@ -84,11 +84,6 @@ function fmtDollar(n: number): string {
   return "$" + Math.round(n).toLocaleString("en-US");
 }
 
-function fmtDollarCompact(n: number): string {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return `$${Math.round(n / 1_000)}k`;
-  return fmtDollar(n);
-}
 
 function premiumLabel(premium: number): string {
   if (premium >= 0) return `+${fmtDollar(premium)} / mo`;
@@ -111,6 +106,25 @@ function capBadgeClass(capRate: number): string {
   if (capRate >= 3.5) return "fp-cap-badge--good";
   if (capRate >= 2.0) return "fp-cap-badge--ok";
   return "fp-cap-badge--low";
+}
+
+// ── Tooltip ───────────────────────────────────────────────────────
+function Tip({ label, tip }: { label: string; tip: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span
+      className="fp-tip-wrap"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      <span className="fp-tip-label">{label}</span>
+      {show && (
+        <div className="fp-tip" role="tooltip">
+          <pre>{tip}</pre>
+        </div>
+      )}
+    </span>
+  );
 }
 
 // ── Compact list item ────────────────────────────────────────────
@@ -144,12 +158,69 @@ interface DetailProps {
   listing: Listing;
   result: BuyVsRentResult;
   downPct: number;
+  ratePct: number;
+  termYears: number;
   oppReturnPct: number;
 }
 
-function DetailPanel({ listing, result, downPct, oppReturnPct }: DetailProps) {
+function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPct }: DetailProps) {
   const thumbSrc = `${import.meta.env.BASE_URL}thumbnails/${listing.id}.jpg`;
   const accent = accentClass(result.monthlyBuyPremium, listing.capRate);
+  const b = listing.capRateBreakdown;
+
+  // ── Tooltip text per row ──────────────────────────────────────
+  const r = ratePct / 12 / 100;
+  const n = termYears * 12;
+  const tipPI = [
+    `${fmtDollar(result.loanAmount)} at ${ratePct}% for ${termYears}yr`,
+    `r = ${ratePct}% ÷ 12 = ${(r * 100).toFixed(4)}%/mo`,
+    `n = ${n} payments`,
+    `L × r(1+r)ⁿ / ((1+r)ⁿ − 1)`,
+  ].join("\n");
+
+  const taxRate = (b.propertyTax / listing.price * 100).toFixed(2);
+  const tipTax = [
+    `${formatPrice(listing.price)} × ${taxRate}% ÷ 12`,
+    `Standard CA property tax rate`,
+  ].join("\n");
+
+  const insRate = (b.insurance / listing.price * 100).toFixed(2);
+  const tipIns = [
+    `${formatPrice(listing.price)} × ${insRate}% ÷ 12`,
+    `Rate: ${insRate}% — ${b.insuranceLabel}`,
+  ].join("\n");
+
+  const maintLines = [
+    `${(b.maintenanceRate * 100).toFixed(0)}% of annual gross rent`,
+    `Annual gross rent: ${fmtDollar(b.annualGrossRent)}/yr`,
+  ];
+  if (listing.yearBuilt) maintLines.push(`Age-based rate (built ${listing.yearBuilt})`);
+  if (b.hoaReductionLabel) maintLines.push(`Reduced: ${b.hoaReductionLabel}`);
+  const tipMaint = maintLines.join("\n");
+
+  const rentLines = [
+    `$${b.rentPsf.toFixed(2)}/sqft/mo — source: ${b.rentPsfSource}`,
+    `× ${b.effectiveSqft.toLocaleString()} sqft${b.sqftImputed ? ` (imputed from ${listing.beds}bd)` : ""}`,
+  ];
+  if (b.propertyTypeMultiplier !== 1.0)
+    rentLines.push(`× ${b.propertyTypeMultiplier.toFixed(2)} multiplier (${listing.propertyType})`);
+  if (b.units > 1) rentLines.push(`× ${b.units} units`);
+  rentLines.push(`= ${fmtDollar(b.monthlyRent)}/mo gross`);
+  const tipRent = rentLines.join("\n");
+
+  const tipOpp = [
+    `If the down payment were invested instead:`,
+    `${fmtDollar(result.downPayment)} × ${oppReturnPct}% / 12`,
+    `Assumed annual return: ${oppReturnPct}% (configurable above)`,
+  ].join("\n");
+
+  const tipBuyPremium = [
+    `Effective cost − Est. rent`,
+    `${fmtDollar(result.effectiveMonthlyOwnershipCost)} − ${fmtDollar(result.estimatedMonthlyRent)}`,
+    result.monthlyBuyPremium >= 0
+      ? `Positive = buying costs more than renting`
+      : `Negative = buying is cheaper than renting`,
+  ].join("\n");
 
   return (
     <div className={`fp-detail ${accent}`}>
@@ -190,15 +261,15 @@ function DetailPanel({ listing, result, downPct, oppReturnPct }: DetailProps) {
         </div>
         <hr className="fp-divider" />
         <div className="fp-bd-row">
-          <span className="fp-bd-label">P&amp;I / mo</span>
+          <Tip label="P&I / mo" tip={tipPI} />
           <span className="fp-bd-val">{fmtMo(result.monthlyPI)}</span>
         </div>
         <div className="fp-bd-row">
-          <span className="fp-bd-label">Property tax</span>
+          <Tip label="Property tax" tip={tipTax} />
           <span className="fp-bd-val">{fmtMo(result.monthlyPropertyTax)}</span>
         </div>
         <div className="fp-bd-row">
-          <span className="fp-bd-label">Insurance</span>
+          <Tip label="Insurance" tip={tipIns} />
           <span className="fp-bd-val">{fmtMo(result.monthlyInsurance)}</span>
         </div>
         {result.monthlyHOA > 0 && (
@@ -208,7 +279,7 @@ function DetailPanel({ listing, result, downPct, oppReturnPct }: DetailProps) {
           </div>
         )}
         <div className="fp-bd-row">
-          <span className="fp-bd-label">Maintenance</span>
+          <Tip label="Maintenance" tip={tipMaint} />
           <span className="fp-bd-val">{fmtMo(result.monthlyMaintenance)}</span>
         </div>
         <hr className="fp-divider" />
@@ -217,12 +288,10 @@ function DetailPanel({ listing, result, downPct, oppReturnPct }: DetailProps) {
           <span className="fp-bd-val">{fmtMo(result.totalMonthlyOwnershipCost)}</span>
         </div>
         <div className="fp-bd-row muted">
-          <span className="fp-bd-label">
-            + Opp. cost
-            <span className="fp-opp-formula">
-              {fmtDollarCompact(result.downPayment)} × {oppReturnPct}% ÷ 12
-            </span>
-          </span>
+          <Tip
+            label="+ Opp. cost"
+            tip={tipOpp}
+          />
           <span className="fp-bd-val">{fmtMo(result.opportunityCostMonthly)}</span>
         </div>
         <div className="fp-bd-row effective">
@@ -230,12 +299,12 @@ function DetailPanel({ listing, result, downPct, oppReturnPct }: DetailProps) {
           <span className="fp-bd-val">{fmtMo(result.effectiveMonthlyOwnershipCost)}</span>
         </div>
         <div className="fp-bd-row">
-          <span className="fp-bd-label">Est. rent</span>
+          <Tip label="Est. rent" tip={tipRent} />
           <span className="fp-bd-val">{fmtMo(result.estimatedMonthlyRent)}</span>
         </div>
         <hr className="fp-divider" />
         <div className={`fp-bd-row ${premiumClass(result.monthlyBuyPremium)}`}>
-          <span className="fp-bd-label">Buy premium</span>
+          <Tip label="Buy premium" tip={tipBuyPremium} />
           <span className="fp-bd-val fp-bd-val--lg">{premiumLabel(result.monthlyBuyPremium)}</span>
         </div>
       </div>
@@ -395,6 +464,8 @@ export function FinancePage({ allListings, initialSelectedId, onBack }: FinanceP
               listing={selectedEntry.listing}
               result={selectedEntry.result}
               downPct={downPct}
+              ratePct={ratePct}
+              termYears={termYears}
               oppReturnPct={oppReturnPct}
             />
           ) : (

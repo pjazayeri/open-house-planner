@@ -253,6 +253,37 @@
   margin: 4px 0;
 }
 
+/* ── Row tooltips ────────────────────────────────── */
+.fp-tip-wrap {
+  position: relative;
+  display: inline-block;
+}
+.fp-tip-label {
+  border-bottom: 1px dashed #475569;
+  cursor: help;
+}
+.fp-tip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 200;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 10px 13px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  white-space: pre;
+  min-width: 240px;
+}
+.fp-tip pre {
+  margin: 0;
+  font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #cbd5e1;
+}
+
 /* Premium colors */
 .premium-negative { color: #22c55e; }
 .premium-neutral  { color: #eab308; }
