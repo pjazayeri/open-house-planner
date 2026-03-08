@@ -107,7 +107,7 @@ function App() {
   const baseGroups = useMemo((): TimeSlotGroup[] => {
     if (page === "home") {
       const listings = allListings
-        .filter((l) => !hiddenIds.has(l.id))
+        .filter((l) => !hiddenIds.has(l.id) && l.city === selectedCity)
         .sort((a, b) => a.openHouseStart.getTime() - b.openHouseStart.getTime());
       if (listings.length === 0) return [];
       return [{ label: "All Properties", startTime: new Date(0), endTime: new Date(0), listings }];
@@ -117,7 +117,7 @@ function App() {
           .map((g) => ({ ...g, listings: g.listings.filter((l) => priorityIds.has(l.id)) }))
           .filter((g) => g.listings.length > 0)
       : timeSlotGroups;
-  }, [page, allListings, hiddenIds, timeSlotGroups, showOnlyPriority, priorityIds]);
+  }, [page, allListings, hiddenIds, selectedCity, timeSlotGroups, showOnlyPriority, priorityIds]);
 
   // Apply filters + sort on top of base groups (shared between home and planner)
   const visibleGroups = useMemo(() => {
