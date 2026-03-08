@@ -36,8 +36,32 @@ function ListIcon() {
   );
 }
 
+const VALID_PAGES: Page[] = ["home", "planner", "data", "finance"];
+
+function pageFromHash(): Page {
+  const hash = window.location.hash.slice(1) as Page;
+  return VALID_PAGES.includes(hash) ? hash : "home";
+}
+
 function App() {
-  const [page, setPage] = useState<Page>("home");
+  const [page, setPageState] = useState<Page>(pageFromHash);
+
+  // Keep hash in sync with page state and handle browser back/forward
+  useEffect(() => {
+    window.location.hash = page === "home" ? "" : page;
+  }, [page]);
+
+  useEffect(() => {
+    function onHashChange() {
+      setPageState(pageFromHash());
+    }
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  function setPage(p: Page) {
+    setPageState(p);
+  }
   const [financeInitId, setFinanceInitId] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>("map");
   const [showOnlyPriority, setShowOnlyPriority] = useState(false);
