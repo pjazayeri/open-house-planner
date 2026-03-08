@@ -224,8 +224,8 @@ export function MapView({
     [allListings]
   );
 
-  // Build route polyline coordinates (all listings in visit order)
-  const routeCoords = useMemo(() => {
+  // Build straight-line fallback coords (used while OSRM loads or if it fails)
+  const fallbackRouteCoords = useMemo(() => {
     let coordIdx = 0;
     return timeSlotGroups.flatMap((g) =>
       g.listings.map((l) => {
@@ -235,6 +235,42 @@ export function MapView({
       })
     );
   }, [timeSlotGroups, allCoords]);
+
+  // OSRM street-following route
+  const [osrmRoute, setOsrmRoute] = useState<[number, number][] | null>(null);
+
+  useEffect(() => {
+    if (allListings.length < 2) { setOsrmRoute(null); return; }
+
+    const controller = new AbortController();
+
+    // Route priority listings in priority order, then the rest in display order
+    const byId = new Map(allListings.map((l) => [l.id, l]));
+    const priorityListings = priorityOrder
+      .map((id) => byId.get(id))
+      .filter((l): l is typeof allListings[0] => l !== undefined);
+    const prioritySet = new Set(priorityOrder);
+    const others = allListings.filter((l) => !prioritySet.has(l.id));
+    const ordered = priorityListings.length > 0 ? [...priorityListings, ...others] : allListings;
+    const waypoints = ordered.slice(0, 25); // OSRM demo server cap
+
+    const coordStr = waypoints.map((l) => `${l.lng},${l.lat}`).join(";");
+    fetch(
+      `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson`,
+      { signal: controller.signal }
+    )
+      .then((r) => r.json())
+      .then((data) => {
+        const geom: [number, number][] | undefined = data.routes?.[0]?.geometry?.coordinates;
+        if (geom) setOsrmRoute(geom.map(([lon, lat]) => [lat, lon]));
+        else setOsrmRoute(null);
+      })
+      .catch((err) => { if (err.name !== "AbortError") setOsrmRoute(null); });
+
+    return () => controller.abort();
+  }, [allListings, priorityOrder]);
+
+  const routeCoords = osrmRoute ?? fallbackRouteCoords;
 
   return (
     <div className="map-container">
@@ -259,14 +295,38 @@ export function MapView({
         {routeCoords.length > 1 && (
           <Polyline
             positions={routeCoords}
-            pathOptions={{
-              color: "#475569",
-              weight: 2,
-              dashArray: "8 6",
-              opacity: 0.6,
-            }}
+            pathOptions={osrmRoute
+              ? { color: "#475569", weight: 3, opacity: 0.75 }
+              : { color: "#475569", weight: 2, dashArray: "8 6", opacity: 0.5 }
+            }
           />
         )}
+        {/* Directional arrows along the route */}
+        {routeCoords.length > 1 && (() => {
+          const N = Math.min(7, Math.floor(routeCoords.length / 4));
+          const step = Math.floor(routeCoords.length / (N + 1));
+          return Array.from({ length: N }, (_, a) => {
+            const i = step * (a + 1);
+            const j = Math.min(i + Math.max(1, Math.floor(step / 3)), routeCoords.length - 1);
+            const [lat1, lng1] = routeCoords[i];
+            const [lat2, lng2] = routeCoords[j];
+            const angle = Math.atan2(lng2 - lng1, lat2 - lat1) * (180 / Math.PI);
+            return (
+              <Marker
+                key={`arrow-${a}`}
+                position={[lat1, lng1]}
+                icon={L.divIcon({
+                  className: "route-arrow-marker",
+                  html: `<div style="transform:rotate(${angle}deg);color:#475569;font-size:13px;line-height:1;opacity:0.85">▲</div>`,
+                  iconSize: [13, 13],
+                  iconAnchor: [6.5, 6.5],
+                })}
+                interactive={false}
+                zIndexOffset={-200}
+              />
+            );
+          });
+        })()}
 
         {/* User location dot */}
         {userPosition && (
