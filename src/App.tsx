@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useListings } from "./hooks/useListings";
 import { Header } from "./components/Header/Header";
-import { Sidebar } from "./components/Sidebar/Sidebar";
+import { Sidebar, sortListings, matchesFilter } from "./components/Sidebar/Sidebar";
+import type { SortKey, FilterKey } from "./components/Sidebar/Sidebar";
 import { MapView } from "./components/Map/MapView";
 import { SummaryModal } from "./components/Summary/SummaryModal";
 import { DataView } from "./components/DataView/DataView";
@@ -39,6 +40,8 @@ function App() {
   const [financeInitId, setFinanceInitId] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>("map");
   const [showOnlyPriority, setShowOnlyPriority] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("time");
+  const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
   const [showSummary, setShowSummary] = useState(false);
   // scrollTarget drives the post-tab-switch scroll; stored as state so
   // useEffect re-runs when it's set alongside a mobileTab change.
@@ -105,11 +108,37 @@ function App() {
     setMobileTab("list");
   };
 
-  const visibleGroups = showOnlyPriority
-    ? timeSlotGroups
-        .map((g) => ({ ...g, listings: g.listings.filter((l) => priorityIds.has(l.id)) }))
-        .filter((g) => g.listings.length > 0)
-    : timeSlotGroups;
+  const visibleGroups = useMemo(() => {
+    let groups = showOnlyPriority
+      ? timeSlotGroups
+          .map((g) => ({ ...g, listings: g.listings.filter((l) => priorityIds.has(l.id)) }))
+          .filter((g) => g.listings.length > 0)
+      : timeSlotGroups;
+
+    if (activeFilters.size > 0) {
+      groups = groups
+        .map((g) => ({
+          ...g,
+          listings: g.listings.filter((l) =>
+            [...activeFilters].some((f) => matchesFilter(l.id, f, visits, priorityIds))
+          ),
+        }))
+        .filter((g) => g.listings.length > 0);
+    }
+
+    if (sortKey !== "time") {
+      groups = groups.map((g) => ({ ...g, listings: sortListings(g.listings, sortKey) }));
+    }
+
+    return groups;
+  }, [timeSlotGroups, showOnlyPriority, priorityIds, activeFilters, sortKey, visits]);
+
+  const totalListings = useMemo(
+    () => (showOnlyPriority
+      ? timeSlotGroups.reduce((s, g) => s + g.listings.filter((l) => priorityIds.has(l.id)).length, 0)
+      : timeSlotGroups.reduce((s, g) => s + g.listings.length, 0)),
+    [timeSlotGroups, showOnlyPriority, priorityIds]
+  );
 
   if (syncStatus === "loading" || loading) {
     return (
@@ -208,6 +237,7 @@ function App() {
       <div className={`app-body show-${mobileTab}`}>
         <Sidebar
           timeSlotGroups={visibleGroups}
+          totalListings={totalListings}
           selectedId={selectedId}
           hoveredId={hoveredId}
           onSelect={setSelectedId}
@@ -217,6 +247,10 @@ function App() {
           onTogglePriority={togglePriority}
           showOnlyPriority={showOnlyPriority}
           onTogglePriorityFilter={() => setShowOnlyPriority((v) => !v)}
+          sortKey={sortKey}
+          onSortChange={setSortKey}
+          activeFilters={activeFilters}
+          onFiltersChange={setActiveFilters}
           visits={visits}
           nearbyId={nearbyId}
           geoWatching={geoWatching}
@@ -225,7 +259,7 @@ function App() {
           onMarkVisited={markVisited}
           onSetLiked={setLiked}
           onSetRating={setRating}
-        onToggleWantOffer={toggleWantOffer}
+          onToggleWantOffer={toggleWantOffer}
           onSetNoteField={setNoteField}
           onClearVisit={clearVisit}
           onOpenFinance={(id) => { setFinanceInitId(id); setPage("finance"); }}

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import type { TimeSlotGroup as TimeSlotGroupType, Listing, VisitRecord } from "../../types";
 import { TimeSlotGroup } from "./TimeSlotGroup";
 import { formatTimeRange } from "../../utils/formatters";
@@ -6,6 +6,7 @@ import "./Sidebar.css";
 
 interface SidebarProps {
   timeSlotGroups: TimeSlotGroupType[];
+  totalListings: number;
   selectedId: string | null;
   hoveredId: string | null;
   onSelect: (id: string) => void;
@@ -15,6 +16,10 @@ interface SidebarProps {
   onTogglePriority: (id: string) => void;
   showOnlyPriority: boolean;
   onTogglePriorityFilter: () => void;
+  sortKey: SortKey;
+  onSortChange: (key: SortKey) => void;
+  activeFilters: Set<FilterKey>;
+  onFiltersChange: (filters: Set<FilterKey>) => void;
   visits: Record<string, VisitRecord>;
   nearbyId: string | null;
   geoWatching: boolean;
@@ -29,8 +34,8 @@ interface SidebarProps {
   onOpenFinance: (id: string) => void;
 }
 
-type SortKey = "time" | "price" | "capRate" | "ppsf";
-type FilterKey = "liked" | "disliked" | "visited" | "unvisited" | "priority" | "rated";
+export type SortKey = "time" | "price" | "capRate" | "ppsf";
+export type FilterKey = "liked" | "disliked" | "visited" | "unvisited" | "priority" | "rated";
 
 const SORT_LABELS: Record<SortKey, string> = {
   time: "Time",
@@ -48,7 +53,7 @@ const FILTER_LABELS: Record<FilterKey, string> = {
   priority: "⭐ Priority",
 };
 
-function sortListings(listings: Listing[], key: SortKey): Listing[] {
+export function sortListings(listings: Listing[], key: SortKey): Listing[] {
   if (key === "time") return listings; // already in visit order
   return [...listings].sort((a, b) => {
     if (key === "price") return a.price - b.price;
@@ -62,7 +67,7 @@ function sortListings(listings: Listing[], key: SortKey): Listing[] {
   });
 }
 
-function matchesFilter(id: string, key: FilterKey, visits: Record<string, VisitRecord>, priorityIds: Set<string>): boolean {
+export function matchesFilter(id: string, key: FilterKey, visits: Record<string, VisitRecord>, priorityIds: Set<string>): boolean {
   const v = visits[id];
   switch (key) {
     case "liked":    return v?.liked === true;
@@ -131,6 +136,7 @@ function PrioritySection({
 
 export function Sidebar({
   timeSlotGroups,
+  totalListings,
   selectedId,
   hoveredId,
   onSelect,
@@ -152,47 +158,18 @@ export function Sidebar({
   onOpenFinance,
   showOnlyPriority,
   onTogglePriorityFilter,
+  sortKey,
+  onSortChange,
+  activeFilters,
+  onFiltersChange,
 }: SidebarProps) {
-  const [sortKey, setSortKey] = useState<SortKey>("time");
-  const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
-
   function toggleFilter(k: FilterKey) {
-    setActiveFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(k)) next.delete(k); else next.add(k);
-      return next;
-    });
+    const next = new Set(activeFilters);
+    if (next.has(k)) next.delete(k); else next.add(k);
+    onFiltersChange(next);
   }
 
-  const processedGroups = useMemo(() => {
-    let groups = showOnlyPriority
-      ? timeSlotGroups
-          .map((g) => ({ ...g, listings: g.listings.filter((l) => priorityIds.has(l.id)) }))
-          .filter((g) => g.listings.length > 0)
-      : timeSlotGroups;
-
-    // Apply filters
-    if (activeFilters.size > 0) {
-      groups = groups
-        .map((g) => ({
-          ...g,
-          listings: g.listings.filter((l) =>
-            [...activeFilters].some((f) => matchesFilter(l.id, f, visits, priorityIds))
-          ),
-        }))
-        .filter((g) => g.listings.length > 0);
-    }
-
-    // Apply sort within each group
-    if (sortKey !== "time") {
-      groups = groups.map((g) => ({ ...g, listings: sortListings(g.listings, sortKey) }));
-    }
-
-    return groups;
-  }, [timeSlotGroups, showOnlyPriority, activeFilters, sortKey, visits, priorityIds]);
-
-  const totalVisible = processedGroups.reduce((s, g) => s + g.listings.length, 0);
-  const totalAll = timeSlotGroups.reduce((s, g) => s + g.listings.length, 0);
+  const totalVisible = timeSlotGroups.reduce((s, g) => s + g.listings.length, 0);
 
   return (
     <aside className="sidebar">
@@ -219,7 +196,7 @@ export function Sidebar({
                 <button
                   key={k}
                   className={`sb-chip ${sortKey === k ? "active" : ""}`}
-                  onClick={() => setSortKey(k)}
+                  onClick={() => onSortChange(k)}
                 >
                   {SORT_LABELS[k]}
                 </button>
@@ -232,7 +209,7 @@ export function Sidebar({
               {activeFilters.size > 0 && (
                 <button
                   className="sb-chip sb-chip-clear"
-                  onClick={() => setActiveFilters(new Set())}
+                  onClick={() => onFiltersChange(new Set())}
                 >
                   Clear
                 </button>
@@ -250,7 +227,7 @@ export function Sidebar({
           </div>
           {(activeFilters.size > 0 || sortKey !== "time") && (
             <div className="sb-count">
-              {totalVisible} of {totalAll} shown
+              {totalVisible} of {totalListings} shown
             </div>
           )}
         </div>
@@ -270,7 +247,7 @@ export function Sidebar({
             onSelect={onSelect}
           />
         )}
-        {processedGroups.map((group, idx) => (
+        {timeSlotGroups.map((group, idx) => (
           <TimeSlotGroup
             key={group.label}
             group={group}
@@ -293,7 +270,7 @@ export function Sidebar({
             onOpenFinance={onOpenFinance}
           />
         ))}
-        {processedGroups.length === 0 && activeFilters.size > 0 && (
+        {timeSlotGroups.length === 0 && activeFilters.size > 0 && (
           <div className="sb-empty">No listings match this filter.</div>
         )}
       </div>
