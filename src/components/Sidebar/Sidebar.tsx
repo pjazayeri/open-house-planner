@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { TimeSlotGroup as TimeSlotGroupType, Listing, VisitRecord } from "../../types";
 import { TimeSlotGroup } from "./TimeSlotGroup";
 import { formatTimeRange } from "../../utils/formatters";
@@ -27,6 +27,51 @@ interface SidebarProps {
   onSetNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   onClearVisit: (id: string) => void;
   onOpenFinance: (id: string) => void;
+}
+
+type SortKey = "time" | "price" | "capRate" | "ppsf";
+type FilterKey = "liked" | "disliked" | "visited" | "unvisited" | "priority" | "rated";
+
+const SORT_LABELS: Record<SortKey, string> = {
+  time: "Time",
+  price: "Price",
+  capRate: "Cap Rate",
+  ppsf: "$/sqft",
+};
+
+const FILTER_LABELS: Record<FilterKey, string> = {
+  liked: "👍 Liked",
+  disliked: "👎 Disliked",
+  visited: "Visited",
+  unvisited: "Unvisited",
+  rated: "★ Rated",
+  priority: "⭐ Priority",
+};
+
+function sortListings(listings: Listing[], key: SortKey): Listing[] {
+  if (key === "time") return listings; // already in visit order
+  return [...listings].sort((a, b) => {
+    if (key === "price") return a.price - b.price;
+    if (key === "capRate") return b.capRate - a.capRate;
+    if (key === "ppsf") {
+      const pa = a.pricePerSqft ?? Infinity;
+      const pb = b.pricePerSqft ?? Infinity;
+      return pa - pb;
+    }
+    return 0;
+  });
+}
+
+function matchesFilter(id: string, key: FilterKey, visits: Record<string, VisitRecord>, priorityIds: Set<string>): boolean {
+  const v = visits[id];
+  switch (key) {
+    case "liked":    return v?.liked === true;
+    case "disliked": return v?.liked === false;
+    case "visited":  return !!v;
+    case "unvisited": return !v;
+    case "rated":    return !!v && v.rating !== null;
+    case "priority": return priorityIds.has(id);
+  }
 }
 
 function PrioritySection({
@@ -108,11 +153,46 @@ export function Sidebar({
   showOnlyPriority,
   onTogglePriorityFilter,
 }: SidebarProps) {
-  const visibleGroups = showOnlyPriority
-    ? timeSlotGroups
-        .map((g) => ({ ...g, listings: g.listings.filter((l) => priorityIds.has(l.id)) }))
-        .filter((g) => g.listings.length > 0)
-    : timeSlotGroups;
+  const [sortKey, setSortKey] = useState<SortKey>("time");
+  const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
+
+  function toggleFilter(k: FilterKey) {
+    setActiveFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k); else next.add(k);
+      return next;
+    });
+  }
+
+  const processedGroups = useMemo(() => {
+    let groups = showOnlyPriority
+      ? timeSlotGroups
+          .map((g) => ({ ...g, listings: g.listings.filter((l) => priorityIds.has(l.id)) }))
+          .filter((g) => g.listings.length > 0)
+      : timeSlotGroups;
+
+    // Apply filters
+    if (activeFilters.size > 0) {
+      groups = groups
+        .map((g) => ({
+          ...g,
+          listings: g.listings.filter((l) =>
+            [...activeFilters].some((f) => matchesFilter(l.id, f, visits, priorityIds))
+          ),
+        }))
+        .filter((g) => g.listings.length > 0);
+    }
+
+    // Apply sort within each group
+    if (sortKey !== "time") {
+      groups = groups.map((g) => ({ ...g, listings: sortListings(g.listings, sortKey) }));
+    }
+
+    return groups;
+  }, [timeSlotGroups, showOnlyPriority, activeFilters, sortKey, visits, priorityIds]);
+
+  const totalVisible = processedGroups.reduce((s, g) => s + g.listings.length, 0);
+  const totalAll = timeSlotGroups.reduce((s, g) => s + g.listings.length, 0);
 
   return (
     <aside className="sidebar">
@@ -129,6 +209,52 @@ export function Sidebar({
           )}
           {geoError && <span className="geo-error">{geoError}</span>}
         </div>
+
+        {/* ── Filter + Sort bar ── */}
+        <div className="sidebar-controls">
+          <div className="sb-control-row">
+            <span className="sb-control-label">Sort</span>
+            <div className="sb-chips">
+              {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+                <button
+                  key={k}
+                  className={`sb-chip ${sortKey === k ? "active" : ""}`}
+                  onClick={() => setSortKey(k)}
+                >
+                  {SORT_LABELS[k]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="sb-control-row">
+            <span className="sb-control-label">Filter</span>
+            <div className="sb-chips">
+              {activeFilters.size > 0 && (
+                <button
+                  className="sb-chip sb-chip-clear"
+                  onClick={() => setActiveFilters(new Set())}
+                >
+                  Clear
+                </button>
+              )}
+              {(Object.keys(FILTER_LABELS) as FilterKey[]).map((k) => (
+                <button
+                  key={k}
+                  className={`sb-chip ${activeFilters.has(k) ? "active" : ""}`}
+                  onClick={() => toggleFilter(k)}
+                >
+                  {FILTER_LABELS[k]}
+                </button>
+              ))}
+            </div>
+          </div>
+          {(activeFilters.size > 0 || sortKey !== "time") && (
+            <div className="sb-count">
+              {totalVisible} of {totalAll} shown
+            </div>
+          )}
+        </div>
+
         {priorityIds.size > 0 && (
           <button
             className={`priority-filter-btn ${showOnlyPriority ? "active" : ""}`}
@@ -144,7 +270,7 @@ export function Sidebar({
             onSelect={onSelect}
           />
         )}
-        {visibleGroups.map((group, idx) => (
+        {processedGroups.map((group, idx) => (
           <TimeSlotGroup
             key={group.label}
             group={group}
@@ -160,13 +286,16 @@ export function Sidebar({
             nearbyId={nearbyId}
             onMarkVisited={onMarkVisited}
             onSetLiked={onSetLiked}
-              onSetRating={onSetRating}
+            onSetRating={onSetRating}
             onToggleWantOffer={onToggleWantOffer}
             onSetNoteField={onSetNoteField}
             onClearVisit={onClearVisit}
             onOpenFinance={onOpenFinance}
           />
         ))}
+        {processedGroups.length === 0 && activeFilters.size > 0 && (
+          <div className="sb-empty">No listings match this filter.</div>
+        )}
       </div>
     </aside>
   );

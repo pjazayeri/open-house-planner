@@ -7,7 +7,7 @@ import {
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
-import type { Listing, TimeSlotGroup } from "../../types";
+import type { Listing, TimeSlotGroup, VisitRecord } from "../../types";
 import { SLOT_COLORS } from "../Sidebar/TimeSlotGroup";
 import { formatPrice, formatBedsBaths, formatTimeRange } from "../../utils/formatters";
 import "./MapView.css";
@@ -16,6 +16,7 @@ interface MapViewProps {
   timeSlotGroups: TimeSlotGroup[];
   selectedId: string | null;
   hoveredId: string | null;
+  visits: Record<string, VisitRecord>;
   onSelect: (id: string) => void;
   onDeselect: () => void;
   onNavigate: (id: string) => void;
@@ -33,27 +34,38 @@ const userLocationIcon = L.divIcon({
   iconAnchor: [12, 12],
 });
 
-/** Create a numbered circle marker icon */
+type VisitStatus = "unvisited" | "visited" | "liked" | "disliked";
+
+/** Create a numbered circle marker icon with an optional visit-status badge */
 function createNumberedIcon(
   num: number,
   color: string,
-  isActive: boolean
+  isActive: boolean,
+  status: VisitStatus
 ): L.DivIcon {
   const size = isActive ? 32 : 26;
+  const badgeBase = `position:absolute;bottom:-3px;right:-3px;width:14px;height:14px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:900;line-height:1;`;
+  const badge =
+    status === "liked"    ? `<div style="${badgeBase}background:#22c55e;color:#fff">✓</div>` :
+    status === "disliked" ? `<div style="${badgeBase}background:#ef4444;color:#fff">✕</div>` :
+    status === "visited"  ? `<div style="${badgeBase}background:#94a3b8;color:#fff;font-size:10px">·</div>` :
+    "";
   return L.divIcon({
     className: "numbered-marker",
-    html: `<div style="
-      width:${size}px;height:${size}px;
-      background:${color};
-      border:2px solid ${isActive ? "#fff" : "rgba(255,255,255,0.7)"};
-      border-radius:50%;
-      display:flex;align-items:center;justify-content:center;
-      color:#fff;font-size:${isActive ? 13 : 11}px;font-weight:700;
-      box-shadow:${isActive ? "0 0 0 3px " + color + ",0 2px 8px rgba(0,0,0,0.3)" : "0 1px 4px rgba(0,0,0,0.3)"};
-      transition:all 0.15s;
-    ">${num}</div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
+    html: `<div style="position:relative;width:${size}px;height:${size}px;">
+      <div style="
+        width:${size}px;height:${size}px;
+        background:${color};
+        border:2px solid ${isActive ? "#fff" : "rgba(255,255,255,0.7)"};
+        border-radius:50%;
+        display:flex;align-items:center;justify-content:center;
+        color:#fff;font-size:${isActive ? 13 : 11}px;font-weight:700;
+        box-shadow:${isActive ? "0 0 0 3px " + color + ",0 2px 8px rgba(0,0,0,0.3)" : "0 1px 4px rgba(0,0,0,0.3)"};
+      ">${num}</div>
+      ${badge}
+    </div>`,
+    iconSize: [size + 3, size + 3],
+    iconAnchor: [(size + 3) / 2, (size + 3) / 2],
   });
 }
 
@@ -183,6 +195,7 @@ export function MapView({
   timeSlotGroups,
   selectedId,
   hoveredId,
+  visits,
   onSelect,
   onDeselect,
   onNavigate,
@@ -277,6 +290,12 @@ export function MapView({
               coordIdx++;
               const isActive =
                 listing.id === selectedId || listing.id === hoveredId;
+              const visit = visits[listing.id];
+              const visitStatus: VisitStatus =
+                !visit ? "unvisited" :
+                visit.liked === true ? "liked" :
+                visit.liked === false ? "disliked" :
+                "visited";
               return (
                 <Marker
                   key={listing.id}
@@ -284,7 +303,8 @@ export function MapView({
                   icon={createNumberedIcon(
                     listing.visitOrder!,
                     color,
-                    isActive
+                    isActive,
+                    visitStatus
                   )}
                   eventHandlers={{
                     click: () => onSelect(listing.id),

@@ -234,6 +234,7 @@ function App() {
           timeSlotGroups={visibleGroups}
           selectedId={selectedId}
           hoveredId={hoveredId}
+          visits={visits}
           onSelect={setSelectedId}
           onDeselect={() => setSelectedId(null)}
           onNavigate={navigateToListing}
