@@ -5,22 +5,17 @@ import { computeCapRateBreakdown } from "./capRate";
 const URL_COLUMN =
   "URL (SEE https://www.redfin.com/buy-a-home/comparative-market-analysis FOR INFO ON PRICING)";
 
-/** Dates for "this weekend": Saturday Mar 7 and Sunday Mar 8, 2026 */
-function isThisWeekend(date: Date): boolean {
-  const y = date.getFullYear();
-  const m = date.getMonth(); // 0-indexed: Mar=2
-  const d = date.getDate();
-  return (
-    (y === 2026 && m === 2 && d === 7) || // Mar 7
-    (y === 2026 && m === 2 && d === 8)    // Mar 8
-  );
+/** Returns midnight (start of day) in local time for the given date */
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 /**
- * Filter raw CSV rows to active listings with open houses this weekend,
- * and transform them into our Listing type.
+ * Filter raw CSV rows to active listings with open houses starting today
+ * or in the future, and transform them into our Listing type.
  */
 export function filterAndTransform(rows: RawListing[]): Listing[] {
+  const today = startOfDay(new Date());
   const listings: Listing[] = [];
 
   for (const row of rows) {
@@ -29,7 +24,7 @@ export function filterAndTransform(rows: RawListing[]): Listing[] {
     const startTime = parseRedfinDate(row["NEXT OPEN HOUSE START TIME"]);
     const endTime = parseRedfinDate(row["NEXT OPEN HOUSE END TIME"]);
     if (!startTime || !endTime) continue;
-    if (!isThisWeekend(startTime)) continue;
+    if (startOfDay(startTime) < today) continue;
 
     const lat = parseFloat(row.LATITUDE);
     const lng = parseFloat(row.LONGITUDE);
