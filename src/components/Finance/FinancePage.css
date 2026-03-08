@@ -257,15 +257,17 @@
 .fp-tip-wrap {
   position: relative;
   display: inline-block;
+  text-align: right;
 }
-.fp-tip-label {
+.fp-tip-val {
   border-bottom: 1px dashed #475569;
   cursor: help;
+  white-space: nowrap;
 }
 .fp-tip {
   position: absolute;
   bottom: calc(100% + 8px);
-  left: 0;
+  right: 0;
   z-index: 200;
   background: #0f172a;
   border: 1px solid #334155;
@@ -275,6 +277,7 @@
   pointer-events: none;
   white-space: pre;
   min-width: 240px;
+  text-align: left;
 }
 .fp-tip pre {
   margin: 0;

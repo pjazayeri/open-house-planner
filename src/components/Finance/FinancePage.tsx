@@ -109,7 +109,7 @@ function capBadgeClass(capRate: number): string {
 }
 
 // ── Tooltip ───────────────────────────────────────────────────────
-function Tip({ label, tip }: { label: string; tip: string }) {
+function Tip({ children, tip }: { children: React.ReactNode; tip: string }) {
   const [show, setShow] = useState(false);
   return (
     <span
@@ -117,7 +117,7 @@ function Tip({ label, tip }: { label: string; tip: string }) {
       onMouseEnter={() => setShow(true)}
       onMouseLeave={() => setShow(false)}
     >
-      <span className="fp-tip-label">{label}</span>
+      <span className="fp-tip-val">{children}</span>
       {show && (
         <div className="fp-tip" role="tooltip">
           <pre>{tip}</pre>
@@ -261,16 +261,16 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
         </div>
         <hr className="fp-divider" />
         <div className="fp-bd-row">
-          <Tip label="P&I / mo" tip={tipPI} />
-          <span className="fp-bd-val">{fmtMo(result.monthlyPI)}</span>
+          <span className="fp-bd-label">P&amp;I / mo</span>
+          <Tip tip={tipPI}>{fmtMo(result.monthlyPI)}</Tip>
         </div>
         <div className="fp-bd-row">
-          <Tip label="Property tax" tip={tipTax} />
-          <span className="fp-bd-val">{fmtMo(result.monthlyPropertyTax)}</span>
+          <span className="fp-bd-label">Property tax</span>
+          <Tip tip={tipTax}>{fmtMo(result.monthlyPropertyTax)}</Tip>
         </div>
         <div className="fp-bd-row">
-          <Tip label="Insurance" tip={tipIns} />
-          <span className="fp-bd-val">{fmtMo(result.monthlyInsurance)}</span>
+          <span className="fp-bd-label">Insurance</span>
+          <Tip tip={tipIns}>{fmtMo(result.monthlyInsurance)}</Tip>
         </div>
         {result.monthlyHOA > 0 && (
           <div className="fp-bd-row">
@@ -279,8 +279,8 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
           </div>
         )}
         <div className="fp-bd-row">
-          <Tip label="Maintenance" tip={tipMaint} />
-          <span className="fp-bd-val">{fmtMo(result.monthlyMaintenance)}</span>
+          <span className="fp-bd-label">Maintenance</span>
+          <Tip tip={tipMaint}>{fmtMo(result.monthlyMaintenance)}</Tip>
         </div>
         <hr className="fp-divider" />
         <div className="fp-bd-row total">
@@ -288,24 +288,23 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
           <span className="fp-bd-val">{fmtMo(result.totalMonthlyOwnershipCost)}</span>
         </div>
         <div className="fp-bd-row muted">
-          <Tip
-            label="+ Opp. cost"
-            tip={tipOpp}
-          />
-          <span className="fp-bd-val">{fmtMo(result.opportunityCostMonthly)}</span>
+          <span className="fp-bd-label">+ Opp. cost</span>
+          <Tip tip={tipOpp}>{fmtMo(result.opportunityCostMonthly)}</Tip>
         </div>
         <div className="fp-bd-row effective">
           <span className="fp-bd-label">Effective cost</span>
           <span className="fp-bd-val">{fmtMo(result.effectiveMonthlyOwnershipCost)}</span>
         </div>
         <div className="fp-bd-row">
-          <Tip label="Est. rent" tip={tipRent} />
-          <span className="fp-bd-val">{fmtMo(result.estimatedMonthlyRent)}</span>
+          <span className="fp-bd-label">Est. rent</span>
+          <Tip tip={tipRent}>{fmtMo(result.estimatedMonthlyRent)}</Tip>
         </div>
         <hr className="fp-divider" />
         <div className={`fp-bd-row ${premiumClass(result.monthlyBuyPremium)}`}>
-          <Tip label="Buy premium" tip={tipBuyPremium} />
-          <span className="fp-bd-val fp-bd-val--lg">{premiumLabel(result.monthlyBuyPremium)}</span>
+          <span className="fp-bd-label">Buy premium</span>
+          <Tip tip={tipBuyPremium}>
+            <span className="fp-bd-val--lg">{premiumLabel(result.monthlyBuyPremium)}</span>
+          </Tip>
         </div>
       </div>
     </div>
