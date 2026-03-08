@@ -105,10 +105,12 @@ export function useListings(): UseListingsResult {
 
   const cities = useMemo(() => getCities(allListings), [allListings]);
 
-  const cityListings = useMemo(
-    () => allListings.filter((l) => l.city === selectedCity && !hiddenIds.has(l.id)),
-    [allListings, selectedCity, hiddenIds]
-  );
+  const cityListings = useMemo(() => {
+    const now = new Date();
+    return allListings.filter(
+      (l) => l.city === selectedCity && !hiddenIds.has(l.id) && l.openHouseEnd > now
+    );
+  }, [allListings, selectedCity, hiddenIds]);
 
   const timeSlotGroups = useMemo(
     () => optimizeRoute(cityListings),
