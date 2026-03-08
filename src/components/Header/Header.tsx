@@ -12,6 +12,7 @@ interface HeaderProps {
   onRestoreHidden: () => void;
   syncStatus: SyncStatus;
   saveFailed: boolean;
+  onShowSummary: () => void;
 }
 
 function SyncBadge({ syncStatus, saveFailed }: { syncStatus: SyncStatus; saveFailed: boolean }) {
@@ -45,6 +46,7 @@ export function Header({
   onRestoreHidden,
   syncStatus,
   saveFailed,
+  onShowSummary,
 }: HeaderProps) {
   const cityCount = timeSlotGroups.reduce(
     (sum, g) => sum + g.listings.length,
@@ -65,6 +67,7 @@ export function Header({
           </button>
         )}
         <SyncBadge syncStatus={syncStatus} saveFailed={saveFailed} />
+        <button className="summary-btn" onClick={onShowSummary}>Summary</button>
       </div>
       <div className="header-right">
         {cities.map((city) => (

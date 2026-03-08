@@ -3,6 +3,7 @@ import { useListings } from "./hooks/useListings";
 import { Header } from "./components/Header/Header";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { MapView } from "./components/Map/MapView";
+import { SummaryModal } from "./components/Summary/SummaryModal";
 import "./App.css";
 
 type MobileTab = "map" | "list";
@@ -33,6 +34,7 @@ function ListIcon() {
 function App() {
   const [mobileTab, setMobileTab] = useState<MobileTab>("map");
   const [showOnlyPriority, setShowOnlyPriority] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
   // scrollTarget drives the post-tab-switch scroll; stored as state so
   // useEffect re-runs when it's set alongside a mobileTab change.
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
@@ -153,6 +155,7 @@ function App() {
         onRestoreHidden={clearHidden}
         syncStatus={syncStatus}
         saveFailed={saveFailed}
+        onShowSummary={() => setShowSummary(true)}
       />
       <div className={`app-body show-${mobileTab}`}>
         <Sidebar
@@ -205,6 +208,14 @@ function App() {
           <span>List</span>
         </button>
       </nav>
+      {showSummary && (
+        <SummaryModal
+          allListings={allListings}
+          visits={visits}
+          priorityIds={priorityIds}
+          onClose={() => setShowSummary(false)}
+        />
+      )}
     </div>
   );
 }

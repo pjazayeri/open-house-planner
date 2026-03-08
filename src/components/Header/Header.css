@@ -75,6 +75,26 @@
   color: #fff;
 }
 
+.summary-btn {
+  padding: 4px 12px;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  align-self: center;
+}
+
+.summary-btn:hover {
+  border-color: #94a3b8;
+  color: #e2e8f0;
+}
+
 .sync-badge {
   width: 8px;
   height: 8px;
