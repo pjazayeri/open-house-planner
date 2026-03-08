@@ -17,56 +17,67 @@ No test framework is configured.
 
 ## Architecture
 
-This is a single-page React + TypeScript app for planning open house visits. It reads a Redfin CSV export, filters to active listings with open houses this weekend, and displays them on an interactive map with a sidebar.
+Single-page React + TypeScript app (Vite) for planning open house visits. Reads a Redfin CSV export, filters to active listings with open houses this weekend, displays them on a map with a sidebar, and persists user state to JSONBin.io cloud sync.
 
-### Data flow
+### Data pipeline
 
-1. **`public/redfin-favorites_*.csv`** — Redfin favorites export, served as a static file. The filename is hardcoded in `src/utils/parseCsv.ts`.
-2. **`src/utils/parseCsv.ts`** — Fetches and parses the CSV using PapaParse into `RawListing[]`.
-3. **`src/utils/filterListings.ts`** — Filters to `STATUS === "Active"` + open house dates matching a hardcoded weekend (currently Feb 28 / Mar 1, 2026). Transforms `RawListing` → `Listing`, computing cap rates.
-4. **`src/utils/capRate.ts`** — Estimates cap rate from listing data using hardcoded zip/city rent-per-sqft tables, property type multipliers, and expense models. All assumptions are exposed in `CapRateBreakdown`.
-5. **`src/utils/routeOptimizer.ts`** — Groups listings by open house time slot, then applies nearest-neighbor (haversine) ordering across slots to produce a `TimeSlotGroup[]` with visit numbers.
-6. **`src/hooks/useListings.ts`** — Orchestrates the pipeline; owns all state (loading, city filter, selection, hover, hidden). Exposes `timeSlotGroups` as the primary derived value consumed by UI. Also exposes `hiddenCount`, `hideListing(id)`, and `clearHidden()`.
-7. **`src/hooks/useHiddenIds.ts`** — Manages the `Set<string>` of hidden listing IDs with dual persistence: localStorage (`"open-house-hidden-ids"`) and optional JSONBin.io cloud sync for cross-device state. Credentials via `VITE_JSONBIN_API_KEY` / `VITE_JSONBIN_BIN_ID` env vars.
-8. **`App.tsx`** — Composes `Header`, `Sidebar`, and `MapView`. Owns `mobileTab` state (`"map" | "list"`) for the mobile tab bar; auto-switches to `"list"` when a map marker is clicked.
+```
+public/redfin-favorites_*.csv
+  → parseCsv.ts       (PapaParse → RawListing[])
+  → filterListings.ts (filter by STATUS=Active + weekend dates → Listing[])
+  → capRate.ts        (compute cap rate + CapRateBreakdown per listing)
+  → routeOptimizer.ts (group by time slot, nearest-neighbor order → TimeSlotGroup[])
+  → useListings.ts    (orchestrates pipeline + all UI state)
+```
+
+**Updating for a new weekend:** change `CSV_PATH` in `parseCsv.ts` and the `isThisWeekend()` date check in `filterListings.ts`.
+
+### State management
+
+All user state lives in two hooks, both backed by JSONBin.io cloud sync:
+
+- **`useHiddenIds.ts`** — `hiddenIds: Set<string>` + `priorityIds: Set<string>`. Hidden listings are filtered from `timeSlotGroups` before display.
+- **`useVisits.ts`** — `visits: Record<string, VisitRecord>` keyed by listing ID. A visit record is only created explicitly via `markVisited(id)` — other update functions (`setLiked`, `setRating`, `setNoteField`, `toggleWantOffer`) are strict no-ops on unvisited listings.
+
+Both hooks are composed in **`useListings.ts`**, which merges their `syncStatus` values and exposes a unified API to `App.tsx`.
+
+### Cloud sync (`src/utils/cloudSync.ts`)
+
+Single JSONBin.io bin stores `{ hiddenIds, priorityIds, visits }`. Every write is a GET-then-PUT merge so concurrent hook writes don't clobber each other. A module-level `_pendingFetch` promise deduplicates React StrictMode's double-invocation of effects.
+
+`SyncStatus`: `"loading" | "ok" | "error" | "unconfigured" | "degraded"`
+- `"degraded"` — credentials set but 401 from JSONBin (stale key). App still loads with empty in-memory state; header shows orange badge.
+- `"unconfigured"` — env vars not set; app shows a hard error screen.
+
+**Required env vars** (`.env.local` for dev, GitHub Secrets for deploy):
+```
+VITE_JSONBIN_API_KEY=...
+VITE_JSONBIN_BIN_ID=...
+VITE_ANTHROPIC_API_KEY=...   # enables AI insights in SummaryModal
+```
 
 ### Key types (`src/types.ts`)
 
-- `RawListing` — direct CSV column mapping (all strings)
-- `Listing` — transformed, typed listing with computed `capRate` and `capRateBreakdown`
-- `TimeSlotGroup` — a labeled group of `Listing[]` ordered for visiting
+```ts
+Listing          // transformed CSV row with capRate, capRateBreakdown, visitOrder, timeSlot
+TimeSlotGroup    // { label, startTime, endTime, listings: Listing[] }
+VisitRecord      // { visitedAt, liked: boolean|null, rating: number|null (1-5), pros, cons, wantOffer }
+```
 
-### UI components
+### Pages / top-level components
 
-- **`Header`** — city selector dropdown + summary stats. Shows a "N hidden · Restore" button (red) when any listings are hidden.
-- **`Sidebar`** — scrollable list of `TimeSlotGroup` sections, each containing `PropertyCard` components.
-- **`PropertyCard`** — displays listing details with a hide button ("✕") in the card header that calls `onHide(id)`. On mobile the hide button is enlarged (32×32px). The rent tooltip renders inline (static position, full width) on mobile instead of as a floating overlay.
-- **`MapView`** — React-Leaflet map with markers; selection/hover synced bidirectionally with the sidebar. Marker click auto-switches the mobile tab to `"list"`.
+**`App.tsx`** owns `page: "planner" | "data"` and `mobileTab: "map" | "list"`. The "data" page renders `DataView` full-screen as a replacement for the planner layout.
+
+- **`Header`** — city selector, stats, hidden/restore button, sync badge, Summary and Data buttons.
+- **`Sidebar`** → `TimeSlotGroup` → `PropertyCard` — scrollable visit list. PropertyCard contains the full visit panel (👍/👎, 1–5 stars, pros/cons textareas, offer toggle).
+- **`MapView`** — React-Leaflet map; selection/hover synced bidirectionally with the sidebar.
+- **`DataView`** (`src/components/DataView/`) — full-screen grooming page: all listings regardless of city filter, multi-select filter chips (visited, liked, rated, priority, hidden, wantOffer, etc.), sort by time/price/cap rate/$/sqft/visited/rating, CSV export.
+- **`SummaryModal`** — formatted text summary of the tour + streaming AI insights via `@anthropic-ai/sdk` (`dangerouslyAllowBrowser: true`, model `claude-opus-4-6`).
 
 ### Mobile layout
 
-The app is fully responsive with a breakpoint at `max-width: 767px`:
-
-- **Tab bar** — a bottom `Map` / `List` tab bar (`.mobile-tab-bar`) replaces the side-by-side desktop layout. The active panel is toggled via a `show-map` / `show-list` CSS class on `.app-body`.
-- **Viewport** — uses `100dvh` (dynamic viewport height) so browser chrome doesn't clip content.
-- **Safe areas** — `env(safe-area-inset-top/bottom)` applied to the header and tab bar for notch/home-bar devices.
-- **Touch UX** — `-webkit-tap-highlight-color: transparent` on interactive elements; `-webkit-overflow-scrolling: touch` on the sidebar for momentum scrolling.
-
-### Hidden units
-
-Users can hide individual listings with the "✕" button on each `PropertyCard`. Hidden listings are:
-
-- Filtered out of `timeSlotGroups` in `useListings.ts`.
-- Persisted to **localStorage** immediately.
-- Optionally synced to **JSONBin.io** (cloud) so hidden state roams across devices. Set `VITE_JSONBIN_API_KEY` and `VITE_JSONBIN_BIN_ID` env vars to enable.
-- Restored all at once via the "Restore" button in `Header` (calls `clearHidden()`).
+Breakpoint at `max-width: 767px`. Map/List tab bar at the bottom; active panel toggled via `show-map` / `show-list` class on `.app-body`. Uses `100dvh` and `env(safe-area-inset-*)` for notch devices.
 
 ### Thumbnails
 
-Property thumbnails are pre-fetched by `scripts/fetch-thumbnails.py` into `public/thumbnails/{MLS#}.jpg`. The script scrapes Redfin `og:image` tags. The UI loads thumbnails by MLS# at runtime with no fallback handling beyond the browser's default broken-image state.
-
-### Updating for a new weekend
-
-Two places need updating when refreshing for a new open house weekend:
-1. `src/utils/parseCsv.ts` — `CSV_PATH` constant with the new filename
-2. `src/utils/filterListings.ts` — `isThisWeekend()` date check
+Pre-fetched by `scripts/fetch-thumbnails.py` into `public/thumbnails/{MLS#}.jpg`. Loaded at runtime by MLS# with no fallback beyond browser default broken-image.
