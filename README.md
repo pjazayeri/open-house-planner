@@ -1,73 +1,81 @@
-# React + TypeScript + Vite
+# Open House Tour Planner
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A single-page React + TypeScript app for planning weekend open house visits. Reads a Redfin CSV export, filters to active listings with open houses this weekend, displays them on a map with a sidebar, and persists user state to JSONBin.io cloud sync.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Planner (main view)
+- Interactive map (React-Leaflet) with sidebar showing listings grouped by time slot
+- Nearest-neighbor visit ordering within each time slot
+- Mark listings as visited, rate them 1–5 stars, thumbs up/down, leave pros/cons notes, flag for offer
+- Hide listings from the tour; restore them any time
+- Star priority listings to filter the map/sidebar
+- GPS tracking — shows your current location and highlights the nearest listing
+- City selector to filter by market
+- Summary modal with AI-generated tour insights (Claude claude-opus-4-6 via streaming)
 
-## React Compiler
+### Data page
+- Full-screen table of all listings regardless of city filter
+- Multi-select filter chips: visited, liked, rated, priority, hidden, want-offer, etc.
+- Sort by time, price, cap rate, $/sqft, visited, rating
+- Export to CSV
+- Jump directly to any listing's Finance breakdown
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Finance page — Buy vs Rent
+- Master-detail layout: compact property list on the left, full cost breakdown on the right
+- Per-property monthly cost breakdown:
+  - Principal & interest (standard amortization formula)
+  - Property tax, insurance, HOA, maintenance (reused from cap rate model)
+  - Opportunity cost of down payment (configurable assumed annual return)
+  - Effective total cost vs estimated rent → **buy premium**
+- Configurable inputs (persisted to localStorage): down payment %, mortgage rate, loan term (15/30yr), opportunity return %
+- Mortgage rate auto-fills from FRED (`MORTGAGE30US`) on page load
+- Rows color-coded: green (cheaper to buy or cap rate ≥ 3.5%), yellow ($0–$500/mo premium), red (>$500/mo)
+- Sort by buy premium, monthly cost, price, cap rate, or $/sqft
 
-## Expanding the ESLint configuration
+### Cap rate model
+Estimates cap rate for each listing using zip- and city-level rent $/sqft data, with expense line items for property tax (1.1%), insurance (type-adjusted), vacancy (5%), maintenance (age-adjusted), HOA, and management (multi-family only).
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Setup
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Required environment variables
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Create `.env.local` for local dev (add as GitHub Secrets for deployment):
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
 ```
+VITE_JSONBIN_API_KEY=...    # JSONBin.io API key
+VITE_JSONBIN_BIN_ID=...     # JSONBin.io bin ID for cloud sync
+VITE_ANTHROPIC_API_KEY=...  # Enables AI insights in Summary modal
+```
+
+### Updating for a new weekend
+
+1. Export favorites from Redfin and drop the CSV in `public/`
+2. Update `CSV_PATH` in `src/utils/parseCsv.ts`
+3. Update the date check in `src/utils/filterListings.ts` → `isThisWeekend()`
+4. Optionally re-run `python3 scripts/fetch-thumbnails.py` to fetch new thumbnails
+
+## Commands
+
+```bash
+npm run dev      # Start dev server (Vite HMR)
+npm run build    # Type-check + production build
+npm run lint     # ESLint
+npm run preview  # Preview production build
+
+python3 scripts/fetch-thumbnails.py  # Download listing thumbnails from Redfin
+```
+
+## Tech stack
+
+- React 19 + TypeScript, Vite
+- React-Leaflet for the map
+- PapaParse for CSV parsing
+- JSONBin.io for cloud sync (GET-then-PUT merge to handle concurrent writes)
+- `@anthropic-ai/sdk` for streaming AI summary (browser-side)
+- No backend, no test framework
