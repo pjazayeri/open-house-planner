@@ -17,6 +17,7 @@ export type SyncStatus = "unconfigured" | "loading" | "ok" | "error" | "degraded
 const BIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
 const HEADERS = { "X-Master-Key": JSONBIN_API_KEY };
 
+
 export interface CloudState {
   hiddenIds: string[];
   priorityIds: string[];
