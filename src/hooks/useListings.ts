@@ -46,7 +46,7 @@ interface UseListingsResult {
   visits: Record<string, VisitRecord>;
   markVisited: (id: string) => void;
   setLiked: (id: string, liked: boolean | null) => void;
-  setNotes: (id: string, notes: string) => void;
+  setNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   clearVisit: (id: string) => void;
   // Geolocation
   geoPosition: { lat: number; lng: number } | null;
@@ -68,7 +68,7 @@ export function useListings(): UseListingsResult {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const { hiddenIds, hide, unhide, clearHidden, priorityIds, togglePriority, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds();
-  const { visits, markVisited, setLiked: rawSetLiked, setNotes, clearVisit, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits();
+  const { visits, markVisited, setLiked: rawSetLiked, setNoteField, clearVisit, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits();
 
   const syncStatus: SyncStatus =
     hiddenStatus === "loading" || visitsStatus === "loading" ? "loading" :
@@ -147,7 +147,7 @@ export function useListings(): UseListingsResult {
     visits,
     markVisited,
     setLiked,
-    setNotes,
+    setNoteField,
     clearVisit,
     geoPosition,
     nearbyId,

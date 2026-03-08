@@ -23,15 +23,32 @@ export interface CloudState {
   visits: Record<string, VisitRecord>;
 }
 
+function parseVisitRecord(v: unknown): VisitRecord {
+  const r = v && typeof v === "object" ? (v as Record<string, unknown>) : {};
+  // Migrate old single `notes` field into `pros`
+  const legacyNotes = typeof r.notes === "string" ? r.notes : "";
+  return {
+    visitedAt: typeof r.visitedAt === "string" ? r.visitedAt : new Date().toISOString(),
+    liked: r.liked === true ? true : r.liked === false ? false : null,
+    pros: typeof r.pros === "string" ? r.pros : legacyNotes,
+    cons: typeof r.cons === "string" ? r.cons : "",
+  };
+}
+
 function parseCloudState(record: unknown): CloudState {
   const r = record && typeof record === "object" ? (record as Record<string, unknown>) : {};
+  const rawVisits =
+    r.visits && typeof r.visits === "object" && !Array.isArray(r.visits)
+      ? (r.visits as Record<string, unknown>)
+      : {};
+  const visits: Record<string, VisitRecord> = {};
+  for (const [id, v] of Object.entries(rawVisits)) {
+    visits[id] = parseVisitRecord(v);
+  }
   return {
     hiddenIds: Array.isArray(r.hiddenIds) ? (r.hiddenIds as string[]) : [],
     priorityIds: Array.isArray(r.priorityIds) ? (r.priorityIds as string[]) : [],
-    visits:
-      r.visits && typeof r.visits === "object" && !Array.isArray(r.visits)
-        ? (r.visits as Record<string, VisitRecord>)
-        : {},
+    visits,
   };
 }
 

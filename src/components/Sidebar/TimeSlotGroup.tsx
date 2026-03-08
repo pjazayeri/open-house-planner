@@ -17,7 +17,7 @@ interface TimeSlotGroupProps {
   nearbyId: string | null;
   onMarkVisited: (id: string) => void;
   onSetLiked: (id: string, liked: boolean | null) => void;
-  onSetNotes: (id: string, notes: string) => void;
+  onSetNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   onClearVisit: (id: string) => void;
 }
 
@@ -44,7 +44,7 @@ export function TimeSlotGroup({
   nearbyId,
   onMarkVisited,
   onSetLiked,
-  onSetNotes,
+  onSetNoteField,
   onClearVisit,
 }: TimeSlotGroupProps) {
   const [collapsed, setCollapsed] = useState(false);
@@ -77,7 +77,7 @@ export function TimeSlotGroup({
               isNearby={nearbyId === listing.id}
               onMarkVisited={onMarkVisited}
               onSetLiked={onSetLiked}
-              onSetNotes={onSetNotes}
+              onSetNoteField={onSetNoteField}
               onClearVisit={onClearVisit}
             />
           ))}

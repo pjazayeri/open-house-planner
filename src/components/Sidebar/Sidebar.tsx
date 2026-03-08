@@ -22,7 +22,7 @@ interface SidebarProps {
   onStartGeo: () => void;
   onMarkVisited: (id: string) => void;
   onSetLiked: (id: string, liked: boolean | null) => void;
-  onSetNotes: (id: string, notes: string) => void;
+  onSetNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   onClearVisit: (id: string) => void;
 }
 
@@ -97,7 +97,7 @@ export function Sidebar({
   onStartGeo,
   onMarkVisited,
   onSetLiked,
-  onSetNotes,
+  onSetNoteField,
   onClearVisit,
   showOnlyPriority,
   onTogglePriorityFilter,
@@ -154,7 +154,7 @@ export function Sidebar({
             nearbyId={nearbyId}
             onMarkVisited={onMarkVisited}
             onSetLiked={onSetLiked}
-            onSetNotes={onSetNotes}
+            onSetNoteField={onSetNoteField}
             onClearVisit={onClearVisit}
           />
         ))}

@@ -13,7 +13,7 @@ interface DataViewProps {
   onTogglePriority: (id: string) => void;
   onMarkVisited: (id: string) => void;
   onSetLiked: (id: string, liked: boolean | null) => void;
-  onSetNotes: (id: string, notes: string) => void;
+  onSetNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   onClearVisit: (id: string) => void;
   onBack: () => void;
 }
@@ -21,15 +21,12 @@ interface DataViewProps {
 function fmtDate(d: Date) {
   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
-
 function fmtTime(d: Date) {
   return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
-
 function fmtVisitTime(iso: string) {
   return new Date(iso).toLocaleString("en-US", {
-    month: "short", day: "numeric",
-    hour: "numeric", minute: "2-digit",
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
   });
 }
 
@@ -43,7 +40,7 @@ interface RowProps {
   onTogglePriority: () => void;
   onMarkVisited: () => void;
   onSetLiked: (liked: boolean | null) => void;
-  onSetNotes: (notes: string) => void;
+  onSetNoteField: (field: "pros" | "cons", value: string) => void;
   onClearVisit: () => void;
 }
 
@@ -57,12 +54,19 @@ function DataRow({
   onTogglePriority,
   onMarkVisited,
   onSetLiked,
-  onSetNotes,
+  onSetNoteField,
   onClearVisit,
 }: RowProps) {
-  const [localNotes, setLocalNotes] = useState(visit?.notes ?? "");
+  const [localPros, setLocalPros] = useState(visit?.pros ?? "");
+  const [localCons, setLocalCons] = useState(visit?.cons ?? "");
   const [saved, setSaved] = useState(false);
   const [thumbError, setThumbError] = useState(false);
+
+  // If rating is set without an existing visit, auto-create one first
+  const handleSetLiked = (liked: boolean | null) => {
+    if (!visit && liked !== null) onMarkVisited();
+    onSetLiked(liked);
+  };
 
   const rowClass = [
     "dv-row",
@@ -74,7 +78,6 @@ function DataRow({
 
   return (
     <div className={rowClass}>
-      {/* Thumbnail */}
       <div className="dv-thumb">
         {!thumbError ? (
           <img
@@ -87,7 +90,6 @@ function DataRow({
         )}
       </div>
 
-      {/* Address + details */}
       <div className="dv-info">
         <a className="dv-address" href={l.url} target="_blank" rel="noopener noreferrer">
           {l.address}
@@ -107,9 +109,7 @@ function DataRow({
         </div>
       </div>
 
-      {/* Controls */}
       <div className="dv-controls">
-        {/* Priority */}
         <button
           className={`dv-btn dv-priority ${isPriority ? "active" : ""}`}
           title={isPriority ? "Remove from priority" : "Mark as priority"}
@@ -118,33 +118,29 @@ function DataRow({
           {isPriority ? "★" : "☆"}
         </button>
 
-        {/* Visit */}
         {visit ? (
           <div className="dv-visited">
             <span className="dv-visited-time">{fmtVisitTime(visit.visitedAt)}</span>
             <button className="dv-btn dv-clear" title="Clear visit" onClick={onClearVisit}>✕</button>
           </div>
         ) : (
-          <button className="dv-btn dv-visit" onClick={onMarkVisited}>
-            Visit
-          </button>
+          <button className="dv-btn dv-visit" onClick={onMarkVisited}>Visit</button>
         )}
 
-        {/* Rating */}
-        {visit && (
-          <div className="dv-rating">
-            <button
-              className={`dv-btn dv-thumb ${visit.liked === true ? "active-up" : ""}`}
-              onClick={() => onSetLiked(visit.liked === true ? null : true)}
-            >👍</button>
-            <button
-              className={`dv-btn dv-thumb ${visit.liked === false ? "active-down" : ""}`}
-              onClick={() => onSetLiked(visit.liked === false ? null : false)}
-            >👎</button>
-          </div>
-        )}
+        {/* Rating always visible — clicking without a visit auto-marks visited */}
+        <div className="dv-rating">
+          <button
+            className={`dv-btn dv-thumb ${visit?.liked === true ? "active-up" : ""}`}
+            title="Liked it"
+            onClick={() => handleSetLiked(visit?.liked === true ? null : true)}
+          >👍</button>
+          <button
+            className={`dv-btn dv-thumb ${visit?.liked === false ? "active-down" : ""}`}
+            title="Didn't like it"
+            onClick={() => handleSetLiked(visit?.liked === false ? null : false)}
+          >👎</button>
+        </div>
 
-        {/* Hide/unhide */}
         <button
           className={`dv-btn dv-hide ${isHidden ? "is-hidden" : ""}`}
           title={isHidden ? "Restore listing" : "Hide listing"}
@@ -154,27 +150,66 @@ function DataRow({
         </button>
       </div>
 
-      {/* Notes */}
       <div className="dv-notes-col">
-        <textarea
-          className="dv-notes"
-          placeholder="Notes…"
-          value={localNotes}
-          rows={2}
-          onChange={(e) => { setLocalNotes(e.target.value); setSaved(false); }}
-          onBlur={() => {
-            onSetNotes(localNotes);
-            setSaved(true);
-            setTimeout(() => setSaved(false), 2000);
-          }}
-        />
+        <div className="dv-notes-grid">
+          <div className="dv-notes-field">
+            <label className="dv-notes-label">Pros</label>
+            <textarea
+              className="dv-notes"
+              placeholder="What did you like?"
+              value={localPros}
+              rows={2}
+              onChange={(e) => { setLocalPros(e.target.value); setSaved(false); }}
+              onBlur={() => {
+                onSetNoteField("pros", localPros);
+                setSaved(true);
+                setTimeout(() => setSaved(false), 2000);
+              }}
+            />
+          </div>
+          <div className="dv-notes-field">
+            <label className="dv-notes-label">Cons</label>
+            <textarea
+              className="dv-notes"
+              placeholder="What didn't work?"
+              value={localCons}
+              rows={2}
+              onChange={(e) => { setLocalCons(e.target.value); setSaved(false); }}
+              onBlur={() => {
+                onSetNoteField("cons", localCons);
+                setSaved(true);
+                setTimeout(() => setSaved(false), 2000);
+              }}
+            />
+          </div>
+        </div>
         {saved && <span className="dv-saved">Saved ✓</span>}
       </div>
     </div>
   );
 }
 
-type SortKey = "time" | "price" | "capRate";
+type SortKey = "time" | "price" | "capRate" | "visited" | "liked";
+type FilterKey = "all" | "visited" | "unvisited" | "liked" | "disliked" | "neutral" | "priority" | "hidden";
+
+const SORT_LABELS: Record<SortKey, string> = {
+  time: "Time",
+  price: "Price",
+  capRate: "Cap Rate",
+  visited: "Visited",
+  liked: "Liked",
+};
+
+const FILTER_LABELS: Record<FilterKey, string> = {
+  all: "All",
+  visited: "Visited",
+  unvisited: "Not Visited",
+  liked: "Liked",
+  disliked: "Disliked",
+  neutral: "No Rating",
+  priority: "Priority",
+  hidden: "Hidden",
+};
 
 export function DataView({
   allListings,
@@ -186,66 +221,106 @@ export function DataView({
   onTogglePriority,
   onMarkVisited,
   onSetLiked,
-  onSetNotes,
+  onSetNoteField,
   onClearVisit,
   onBack,
 }: DataViewProps) {
   const [sortKey, setSortKey] = useState<SortKey>("time");
-  const [showHidden, setShowHidden] = useState(true);
+  const [filterKey, setFilterKey] = useState<FilterKey>("all");
 
-  const sorted = [...allListings]
-    .filter((l) => showHidden || !hiddenIds.has(l.id))
-    .sort((a, b) => {
-      if (sortKey === "price") return a.price - b.price;
-      if (sortKey === "capRate") return b.capRate - a.capRate;
-      return a.openHouseStart.getTime() - b.openHouseStart.getTime();
-    });
+  function likedOrder(id: string): number {
+    const v = visits[id];
+    if (!v) return 3;
+    if (v.liked === true) return 0;
+    if (v.liked === null) return 1;
+    return 2;
+  }
 
-  const visitedCount = Object.keys(visits).length;
-  const likedCount = Object.values(visits).filter((v) => v.liked === true).length;
+  function visitedOrder(id: string): number {
+    return visits[id] ? 0 : 1;
+  }
+
+  const filtered = allListings.filter((l) => {
+    const v = visits[l.id];
+    switch (filterKey) {
+      case "visited":   return !!v;
+      case "unvisited": return !v;
+      case "liked":     return v?.liked === true;
+      case "disliked":  return v?.liked === false;
+      case "neutral":   return !!v && v.liked === null;
+      case "priority":  return priorityIds.has(l.id);
+      case "hidden":    return hiddenIds.has(l.id);
+      default:          return true; // "all" — include everything
+    }
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortKey === "price")   return a.price - b.price;
+    if (sortKey === "capRate") return b.capRate - a.capRate;
+    if (sortKey === "visited") return visitedOrder(a.id) - visitedOrder(b.id);
+    if (sortKey === "liked")   return likedOrder(a.id) - likedOrder(b.id);
+    return a.openHouseStart.getTime() - b.openHouseStart.getTime();
+  });
+
+  const visitedCount  = Object.keys(visits).length;
+  const likedCount    = Object.values(visits).filter((v) => v.liked === true).length;
   const dislikedCount = Object.values(visits).filter((v) => v.liked === false).length;
 
   return (
     <div className="dv-page">
       <div className="dv-header">
-        <button className="dv-back" onClick={onBack}>← Back</button>
-        <div className="dv-header-center">
-          <h2>All Listings</h2>
-          <div className="dv-stats">
-            <span>{allListings.length} total</span>
-            <span>·</span>
-            <span>{visitedCount} visited</span>
-            <span>·</span>
-            <span>{likedCount} liked</span>
-            {dislikedCount > 0 && <><span>·</span><span>{dislikedCount} disliked</span></>}
-            {hiddenIds.size > 0 && <><span>·</span><span>{hiddenIds.size} hidden</span></>}
+        <div className="dv-header-top">
+          <button className="dv-back" onClick={onBack}>← Back</button>
+          <div className="dv-header-center">
+            <h2>All Listings</h2>
+            <div className="dv-stats">
+              <span>{allListings.length} total</span>
+              <span>·</span>
+              <span>{visitedCount} visited</span>
+              <span>·</span>
+              <span>{likedCount} liked</span>
+              {dislikedCount > 0 && <><span>·</span><span>{dislikedCount} disliked</span></>}
+              {hiddenIds.size > 0 && <><span>·</span><span>{hiddenIds.size} hidden</span></>}
+            </div>
           </div>
         </div>
-        <div className="dv-header-controls">
-          <label className="dv-toggle">
-            <input
-              type="checkbox"
-              checked={showHidden}
-              onChange={(e) => setShowHidden(e.target.checked)}
-            />
-            Show hidden
-          </label>
-          <div className="dv-sort">
-            <span>Sort:</span>
-            {(["time", "price", "capRate"] as SortKey[]).map((k) => (
-              <button
-                key={k}
-                className={`dv-sort-btn ${sortKey === k ? "active" : ""}`}
-                onClick={() => setSortKey(k)}
-              >
-                {k === "time" ? "Time" : k === "price" ? "Price" : "Cap Rate"}
-              </button>
-            ))}
+
+        <div className="dv-header-bottom">
+          <div className="dv-control-row">
+            <span className="dv-control-label">Filter</span>
+            <div className="dv-chips">
+              {(Object.keys(FILTER_LABELS) as FilterKey[]).map((k) => (
+                <button
+                  key={k}
+                  className={`dv-chip ${filterKey === k ? "active" : ""}`}
+                  onClick={() => setFilterKey(k)}
+                >
+                  {FILTER_LABELS[k]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="dv-control-row">
+            <span className="dv-control-label">Sort</span>
+            <div className="dv-chips">
+              {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+                <button
+                  key={k}
+                  className={`dv-chip ${sortKey === k ? "active" : ""}`}
+                  onClick={() => setSortKey(k)}
+                >
+                  {SORT_LABELS[k]}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
       <div className="dv-list">
+        {sorted.length === 0 && (
+          <div className="dv-empty">No listings match this filter.</div>
+        )}
         {sorted.map((l) => (
           <DataRow
             key={l.id}
@@ -258,7 +333,7 @@ export function DataView({
             onTogglePriority={() => onTogglePriority(l.id)}
             onMarkVisited={() => onMarkVisited(l.id)}
             onSetLiked={(liked) => onSetLiked(l.id, liked)}
-            onSetNotes={(notes) => onSetNotes(l.id, notes)}
+            onSetNoteField={(field, value) => onSetNoteField(l.id, field, value)}
             onClearVisit={() => onClearVisit(l.id)}
           />
         ))}

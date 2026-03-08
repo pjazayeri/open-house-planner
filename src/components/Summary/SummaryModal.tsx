@@ -53,7 +53,8 @@ function buildSummaryText(
     lines.push(`  ${formatPrice(l.price)} · ${formatBedsBaths(l.beds, l.baths)}${l.sqft ? ` · ${l.sqft.toLocaleString()} sqft` : ""} · ${l.capRate.toFixed(1)}% cap`);
     lines.push(`  ${formatTimeRange(l.openHouseStart, l.openHouseEnd)} · ${rating}`);
     lines.push(`  Visited: ${fmtVisitTime(v.visitedAt)}`);
-    if (v.notes.trim()) lines.push(`  Notes: ${v.notes.trim()}`);
+    if (v.pros.trim()) lines.push(`  Pros: ${v.pros.trim()}`);
+    if (v.cons.trim()) lines.push(`  Cons: ${v.cons.trim()}`);
     lines.push("");
   }
 

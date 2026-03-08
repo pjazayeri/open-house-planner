@@ -393,6 +393,22 @@
   margin-left: 4px;
 }
 
+.visit-notes-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.visit-notes-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #64748b;
+  margin-bottom: 3px;
+}
+
 .visit-notes {
   width: 100%;
   padding: 6px 8px;

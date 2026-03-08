@@ -17,7 +17,7 @@ interface PropertyCardProps {
   isNearby: boolean;
   onMarkVisited: (id: string) => void;
   onSetLiked: (id: string, liked: boolean | null) => void;
-  onSetNotes: (id: string, notes: string) => void;
+  onSetNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   onClearVisit: (id: string) => void;
 }
 
@@ -87,12 +87,13 @@ export function PropertyCard({
   isNearby,
   onMarkVisited,
   onSetLiked,
-  onSetNotes,
+  onSetNoteField,
   onClearVisit,
 }: PropertyCardProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [thumbError, setThumbError] = useState(false);
-  const [localNotes, setLocalNotes] = useState(visit?.notes ?? "");
+  const [localPros, setLocalPros] = useState(visit?.pros ?? "");
+  const [localCons, setLocalCons] = useState(visit?.cons ?? "");
   const [notesSaved, setNotesSaved] = useState(false);
 
   const classes = [
@@ -243,18 +244,38 @@ export function PropertyCard({
               👎
             </button>
           </div>
-          <textarea
-            className="visit-notes"
-            placeholder="Add notes about this property…"
-            value={localNotes}
-            rows={2}
-            onChange={(e) => { setLocalNotes(e.target.value); setNotesSaved(false); }}
-            onBlur={() => {
-              onSetNotes(listing.id, localNotes);
-              setNotesSaved(true);
-              setTimeout(() => setNotesSaved(false), 2000);
-            }}
-          />
+          <div className="visit-notes-grid">
+            <div className="visit-notes-field">
+              <label className="visit-notes-label">Pros</label>
+              <textarea
+                className="visit-notes"
+                placeholder="What did you like?"
+                value={localPros}
+                rows={2}
+                onChange={(e) => { setLocalPros(e.target.value); setNotesSaved(false); }}
+                onBlur={() => {
+                  onSetNoteField(listing.id, "pros", localPros);
+                  setNotesSaved(true);
+                  setTimeout(() => setNotesSaved(false), 2000);
+                }}
+              />
+            </div>
+            <div className="visit-notes-field">
+              <label className="visit-notes-label">Cons</label>
+              <textarea
+                className="visit-notes"
+                placeholder="What didn't work?"
+                value={localCons}
+                rows={2}
+                onChange={(e) => { setLocalCons(e.target.value); setNotesSaved(false); }}
+                onBlur={() => {
+                  onSetNoteField(listing.id, "cons", localCons);
+                  setNotesSaved(true);
+                  setTimeout(() => setNotesSaved(false), 2000);
+                }}
+              />
+            </div>
+          </div>
           {notesSaved && <span className="notes-saved">Saved ✓</span>}
         </div>
       )}

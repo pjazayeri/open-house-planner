@@ -64,7 +64,7 @@ function App() {
     visits,
     markVisited,
     setLiked,
-    setNotes,
+    setNoteField,
     clearVisit,
     geoPosition,
     nearbyId,
@@ -160,7 +160,7 @@ function App() {
         onTogglePriority={togglePriority}
         onMarkVisited={markVisited}
         onSetLiked={setLiked}
-        onSetNotes={setNotes}
+        onSetNoteField={setNoteField}
         onClearVisit={clearVisit}
         onBack={() => setPage("planner")}
       />
@@ -201,7 +201,7 @@ function App() {
           onStartGeo={startGeo}
           onMarkVisited={markVisited}
           onSetLiked={setLiked}
-          onSetNotes={setNotes}
+          onSetNoteField={setNoteField}
           onClearVisit={clearVisit}
         />
         <MapView
