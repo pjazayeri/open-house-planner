@@ -291,23 +291,33 @@ export function MapView({
         />
         <PanToUserPosition userPosition={userPosition} />
 
-        {/* Route polyline */}
+        {/* Route polyline — white halo + blue line so it reads against any tile */}
         {routeCoords.length > 1 && (
-          <Polyline
-            positions={routeCoords}
-            pathOptions={osrmRoute
-              ? { color: "#475569", weight: 3, opacity: 0.75 }
-              : { color: "#475569", weight: 2, dashArray: "8 6", opacity: 0.5 }
-            }
-          />
+          <>
+            <Polyline
+              positions={routeCoords}
+              pathOptions={osrmRoute
+                ? { color: "#ffffff", weight: 7, opacity: 0.85 }
+                : { color: "#ffffff", weight: 5, opacity: 0.6, dashArray: "10 7" }
+              }
+            />
+            <Polyline
+              positions={routeCoords}
+              pathOptions={osrmRoute
+                ? { color: "#2563eb", weight: 4, opacity: 0.9 }
+                : { color: "#2563eb", weight: 2.5, opacity: 0.7, dashArray: "10 7" }
+              }
+            />
+          </>
         )}
         {/* Directional arrows along the route */}
         {routeCoords.length > 1 && (() => {
-          const N = Math.min(7, Math.floor(routeCoords.length / 4));
+          const N = Math.min(8, Math.max(2, Math.floor(routeCoords.length / 12)));
           const step = Math.floor(routeCoords.length / (N + 1));
           return Array.from({ length: N }, (_, a) => {
             const i = step * (a + 1);
-            const j = Math.min(i + Math.max(1, Math.floor(step / 3)), routeCoords.length - 1);
+            // look slightly ahead for a stable bearing even on curved roads
+            const j = Math.min(i + Math.max(2, Math.floor(step / 4)), routeCoords.length - 1);
             const [lat1, lng1] = routeCoords[i];
             const [lat2, lng2] = routeCoords[j];
             const angle = Math.atan2(lng2 - lng1, lat2 - lat1) * (180 / Math.PI);
@@ -317,12 +327,12 @@ export function MapView({
                 position={[lat1, lng1]}
                 icon={L.divIcon({
                   className: "route-arrow-marker",
-                  html: `<div style="transform:rotate(${angle}deg);color:#475569;font-size:13px;line-height:1;opacity:0.85">▲</div>`,
-                  iconSize: [13, 13],
-                  iconAnchor: [6.5, 6.5],
+                  html: `<div style="transform:rotate(${angle}deg);color:#2563eb;font-size:18px;line-height:1;text-shadow:0 0 4px #fff,0 0 4px #fff">▲</div>`,
+                  iconSize: [18, 18],
+                  iconAnchor: [9, 9],
                 })}
                 interactive={false}
-                zIndexOffset={-200}
+                zIndexOffset={-100}
               />
             );
           });
