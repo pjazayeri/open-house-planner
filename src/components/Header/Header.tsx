@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import type { TimeSlotGroup } from "../../types";
 import type { SyncStatus } from "../../utils/cloudSync";
 import type { Page } from "../../App";
@@ -16,6 +17,7 @@ interface HeaderProps {
   syncStatus: SyncStatus;
   saveFailed: boolean;
   onShowSummary: () => void;
+  onUploadCsv: (text: string) => void;
 }
 
 function SyncBadge({ syncStatus, saveFailed }: { syncStatus: SyncStatus; saveFailed: boolean }) {
@@ -55,7 +57,21 @@ export function Header({
   syncStatus,
   saveFailed,
   onShowSummary,
+  onUploadCsv,
 }: HeaderProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result;
+      if (typeof text === "string") onUploadCsv(text);
+    };
+    reader.readAsText(file);
+    e.target.value = ""; // reset so same file can be re-uploaded
+  }
   const cityCount = timeSlotGroups.reduce(
     (sum, g) => sum + g.listings.length,
     0
@@ -104,6 +120,20 @@ export function Header({
         </button>
         <button className="nav-tab nav-tab--summary" onClick={onShowSummary}>
           Summary
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv"
+          style={{ display: "none" }}
+          onChange={handleFileChange}
+        />
+        <button
+          className="nav-tab nav-tab--upload"
+          onClick={() => fileInputRef.current?.click()}
+          title="Upload a Redfin favorites CSV to update listings"
+        >
+          ↑ Upload CSV
         </button>
       </nav>
 

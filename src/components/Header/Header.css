@@ -39,6 +39,8 @@
 .nav-tab:hover { color: #cbd5e1; border-color: #334155; }
 .nav-tab.active { color: #f1f5f9; border-color: #475569; background: #1e293b; }
 .nav-tab--summary { color: #94a3b8; }
+.nav-tab--upload { color: #34d399; }
+.nav-tab--upload:hover { border-color: #34d399 !important; color: #34d399 !important; }
 
 .header-title {
   margin: 0;

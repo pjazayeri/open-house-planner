@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import type { Listing, TimeSlotGroup, VisitRecord } from "../types";
-import { loadCsv } from "../utils/parseCsv";
+import { loadCsv, uploadCsvText } from "../utils/parseCsv";
 import { filterAndTransform, getCities } from "../utils/filterListings";
 import { optimizeRoute } from "../utils/routeOptimizer";
 import { useHiddenIds } from "./useHiddenIds";
@@ -51,6 +51,7 @@ interface UseListingsResult {
   toggleWantOffer: (id: string) => void;
   clearVisit: (id: string) => void;
   importData: (hiddenIds: string[], priorityIds: string[], visits: Record<string, VisitRecord>) => void;
+  uploadListings: (csvText: string) => Promise<void>;
   // Geolocation
   geoPosition: { lat: number; lng: number } | null;
   nearbyId: string | null;
@@ -157,6 +158,13 @@ export function useListings(): UseListingsResult {
     importData: (h: string[], p: string[], v: Record<string, VisitRecord>) => {
       importHiddenAndPriority(h, p);
       importVisits(v);
+    },
+    uploadListings: async (csvText: string) => {
+      const rows = await uploadCsvText(csvText);
+      const filtered = filterAndTransform(rows);
+      setAllListings(filtered);
+      const cities = getCities(filtered);
+      if (cities.length > 0) setSelectedCity(cities[0]);
     },
     geoPosition,
     nearbyId,

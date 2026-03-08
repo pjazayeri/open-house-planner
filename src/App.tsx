@@ -73,6 +73,7 @@ function App() {
     toggleWantOffer,
     clearVisit,
     importData,
+    uploadListings,
     geoPosition,
     nearbyId,
     geoWatching,
@@ -239,6 +240,7 @@ function App() {
         syncStatus={syncStatus}
         saveFailed={saveFailed}
         onShowSummary={() => setShowSummary(true)}
+        onUploadCsv={uploadListings}
       />
       <div className={`app-body show-${mobileTab}`}>
         <Sidebar

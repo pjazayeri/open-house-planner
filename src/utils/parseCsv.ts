@@ -1,12 +1,10 @@
 import Papa from "papaparse";
 import type { RawListing } from "../types";
 
-const CSV_PATH = `${import.meta.env.BASE_URL}redfin-favorites_2026-03-07-13-30-19.csv`;
+const CSV_PATH = `${import.meta.env.BASE_URL}redfin-favorites_2026-03-08-12-12-46.csv`;
+const STORAGE_KEY = "redfin-csv";
 
-export async function loadCsv(): Promise<RawListing[]> {
-  const response = await fetch(CSV_PATH);
-  const text = await response.text();
-
+function parseCsvText(text: string): Promise<RawListing[]> {
   return new Promise((resolve, reject) => {
     Papa.parse<RawListing>(text, {
       header: true,
@@ -15,4 +13,18 @@ export async function loadCsv(): Promise<RawListing[]> {
       error: (err: Error) => reject(err),
     });
   });
+}
+
+export async function loadCsv(): Promise<RawListing[]> {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) return parseCsvText(stored);
+
+  const response = await fetch(CSV_PATH);
+  const text = await response.text();
+  return parseCsvText(text);
+}
+
+export async function uploadCsvText(text: string): Promise<RawListing[]> {
+  localStorage.setItem(STORAGE_KEY, text);
+  return parseCsvText(text);
 }
