@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { USE_CLOUD, cloudFetch, cloudPatch } from "../utils/cloudSync";
 import type { SyncStatus } from "../utils/cloudSync";
 
@@ -8,7 +8,9 @@ interface UseHiddenIdsResult {
   unhide: (id: string) => void;
   clearHidden: () => void;
   priorityIds: Set<string>;
+  priorityOrder: string[];
   togglePriority: (id: string) => void;
+  reorderPriority: (newOrder: string[]) => void;
   importHiddenAndPriority: (hiddenIds: string[], priorityIds: string[]) => void;
   syncStatus: SyncStatus;
   saveFailed: boolean;
@@ -16,7 +18,7 @@ interface UseHiddenIdsResult {
 
 export function useHiddenIds(): UseHiddenIdsResult {
   const [hiddenIds, setHiddenIds] = useState<Set<string> | null>(null);
-  const [priorityIds, setPriorityIds] = useState<Set<string>>(new Set());
+  const [priorityOrder, setPriorityOrder] = useState<string[]>([]);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(
     USE_CLOUD ? "loading" : "unconfigured"
   );
@@ -30,7 +32,7 @@ export function useHiddenIds(): UseHiddenIdsResult {
     cloudFetch()
       .then((state) => {
         setHiddenIds(new Set(state.hiddenIds));
-        setPriorityIds(new Set(state.priorityIds));
+        setPriorityOrder(state.priorityIds); // array order preserved
         setSyncStatus("ok");
       })
       .catch((err: unknown) => {
@@ -45,16 +47,18 @@ export function useHiddenIds(): UseHiddenIdsResult {
       });
   }, []);
 
+  const priorityIds = useMemo(() => new Set(priorityOrder), [priorityOrder]);
+
   const persistHidden = useCallback((ids: Set<string>) => {
     if (!USE_CLOUD) return;
     setSaveFailed(false);
     cloudPatch({ hiddenIds: Array.from(ids) }).catch(() => setSaveFailed(true));
   }, []);
 
-  const persistPriority = useCallback((ids: Set<string>) => {
+  const persistPriority = useCallback((order: string[]) => {
     if (!USE_CLOUD) return;
     setSaveFailed(false);
-    cloudPatch({ priorityIds: Array.from(ids) }).catch(() => setSaveFailed(true));
+    cloudPatch({ priorityIds: order }).catch(() => setSaveFailed(true));
   }, []);
 
   const hide = useCallback(
@@ -88,19 +92,24 @@ export function useHiddenIds(): UseHiddenIdsResult {
   }, [persistHidden]);
 
   const togglePriority = useCallback((id: string) => {
-    setPriorityIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      persistPriority(next);
-      return next;
+    setPriorityOrder((prev) => {
+      const newOrder = prev.includes(id)
+        ? prev.filter((x) => x !== id)
+        : [...prev, id];
+      persistPriority(newOrder);
+      return newOrder;
     });
+  }, [persistPriority]);
+
+  const reorderPriority = useCallback((newOrder: string[]) => {
+    setPriorityOrder(newOrder);
+    persistPriority(newOrder);
   }, [persistPriority]);
 
   const importHiddenAndPriority = useCallback((h: string[], p: string[]) => {
     const hSet = new Set(h);
-    const pSet = new Set(p);
     setHiddenIds(hSet);
-    setPriorityIds(pSet);
+    setPriorityOrder(p);
     if (USE_CLOUD) {
       setSaveFailed(false);
       cloudPatch({ hiddenIds: h, priorityIds: p }).catch(() => setSaveFailed(true));
@@ -113,7 +122,9 @@ export function useHiddenIds(): UseHiddenIdsResult {
     unhide,
     clearHidden,
     priorityIds,
+    priorityOrder,
     togglePriority,
+    reorderPriority,
     importHiddenAndPriority,
     syncStatus,
     saveFailed,

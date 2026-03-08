@@ -41,7 +41,9 @@ interface UseListingsResult {
   unhideListing: (id: string) => void;
   clearHidden: () => void;
   priorityIds: Set<string>;
+  priorityOrder: string[];
   togglePriority: (id: string) => void;
+  reorderPriority: (newOrder: string[]) => void;
   // Visit state
   visits: Record<string, VisitRecord>;
   markVisited: (id: string) => void;
@@ -71,7 +73,7 @@ export function useListings(): UseListingsResult {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  const { hiddenIds, hide, unhide, clearHidden, priorityIds, togglePriority, importHiddenAndPriority, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds();
+  const { hiddenIds, hide, unhide, clearHidden, priorityIds, priorityOrder, togglePriority, reorderPriority, importHiddenAndPriority, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds();
   const { visits, markVisited, setLiked, setRating, setNoteField, toggleWantOffer, clearVisit, importVisits, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits();
 
   const syncStatus: SyncStatus =
@@ -149,7 +151,9 @@ export function useListings(): UseListingsResult {
     unhideListing,
     clearHidden,
     priorityIds,
+    priorityOrder,
     togglePriority,
+    reorderPriority,
     visits,
     markVisited,
     setLiked,
