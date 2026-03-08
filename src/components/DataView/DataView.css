@@ -228,6 +228,8 @@
 .dv-thumb.active-up { color: #22c55e; border-color: #22c55e; }
 .dv-thumb.active-down { color: #ef4444; border-color: #ef4444; }
 .dv-hide.is-hidden { color: #64748b; }
+.dv-offer { color: #94a3b8; }
+.dv-offer.active { color: #3b82f6; border-color: #3b82f6; background: rgba(59,130,246,0.1); }
 .dv-visit { color: #60a5fa; border-color: #3b82f6; }
 .dv-visit:hover { background: rgba(59,130,246,0.15); }
 

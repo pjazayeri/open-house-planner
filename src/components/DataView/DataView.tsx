@@ -13,6 +13,7 @@ interface DataViewProps {
   onTogglePriority: (id: string) => void;
   onMarkVisited: (id: string) => void;
   onSetLiked: (id: string, liked: boolean | null) => void;
+  onToggleWantOffer: (id: string) => void;
   onSetNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   onClearVisit: (id: string) => void;
   onBack: () => void;
@@ -40,6 +41,7 @@ interface RowProps {
   onTogglePriority: () => void;
   onMarkVisited: () => void;
   onSetLiked: (liked: boolean | null) => void;
+  onToggleWantOffer: () => void;
   onSetNoteField: (field: "pros" | "cons", value: string) => void;
   onClearVisit: () => void;
 }
@@ -54,6 +56,7 @@ function DataRow({
   onTogglePriority,
   onMarkVisited,
   onSetLiked,
+  onToggleWantOffer,
   onSetNoteField,
   onClearVisit,
 }: RowProps) {
@@ -141,6 +144,16 @@ function DataRow({
           >👎</button>
         </div>
 
+        {visit && (
+          <button
+            className={`dv-btn dv-offer ${visit.wantOffer ? "active" : ""}`}
+            title={visit.wantOffer ? "Remove offer interest" : "Want to put in an offer"}
+            onClick={onToggleWantOffer}
+          >
+            🏠
+          </button>
+        )}
+
         <button
           className={`dv-btn dv-hide ${isHidden ? "is-hidden" : ""}`}
           title={isHidden ? "Restore listing" : "Hide listing"}
@@ -190,7 +203,7 @@ function DataRow({
 }
 
 type SortKey = "time" | "price" | "capRate" | "pricePerSqft" | "visited" | "liked";
-type FilterKey = "all" | "visited" | "unvisited" | "liked" | "disliked" | "neutral" | "priority" | "hidden";
+type FilterKey = "all" | "visited" | "unvisited" | "liked" | "disliked" | "neutral" | "priority" | "hidden" | "wantOffer";
 
 const SORT_LABELS: Record<SortKey, string> = {
   time: "Time",
@@ -210,6 +223,7 @@ const FILTER_LABELS: Record<FilterKey, string> = {
   neutral: "No Rating",
   priority: "Priority",
   hidden: "Hidden",
+  wantOffer: "Want to Offer",
 };
 
 export function DataView({
@@ -222,6 +236,7 @@ export function DataView({
   onTogglePriority,
   onMarkVisited,
   onSetLiked,
+  onToggleWantOffer,
   onSetNoteField,
   onClearVisit,
   onBack,
@@ -259,6 +274,7 @@ export function DataView({
       case "neutral":   return !!v && v.liked === null;
       case "priority":  return priorityIds.has(id);
       case "hidden":    return hiddenIds.has(id);
+      case "wantOffer": return visits[id]?.wantOffer === true;
       default:          return true;
     }
   }
@@ -289,7 +305,7 @@ export function DataView({
     const headers = [
       "Address", "Price", "Beds", "Baths", "Sqft", "Cap Rate (%)",
       "Property Type", "Open House Date", "Open House Time",
-      "Priority", "Hidden", "Visited", "Visited At", "Rating",
+      "Priority", "Hidden", "Visited", "Visited At", "Rating", "Want Offer",
       "Pros", "Cons", "Redfin URL",
     ];
     const rows = allListings
@@ -312,6 +328,7 @@ export function DataView({
           v ? "yes" : "no",
           v ? esc(new Date(v.visitedAt).toLocaleString()) : "",
           esc(rating),
+          v?.wantOffer ? "yes" : "no",
           esc(v?.pros ?? ""),
           esc(v?.cons ?? ""),
           esc(l.url),
@@ -404,6 +421,7 @@ export function DataView({
             onTogglePriority={() => onTogglePriority(l.id)}
             onMarkVisited={() => onMarkVisited(l.id)}
             onSetLiked={(liked) => onSetLiked(l.id, liked)}
+            onToggleWantOffer={() => onToggleWantOffer(l.id)}
             onSetNoteField={(field, value) => onSetNoteField(l.id, field, value)}
             onClearVisit={() => onClearVisit(l.id)}
           />

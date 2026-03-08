@@ -68,4 +68,5 @@ export interface VisitRecord {
   liked: boolean | null; // null = no rating yet
   pros: string;
   cons: string;
+  wantOffer: boolean;
 }

@@ -17,6 +17,7 @@ interface PropertyCardProps {
   isNearby: boolean;
   onMarkVisited: (id: string) => void;
   onSetLiked: (id: string, liked: boolean | null) => void;
+  onToggleWantOffer: (id: string) => void;
   onSetNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   onClearVisit: (id: string) => void;
 }
@@ -87,6 +88,7 @@ export function PropertyCard({
   isNearby,
   onMarkVisited,
   onSetLiked,
+  onToggleWantOffer,
   onSetNoteField,
   onClearVisit,
 }: PropertyCardProps) {
@@ -242,6 +244,15 @@ export function PropertyCard({
               title="Not for me"
             >
               👎
+            </button>
+          </div>
+          <div className="offer-row">
+            <button
+              className={`offer-btn ${visit.wantOffer ? "active" : ""}`}
+              onClick={() => onToggleWantOffer(listing.id)}
+              title={visit.wantOffer ? "Remove offer interest" : "Mark as want to offer"}
+            >
+              {visit.wantOffer ? "🏠 Want to put in an offer" : "Put in an offer?"}
             </button>
           </div>
           <div className="visit-notes-grid">

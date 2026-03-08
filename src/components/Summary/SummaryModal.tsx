@@ -44,7 +44,8 @@ function buildSummaryText(
   lines.push(`OPEN HOUSE TOUR SUMMARY`);
   lines.push(`Generated ${date}`);
   lines.push(`${"─".repeat(50)}`);
-  lines.push(`${visited.length} visited · ${liked.length} liked · ${disliked.length} disliked · ${unvisitedPriority.length} planned but not visited`);
+  const wantOfferCount = visited.filter((x) => x.visit.wantOffer).length;
+  lines.push(`${visited.length} visited · ${liked.length} liked · ${disliked.length} disliked · ${wantOfferCount > 0 ? `${wantOfferCount} want to offer · ` : ""}${unvisitedPriority.length} planned but not visited`);
   lines.push("");
 
   function formatEntry({ listing: l, visit: v }: { listing: Listing; visit: VisitRecord }) {
@@ -53,6 +54,7 @@ function buildSummaryText(
     lines.push(`  ${formatPrice(l.price)} · ${formatBedsBaths(l.beds, l.baths)}${l.sqft ? ` · ${l.sqft.toLocaleString()} sqft` : ""} · ${l.capRate.toFixed(1)}% cap`);
     lines.push(`  ${formatTimeRange(l.openHouseStart, l.openHouseEnd)} · ${rating}`);
     lines.push(`  Visited: ${fmtVisitTime(v.visitedAt)}`);
+    if (v.wantOffer) lines.push(`  ★ Want to put in an offer`);
     if (v.pros.trim()) lines.push(`  Pros: ${v.pros.trim()}`);
     if (v.cons.trim()) lines.push(`  Cons: ${v.cons.trim()}`);
     lines.push("");

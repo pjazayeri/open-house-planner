@@ -65,6 +65,7 @@ function App() {
     markVisited,
     setLiked,
     setNoteField,
+    toggleWantOffer,
     clearVisit,
     geoPosition,
     nearbyId,
@@ -160,6 +161,7 @@ function App() {
         onTogglePriority={togglePriority}
         onMarkVisited={markVisited}
         onSetLiked={setLiked}
+        onToggleWantOffer={toggleWantOffer}
         onSetNoteField={setNoteField}
         onClearVisit={clearVisit}
         onBack={() => setPage("planner")}
@@ -201,6 +203,7 @@ function App() {
           onStartGeo={startGeo}
           onMarkVisited={markVisited}
           onSetLiked={setLiked}
+        onToggleWantOffer={toggleWantOffer}
           onSetNoteField={setNoteField}
           onClearVisit={clearVisit}
         />

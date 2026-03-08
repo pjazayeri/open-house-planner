@@ -32,6 +32,7 @@ function parseVisitRecord(v: unknown): VisitRecord {
     liked: r.liked === true ? true : r.liked === false ? false : null,
     pros: typeof r.pros === "string" ? r.pros : legacyNotes,
     cons: typeof r.cons === "string" ? r.cons : "",
+    wantOffer: r.wantOffer === true,
   };
 }
 
@@ -52,15 +53,25 @@ function parseCloudState(record: unknown): CloudState {
   };
 }
 
+// Deduplicate concurrent fetches (React StrictMode fires effects twice).
+// All callers within the same tick share one in-flight request.
+let _pendingFetch: Promise<CloudState> | null = null;
+
 export async function cloudFetch(): Promise<CloudState> {
-  const res = await fetch(`${BIN_URL}/latest`, { headers: HEADERS });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    console.error(`[cloudSync] fetch failed ${res.status}:`, body);
-    throw new Error(`JSONBin ${res.status}`);
-  }
-  const json = (await res.json()) as { record: unknown };
-  return parseCloudState(json.record);
+  if (_pendingFetch) return _pendingFetch;
+  _pendingFetch = (async () => {
+    const res = await fetch(`${BIN_URL}/latest`, { headers: HEADERS });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error(`[cloudSync] fetch failed ${res.status}:`, body);
+      throw new Error(`JSONBin ${res.status}`);
+    }
+    const json = (await res.json()) as { record: unknown };
+    return parseCloudState(json.record);
+  })();
+  // Clear after 2 s so subsequent writes read fresh data
+  _pendingFetch.finally(() => setTimeout(() => { _pendingFetch = null; }, 2000));
+  return _pendingFetch;
 }
 
 /**

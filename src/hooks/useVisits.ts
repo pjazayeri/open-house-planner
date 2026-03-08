@@ -8,6 +8,7 @@ interface UseVisitsResult {
   markVisited: (id: string) => void;
   setLiked: (id: string, liked: boolean | null) => void;
   setNoteField: (id: string, field: "pros" | "cons", value: string) => void;
+  toggleWantOffer: (id: string) => void;
   clearVisit: (id: string) => void;
   syncStatus: SyncStatus;
   saveFailed: boolean;
@@ -62,7 +63,7 @@ export function useVisits(): UseVisitsResult {
         if (base[id]) return base;
         const next = {
           ...base,
-          [id]: { visitedAt: new Date().toISOString(), liked: null, pros: "", cons: "" },
+          [id]: { visitedAt: new Date().toISOString(), liked: null, pros: "", cons: "", wantOffer: false },
         };
         persist(next);
         return next;
@@ -81,6 +82,19 @@ export function useVisits(): UseVisitsResult {
     [update]
   );
 
+  const toggleWantOffer = useCallback(
+    (id: string) => {
+      setVisits((prev) => {
+        const base = prev ?? {};
+        if (!base[id]) return base;
+        const next = { ...base, [id]: { ...base[id], wantOffer: !base[id].wantOffer } };
+        persist(next);
+        return next;
+      });
+    },
+    [persist]
+  );
+
   const clearVisit = useCallback(
     (id: string) => {
       setVisits((prev) => {
@@ -93,5 +107,5 @@ export function useVisits(): UseVisitsResult {
     [persist]
   );
 
-  return { visits: visits ?? {}, markVisited, setLiked, setNoteField, clearVisit, syncStatus, saveFailed };
+  return { visits: visits ?? {}, markVisited, setLiked, setNoteField, toggleWantOffer, clearVisit, syncStatus, saveFailed };
 }

@@ -393,6 +393,36 @@
   margin-left: 4px;
 }
 
+.offer-row {
+  margin: 4px 0 2px;
+}
+
+.offer-btn {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px dashed #94a3b8;
+  border-radius: 6px;
+  background: transparent;
+  color: #475569;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.offer-btn:hover {
+  background: #f1f5f9;
+  border-color: #64748b;
+}
+
+.offer-btn.active {
+  background: #eff6ff;
+  border: 1px solid #3b82f6;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
 .visit-notes-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
