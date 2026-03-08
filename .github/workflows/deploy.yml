@@ -28,6 +28,7 @@ jobs:
         env:
           VITE_JSONBIN_API_KEY: ${{ secrets.VITE_JSONBIN_API_KEY }}
           VITE_JSONBIN_BIN_ID: ${{ secrets.VITE_JSONBIN_BIN_ID }}
+          VITE_ANTHROPIC_API_KEY: ${{ secrets.VITE_ANTHROPIC_API_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

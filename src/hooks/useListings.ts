@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { Listing, TimeSlotGroup, VisitRecord } from "../types";
 import { loadCsv } from "../utils/parseCsv";
 import { filterAndTransform, getCities } from "../utils/filterListings";
@@ -93,15 +93,7 @@ export function useListings(): UseListingsResult {
     setSelectedId((prev) => (prev === id ? null : prev));
   };
 
-  // When a listing is disliked, hide it automatically
-  const setLiked = useCallback(
-    (id: string, liked: boolean | null) => {
-      rawSetLiked(id, liked);
-      if (liked === false) hideListing(id);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rawSetLiked]
-  );
+  const setLiked = rawSetLiked;
 
   const cities = useMemo(() => getCities(allListings), [allListings]);
 

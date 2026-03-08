@@ -238,13 +238,10 @@ export function PropertyCard({
             <button
               className={`liked-btn thumbs-down ${visit.liked === false ? "active" : ""}`}
               onClick={() => onSetLiked(listing.id, visit.liked === false ? null : false)}
-              title="Not for me — will hide"
+              title="Not for me"
             >
               👎
             </button>
-            {visit.liked === false && (
-              <span className="dislike-hint">Will be hidden</span>
-            )}
           </div>
           <textarea
             className="visit-notes"

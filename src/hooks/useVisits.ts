@@ -30,7 +30,8 @@ export function useVisits(): UseVisitsResult {
         setVisits(state.visits);
         setSyncStatus("ok");
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        console.error("[useVisits] cloud fetch failed:", err);
         setSyncStatus("error");
       });
   }, []);
