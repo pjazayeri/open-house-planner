@@ -5,6 +5,7 @@ import { formatTimeRange } from "../../utils/formatters";
 import "./Sidebar.css";
 
 interface SidebarProps {
+  mode: "browse" | "planner";
   timeSlotGroups: TimeSlotGroupType[];
   totalListings: number;
   selectedId: string | null;
@@ -135,6 +136,7 @@ function PrioritySection({
 }
 
 export function Sidebar({
+  mode,
   timeSlotGroups,
   totalListings,
   selectedId,
@@ -174,18 +176,20 @@ export function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sidebar-content">
-        <div className="sidebar-geo-bar">
-          {!geoWatching ? (
-            <button className="geo-btn" onClick={onStartGeo}>
-              📍 Use my location
-            </button>
-          ) : nearbyId ? (
-            <span className="geo-status nearby">📍 You're at a property!</span>
-          ) : (
-            <span className="geo-status active">📍 Tracking location…</span>
-          )}
-          {geoError && <span className="geo-error">{geoError}</span>}
-        </div>
+        {mode === "planner" && (
+          <div className="sidebar-geo-bar">
+            {!geoWatching ? (
+              <button className="geo-btn" onClick={onStartGeo}>
+                📍 Use my location
+              </button>
+            ) : nearbyId ? (
+              <span className="geo-status nearby">📍 You're at a property!</span>
+            ) : (
+              <span className="geo-status active">📍 Tracking location…</span>
+            )}
+            {geoError && <span className="geo-error">{geoError}</span>}
+          </div>
+        )}
 
         {/* ── Filter + Sort bar ── */}
         <div className="sidebar-controls">
@@ -232,7 +236,7 @@ export function Sidebar({
           )}
         </div>
 
-        {priorityIds.size > 0 && (
+        {mode === "planner" && priorityIds.size > 0 && (
           <button
             className={`priority-filter-btn ${showOnlyPriority ? "active" : ""}`}
             onClick={onTogglePriorityFilter}
@@ -240,7 +244,7 @@ export function Sidebar({
             ★ {showOnlyPriority ? "Showing priority only" : `Filter to priority (${priorityIds.size})`}
           </button>
         )}
-        {!showOnlyPriority && (
+        {mode === "planner" && !showOnlyPriority && (
           <PrioritySection
             priorityIds={priorityIds}
             timeSlotGroups={timeSlotGroups}

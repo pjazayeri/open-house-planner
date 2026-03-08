@@ -1,8 +1,11 @@
 import type { TimeSlotGroup } from "../../types";
 import type { SyncStatus } from "../../utils/cloudSync";
+import type { Page } from "../../App";
 import "./Header.css";
 
 interface HeaderProps {
+  page: Page;
+  onNavigate: (page: Page) => void;
   cities: string[];
   selectedCity: string;
   onCityChange: (city: string) => void;
@@ -13,8 +16,6 @@ interface HeaderProps {
   syncStatus: SyncStatus;
   saveFailed: boolean;
   onShowSummary: () => void;
-  onOpenData: () => void;
-  onOpenFinance: () => void;
 }
 
 function SyncBadge({ syncStatus, saveFailed }: { syncStatus: SyncStatus; saveFailed: boolean }) {
@@ -42,6 +43,8 @@ function SyncBadge({ syncStatus, saveFailed }: { syncStatus: SyncStatus; saveFai
 }
 
 export function Header({
+  page,
+  onNavigate,
   cities,
   selectedCity,
   onCityChange,
@@ -52,8 +55,6 @@ export function Header({
   syncStatus,
   saveFailed,
   onShowSummary,
-  onOpenData,
-  onOpenFinance,
 }: HeaderProps) {
   const cityCount = timeSlotGroups.reduce(
     (sum, g) => sum + g.listings.length,
@@ -63,7 +64,7 @@ export function Header({
   return (
     <header className="header">
       <div className="header-left">
-        <h1 className="header-title">Open House Tour Planner</h1>
+        <h1 className="header-title">Open House Planner</h1>
         <span className="header-stats">
           {cityCount} open houses in {selectedCity} &middot; {totalListings}{" "}
           total
@@ -74,10 +75,38 @@ export function Header({
           </button>
         )}
         <SyncBadge syncStatus={syncStatus} saveFailed={saveFailed} />
-        <button className="summary-btn" onClick={onShowSummary}>Summary</button>
-        <button className="summary-btn" onClick={onOpenData}>Data</button>
-        <button className="summary-btn" onClick={onOpenFinance}>Finance</button>
       </div>
+
+      <nav className="header-nav">
+        <button
+          className={`nav-tab ${page === "home" ? "active" : ""}`}
+          onClick={() => onNavigate("home")}
+        >
+          Browse
+        </button>
+        <button
+          className={`nav-tab ${page === "planner" ? "active" : ""}`}
+          onClick={() => onNavigate("planner")}
+        >
+          Open Houses
+        </button>
+        <button
+          className={`nav-tab ${page === "data" ? "active" : ""}`}
+          onClick={() => onNavigate("data")}
+        >
+          Data
+        </button>
+        <button
+          className={`nav-tab ${page === "finance" ? "active" : ""}`}
+          onClick={() => onNavigate("finance")}
+        >
+          Finance
+        </button>
+        <button className="nav-tab nav-tab--summary" onClick={onShowSummary}>
+          Summary
+        </button>
+      </nav>
+
       <div className="header-right">
         {cities.map((city) => (
           <button

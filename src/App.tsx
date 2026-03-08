@@ -7,10 +7,11 @@ import { MapView } from "./components/Map/MapView";
 import { SummaryModal } from "./components/Summary/SummaryModal";
 import { DataView } from "./components/DataView/DataView";
 import { FinancePage } from "./components/Finance/FinancePage";
+import type { TimeSlotGroup } from "./types";
 import "./App.css";
 
 type MobileTab = "map" | "list";
-type Page = "planner" | "data" | "finance";
+export type Page = "home" | "planner" | "data" | "finance";
 
 function MapIcon() {
   return (
@@ -36,15 +37,13 @@ function ListIcon() {
 }
 
 function App() {
-  const [page, setPage] = useState<Page>("planner");
+  const [page, setPage] = useState<Page>("home");
   const [financeInitId, setFinanceInitId] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>("map");
   const [showOnlyPriority, setShowOnlyPriority] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("time");
   const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
   const [showSummary, setShowSummary] = useState(false);
-  // scrollTarget drives the post-tab-switch scroll; stored as state so
-  // useEffect re-runs when it's set alongside a mobileTab change.
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
 
   const {
@@ -83,10 +82,6 @@ function App() {
     saveFailed,
   } = useListings();
 
-  // After the sidebar becomes visible (mobileTab === "list") and a scroll
-  // target is pending, use requestAnimationFrame to scroll. rAF fires after
-  // the browser has completed layout for the newly-visible sidebar, which
-  // means scrollIntoView reliably finds and scrolls to the right card.
   useEffect(() => {
     if (!scrollTarget || mobileTab !== "list") return;
     const id = scrollTarget;
@@ -100,20 +95,33 @@ function App() {
     return () => cancelAnimationFrame(frame);
   }, [scrollTarget, mobileTab]);
 
-  // Called from the map preview card's "View in list →" button.
-  // This button lives in React's DOM (outside Leaflet), so no ghost-click.
   const navigateToListing = (id: string) => {
     setSelectedId(id);
     setScrollTarget(id);
     setMobileTab("list");
   };
 
-  const visibleGroups = useMemo(() => {
-    let groups = showOnlyPriority
+  // Base groups differ by page:
+  // - home: all non-hidden listings sorted by open house time, in one flat group
+  // - planner: time-slot groups (optionally filtered to priority)
+  const baseGroups = useMemo((): TimeSlotGroup[] => {
+    if (page === "home") {
+      const listings = allListings
+        .filter((l) => !hiddenIds.has(l.id))
+        .sort((a, b) => a.openHouseStart.getTime() - b.openHouseStart.getTime());
+      if (listings.length === 0) return [];
+      return [{ label: "All Properties", startTime: new Date(0), endTime: new Date(0), listings }];
+    }
+    return showOnlyPriority
       ? timeSlotGroups
           .map((g) => ({ ...g, listings: g.listings.filter((l) => priorityIds.has(l.id)) }))
           .filter((g) => g.listings.length > 0)
       : timeSlotGroups;
+  }, [page, allListings, hiddenIds, timeSlotGroups, showOnlyPriority, priorityIds]);
+
+  // Apply filters + sort on top of base groups (shared between home and planner)
+  const visibleGroups = useMemo(() => {
+    let groups = baseGroups;
 
     if (activeFilters.size > 0) {
       groups = groups
@@ -131,13 +139,11 @@ function App() {
     }
 
     return groups;
-  }, [timeSlotGroups, showOnlyPriority, priorityIds, activeFilters, sortKey, visits]);
+  }, [baseGroups, activeFilters, sortKey, visits, priorityIds]);
 
   const totalListings = useMemo(
-    () => (showOnlyPriority
-      ? timeSlotGroups.reduce((s, g) => s + g.listings.filter((l) => priorityIds.has(l.id)).length, 0)
-      : timeSlotGroups.reduce((s, g) => s + g.listings.length, 0)),
-    [timeSlotGroups, showOnlyPriority, priorityIds]
+    () => baseGroups.reduce((s, g) => s + g.listings.length, 0),
+    [baseGroups]
   );
 
   if (syncStatus === "loading" || loading) {
@@ -190,7 +196,7 @@ function App() {
         priorityIds={priorityIds}
         hiddenIds={hiddenIds}
         initialSelectedId={financeInitId}
-        onBack={() => setPage("planner")}
+        onBack={() => setPage("home")}
       />
     );
   }
@@ -211,7 +217,7 @@ function App() {
         onToggleWantOffer={toggleWantOffer}
         onSetNoteField={setNoteField}
         onClearVisit={clearVisit}
-        onBack={() => setPage("planner")}
+        onBack={() => setPage("home")}
         onImportCsv={importData}
         onOpenFinance={(id) => { setFinanceInitId(id); setPage("finance"); }}
       />
@@ -221,6 +227,8 @@ function App() {
   return (
     <div className="app">
       <Header
+        page={page}
+        onNavigate={setPage}
         cities={cities}
         selectedCity={selectedCity}
         onCityChange={setSelectedCity}
@@ -231,11 +239,10 @@ function App() {
         syncStatus={syncStatus}
         saveFailed={saveFailed}
         onShowSummary={() => setShowSummary(true)}
-        onOpenData={() => setPage("data")}
-        onOpenFinance={() => setPage("finance")}
       />
       <div className={`app-body show-${mobileTab}`}>
         <Sidebar
+          mode={page === "planner" ? "planner" : "browse"}
           timeSlotGroups={visibleGroups}
           totalListings={totalListings}
           selectedId={selectedId}
