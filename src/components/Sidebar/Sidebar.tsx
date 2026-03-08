@@ -26,6 +26,7 @@ interface SidebarProps {
   onToggleWantOffer: (id: string) => void;
   onSetNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   onClearVisit: (id: string) => void;
+  onOpenFinance: (id: string) => void;
 }
 
 function PrioritySection({
@@ -103,6 +104,7 @@ export function Sidebar({
   onToggleWantOffer,
   onSetNoteField,
   onClearVisit,
+  onOpenFinance,
   showOnlyPriority,
   onTogglePriorityFilter,
 }: SidebarProps) {
@@ -162,6 +164,7 @@ export function Sidebar({
             onToggleWantOffer={onToggleWantOffer}
             onSetNoteField={onSetNoteField}
             onClearVisit={onClearVisit}
+            onOpenFinance={onOpenFinance}
           />
         ))}
       </div>

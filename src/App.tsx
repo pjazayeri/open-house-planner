@@ -226,6 +226,7 @@ function App() {
         onToggleWantOffer={toggleWantOffer}
           onSetNoteField={setNoteField}
           onClearVisit={clearVisit}
+          onOpenFinance={(id) => { setFinanceInitId(id); setPage("finance"); }}
         />
         <MapView
           timeSlotGroups={visibleGroups}

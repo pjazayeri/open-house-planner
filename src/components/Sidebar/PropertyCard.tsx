@@ -21,6 +21,7 @@ interface PropertyCardProps {
   onToggleWantOffer: (id: string) => void;
   onSetNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   onClearVisit: (id: string) => void;
+  onOpenFinance: (id: string) => void;
 }
 
 function fmtDollar(n: number): string {
@@ -93,6 +94,7 @@ export function PropertyCard({
   onToggleWantOffer,
   onSetNoteField,
   onClearVisit,
+  onOpenFinance,
 }: PropertyCardProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [thumbError, setThumbError] = useState(false);
@@ -312,15 +314,23 @@ export function PropertyCard({
         </div>
       )}
 
-      <a
-        className="card-link"
-        href={listing.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => e.stopPropagation()}
-      >
-        View on Redfin
-      </a>
+      <div className="card-footer">
+        <a
+          className="card-link"
+          href={listing.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+        >
+          View on Redfin
+        </a>
+        <button
+          className="card-finance-btn"
+          onClick={(e) => { e.stopPropagation(); onOpenFinance(listing.id); }}
+        >
+          $ Finance
+        </button>
+      </div>
     </div>
   );
 }

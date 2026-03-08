@@ -21,6 +21,7 @@ interface TimeSlotGroupProps {
   onToggleWantOffer: (id: string) => void;
   onSetNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   onClearVisit: (id: string) => void;
+  onOpenFinance: (id: string) => void;
 }
 
 const SLOT_COLORS = [
@@ -50,6 +51,7 @@ export function TimeSlotGroup({
   onToggleWantOffer,
   onSetNoteField,
   onClearVisit,
+  onOpenFinance,
 }: TimeSlotGroupProps) {
   const [collapsed, setCollapsed] = useState(false);
   const color = SLOT_COLORS[slotIndex % SLOT_COLORS.length];
@@ -85,6 +87,7 @@ export function TimeSlotGroup({
               onToggleWantOffer={onToggleWantOffer}
               onSetNoteField={onSetNoteField}
               onClearVisit={onClearVisit}
+              onOpenFinance={onOpenFinance}
             />
           ))}
         </div>

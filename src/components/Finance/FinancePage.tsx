@@ -148,7 +148,7 @@ interface DetailProps {
 }
 
 function DetailPanel({ listing, result, downPct, oppReturnPct }: DetailProps) {
-  const thumbSrc = `/thumbnails/${listing.id}.jpg`;
+  const thumbSrc = `${import.meta.env.BASE_URL}thumbnails/${listing.id}.jpg`;
   const accent = accentClass(result.monthlyBuyPremium, listing.capRate);
 
   return (
