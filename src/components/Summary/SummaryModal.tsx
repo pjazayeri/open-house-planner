@@ -131,15 +131,15 @@ export function SummaryModal({ allListings, visits, priorityIds, onClose }: Summ
         model: "claude-opus-4-6",
         max_tokens: 1024,
         system: `You are a helpful real estate advisor analyzing open house visit notes.
-Be concise, practical, and direct. Focus on actionable insights.`,
+Be concise, practical, and direct.`,
         messages: [
           {
             role: "user",
-            content: `Here is my open house tour summary. Please analyze it and provide:
-1. A brief overall assessment of the tour
-2. Top picks and why (if any were liked)
-3. Key patterns or tradeoffs noticed (price vs sqft, location, etc.)
-4. Recommended next steps
+            content: `Here is my open house tour summary. Please analyze it and summarize noting:
+1. What was liked
+2. What wasn't liked
+3. What were the reasons for liking properties
+4. What were the reasons for not liking properties
 
 Tour data:
 ${text}`,

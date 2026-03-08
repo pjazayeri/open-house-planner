@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import Papa from "papaparse";
 import type { Listing, VisitRecord } from "../../types";
 import { formatPrice, formatBedsBaths } from "../../utils/formatters";
 import "./DataView.css";
@@ -19,6 +20,7 @@ interface DataViewProps {
   onClearVisit: (id: string) => void;
   onBack: () => void;
   onOpenFinance: (id: string) => void;
+  onImportCsv: (hiddenIds: string[], priorityIds: string[], visits: Record<string, VisitRecord>) => void;
 }
 
 function fmtDate(d: Date) {
@@ -281,9 +283,60 @@ export function DataView({
   onClearVisit,
   onBack,
   onOpenFinance,
+  onImportCsv,
 }: DataViewProps) {
   const [sortKey, setSortKey] = useState<SortKey>("time");
   const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
+  const [importStatus, setImportStatus] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleImport(file: File) {
+    Papa.parse<Record<string, string>>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (result) => {
+        // Build URL → listing ID map
+        const urlToId = new Map(allListings.map((l) => [l.url, l.id]));
+
+        const newHiddenIds: string[] = [];
+        const newPriorityIds: string[] = [];
+        const newVisits: Record<string, VisitRecord> = {};
+        let matched = 0;
+
+        for (const row of result.data) {
+          const id = urlToId.get(row["Redfin URL"]);
+          if (!id) continue;
+          matched++;
+
+          if (row["Hidden"] === "yes") newHiddenIds.push(id);
+          if (row["Priority"] === "yes") newPriorityIds.push(id);
+
+          if (row["Visited"] === "yes") {
+            const rating = parseInt(row["Stars (1-5)"] ?? "");
+            const liked =
+              row["Liked"] === "liked" ? true :
+              row["Liked"] === "disliked" ? false : null;
+            newVisits[id] = {
+              visitedAt: row["Visited At"] ? new Date(row["Visited At"]).toISOString() : new Date().toISOString(),
+              liked,
+              rating: !isNaN(rating) && rating >= 1 && rating <= 5 ? rating : null,
+              pros: row["Pros"] ?? "",
+              cons: row["Cons"] ?? "",
+              wantOffer: row["Want Offer"] === "yes",
+            };
+          }
+        }
+
+        onImportCsv(newHiddenIds, newPriorityIds, newVisits);
+        setImportStatus(`Imported ${matched} of ${result.data.length} rows`);
+        setTimeout(() => setImportStatus(null), 4000);
+      },
+      error: () => {
+        setImportStatus("Import failed — invalid CSV");
+        setTimeout(() => setImportStatus(null), 4000);
+      },
+    });
+  }
 
   function toggleFilter(k: FilterKey) {
     setActiveFilters((prev) => {
@@ -394,6 +447,19 @@ export function DataView({
         <div className="dv-header-top">
           <button className="dv-back" onClick={onBack}>← Back</button>
           <button className="dv-export" onClick={exportCsv}>Export CSV</button>
+          <button className="dv-import" onClick={() => fileInputRef.current?.click()}>Import CSV</button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleImport(file);
+              e.target.value = "";
+            }}
+          />
+          {importStatus && <span className="dv-import-status">{importStatus}</span>}
           <div className="dv-header-center">
             <h2>All Listings</h2>
             <div className="dv-stats">

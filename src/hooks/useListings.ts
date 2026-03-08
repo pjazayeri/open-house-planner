@@ -50,6 +50,7 @@ interface UseListingsResult {
   setNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   toggleWantOffer: (id: string) => void;
   clearVisit: (id: string) => void;
+  importData: (hiddenIds: string[], priorityIds: string[], visits: Record<string, VisitRecord>) => void;
   // Geolocation
   geoPosition: { lat: number; lng: number } | null;
   nearbyId: string | null;
@@ -69,8 +70,8 @@ export function useListings(): UseListingsResult {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  const { hiddenIds, hide, unhide, clearHidden, priorityIds, togglePriority, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds();
-  const { visits, markVisited, setLiked, setRating, setNoteField, toggleWantOffer, clearVisit, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits();
+  const { hiddenIds, hide, unhide, clearHidden, priorityIds, togglePriority, importHiddenAndPriority, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds();
+  const { visits, markVisited, setLiked, setRating, setNoteField, toggleWantOffer, clearVisit, importVisits, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits();
 
   const syncStatus: SyncStatus =
     hiddenStatus === "loading"  || visitsStatus === "loading"  ? "loading" :
@@ -153,6 +154,10 @@ export function useListings(): UseListingsResult {
     toggleWantOffer,
     setNoteField,
     clearVisit,
+    importData: (h: string[], p: string[], v: Record<string, VisitRecord>) => {
+      importHiddenAndPriority(h, p);
+      importVisits(v);
+    },
     geoPosition,
     nearbyId,
     geoWatching,

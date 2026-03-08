@@ -11,6 +11,7 @@ interface UseVisitsResult {
   setNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   toggleWantOffer: (id: string) => void;
   clearVisit: (id: string) => void;
+  importVisits: (visits: Record<string, VisitRecord>) => void;
   syncStatus: SyncStatus;
   saveFailed: boolean;
 }
@@ -119,5 +120,13 @@ export function useVisits(): UseVisitsResult {
     [persist]
   );
 
-  return { visits: visits ?? {}, markVisited, setLiked, setRating, setNoteField, toggleWantOffer, clearVisit, syncStatus, saveFailed };
+  const importVisits = useCallback((v: Record<string, VisitRecord>) => {
+    setVisits(v);
+    if (USE_CLOUD) {
+      setSaveFailed(false);
+      cloudPatch({ visits: v }).catch(() => setSaveFailed(true));
+    }
+  }, []);
+
+  return { visits: visits ?? {}, markVisited, setLiked, setRating, setNoteField, toggleWantOffer, clearVisit, importVisits, syncStatus, saveFailed };
 }

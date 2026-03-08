@@ -70,6 +70,7 @@ function App() {
     setNoteField,
     toggleWantOffer,
     clearVisit,
+    importData,
     geoPosition,
     nearbyId,
     geoWatching,
@@ -182,6 +183,7 @@ function App() {
         onSetNoteField={setNoteField}
         onClearVisit={clearVisit}
         onBack={() => setPage("planner")}
+        onImportCsv={importData}
         onOpenFinance={(id) => { setFinanceInitId(id); setPage("finance"); }}
       />
     );

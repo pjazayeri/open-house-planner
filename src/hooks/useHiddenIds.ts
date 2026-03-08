@@ -9,6 +9,7 @@ interface UseHiddenIdsResult {
   clearHidden: () => void;
   priorityIds: Set<string>;
   togglePriority: (id: string) => void;
+  importHiddenAndPriority: (hiddenIds: string[], priorityIds: string[]) => void;
   syncStatus: SyncStatus;
   saveFailed: boolean;
 }
@@ -95,6 +96,17 @@ export function useHiddenIds(): UseHiddenIdsResult {
     });
   }, [persistPriority]);
 
+  const importHiddenAndPriority = useCallback((h: string[], p: string[]) => {
+    const hSet = new Set(h);
+    const pSet = new Set(p);
+    setHiddenIds(hSet);
+    setPriorityIds(pSet);
+    if (USE_CLOUD) {
+      setSaveFailed(false);
+      cloudPatch({ hiddenIds: h, priorityIds: p }).catch(() => setSaveFailed(true));
+    }
+  }, []);
+
   return {
     hiddenIds: hiddenIds ?? new Set(),
     hide,
@@ -102,6 +114,7 @@ export function useHiddenIds(): UseHiddenIdsResult {
     clearHidden,
     priorityIds,
     togglePriority,
+    importHiddenAndPriority,
     syncStatus,
     saveFailed,
   };
