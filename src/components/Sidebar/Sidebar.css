@@ -141,6 +141,48 @@
   display: flex;
   align-items: center;
   border-top: 1px solid #fde68a;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.priority-item--dragging {
+  opacity: 0.4;
+}
+
+.priority-item--drag-over {
+  background: #fde68a;
+}
+
+.priority-item-drag {
+  flex-shrink: 0;
+  padding: 8px 6px 8px 10px;
+  font-size: 14px;
+  color: #d97706;
+  cursor: grab;
+  opacity: 0.5;
+  user-select: none;
+}
+
+.priority-item-drag:hover {
+  opacity: 1;
+}
+
+.priority-item-drag:active {
+  cursor: grabbing;
+}
+
+.priority-item-num {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
 }
 
 .priority-item-main {

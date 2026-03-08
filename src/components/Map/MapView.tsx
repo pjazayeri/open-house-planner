@@ -17,6 +17,7 @@ interface MapViewProps {
   selectedId: string | null;
   hoveredId: string | null;
   visits: Record<string, VisitRecord>;
+  priorityOrder: string[];
   onSelect: (id: string) => void;
   onDeselect: () => void;
   onNavigate: (id: string) => void;
@@ -196,6 +197,7 @@ export function MapView({
   selectedId,
   hoveredId,
   visits,
+  priorityOrder,
   onSelect,
   onDeselect,
   onNavigate,
@@ -296,16 +298,14 @@ export function MapView({
                 visit.liked === true ? "liked" :
                 visit.liked === false ? "disliked" :
                 "visited";
+              const priorityIdx = priorityOrder.indexOf(listing.id);
+              const markerNum = priorityIdx >= 0 ? priorityIdx + 1 : listing.visitOrder!;
+              const markerColor = priorityIdx >= 0 ? "#f59e0b" : color;
               return (
                 <Marker
                   key={listing.id}
                   position={pos}
-                  icon={createNumberedIcon(
-                    listing.visitOrder!,
-                    color,
-                    isActive,
-                    visitStatus
-                  )}
+                  icon={createNumberedIcon(markerNum, markerColor, isActive, visitStatus)}
                   eventHandlers={{
                     click: () => onSelect(listing.id),
                     mouseover: () => onHover(listing.id),

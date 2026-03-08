@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { TimeSlotGroup as TimeSlotGroupType, Listing, VisitRecord } from "../../types";
 import { TimeSlotGroup } from "./TimeSlotGroup";
 import { formatTimeRange } from "../../utils/formatters";
@@ -14,7 +14,9 @@ interface SidebarProps {
   onHover: (id: string | null) => void;
   onHide: (id: string) => void;
   priorityIds: Set<string>;
+  priorityOrder: string[];
   onTogglePriority: (id: string) => void;
+  onReorderPriority: (newOrder: string[]) => void;
   showOnlyPriority: boolean;
   onTogglePriorityFilter: () => void;
   sortKey: SortKey;
@@ -81,34 +83,77 @@ export function matchesFilter(id: string, key: FilterKey, visits: Record<string,
 }
 
 function PrioritySection({
-  priorityIds,
+  priorityOrder,
   timeSlotGroups,
   onSelect,
   onTogglePriority,
+  onReorderPriority,
 }: {
-  priorityIds: Set<string>;
+  priorityOrder: string[];
   timeSlotGroups: TimeSlotGroupType[];
   onSelect: (id: string) => void;
   onTogglePriority: (id: string) => void;
+  onReorderPriority: (newOrder: string[]) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
-  const priorityListings: { listing: Listing; dayLabel: string }[] = [];
-  for (const group of timeSlotGroups) {
-    for (const listing of group.listings) {
-      if (priorityIds.has(listing.id)) {
+  const listingMap = useMemo(() => {
+    const map = new Map<string, Listing>();
+    for (const group of timeSlotGroups) {
+      for (const listing of group.listings) {
+        map.set(listing.id, listing);
+      }
+    }
+    return map;
+  }, [timeSlotGroups]);
+
+  const priorityListings = useMemo(() =>
+    priorityOrder
+      .filter((id) => listingMap.has(id))
+      .map((id) => {
+        const listing = listingMap.get(id)!;
         const dayLabel = listing.openHouseStart.toLocaleDateString("en-US", {
           weekday: "short", month: "short", day: "numeric",
         });
-        priorityListings.push({ listing, dayLabel });
-      }
-    }
-  }
-  priorityListings.sort(
-    (a, b) => a.listing.openHouseStart.getTime() - b.listing.openHouseStart.getTime()
+        return { listing, dayLabel };
+      }),
+    [priorityOrder, listingMap]
   );
 
   if (priorityListings.length === 0) return null;
+
+  function handleDragStart(e: React.DragEvent, idx: number) {
+    setDragIdx(idx);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(idx));
+  }
+
+  function handleDragOver(e: React.DragEvent, idx: number) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverIdx(idx);
+  }
+
+  function handleDrop(e: React.DragEvent, targetIdx: number) {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === targetIdx) { setDragIdx(null); setDragOverIdx(null); return; }
+    const filtered = priorityOrder.filter((id) => listingMap.has(id));
+    const newOrder = [...filtered];
+    const [moved] = newOrder.splice(dragIdx, 1);
+    newOrder.splice(targetIdx, 0, moved);
+    // Keep IDs not in listingMap at the end (they still exist in cloud)
+    const extras = priorityOrder.filter((id) => !listingMap.has(id));
+    onReorderPriority([...newOrder, ...extras]);
+    setDragIdx(null);
+    setDragOverIdx(null);
+  }
+
+  function handleDragEnd() {
+    setDragIdx(null);
+    setDragOverIdx(null);
+  }
 
   return (
     <div className="priority-section">
@@ -119,8 +164,18 @@ function PrioritySection({
       </button>
       {!collapsed && (
         <div className="priority-list">
-          {priorityListings.map(({ listing, dayLabel }) => (
-            <div key={listing.id} className="priority-item">
+          {priorityListings.map(({ listing, dayLabel }, idx) => (
+            <div
+              key={listing.id}
+              className={`priority-item${dragIdx === idx ? " priority-item--dragging" : ""}${dragOverIdx === idx && dragIdx !== idx ? " priority-item--drag-over" : ""}`}
+              draggable
+              onDragStart={(e) => handleDragStart(e, idx)}
+              onDragOver={(e) => handleDragOver(e, idx)}
+              onDrop={(e) => handleDrop(e, idx)}
+              onDragEnd={handleDragEnd}
+            >
+              <span className="priority-item-drag" title="Drag to reorder">⠿</span>
+              <span className="priority-item-num">{idx + 1}</span>
               <button
                 className="priority-item-main"
                 onClick={() => onSelect(listing.id)}
@@ -153,7 +208,9 @@ export function Sidebar({
   onHover,
   onHide,
   priorityIds,
+  priorityOrder,
   onTogglePriority,
+  onReorderPriority,
   visits,
   nearbyId,
   geoWatching,
@@ -252,12 +309,13 @@ export function Sidebar({
             ★ {showOnlyPriority ? "Showing priority only" : `Filter to priority (${priorityIds.size})`}
           </button>
         )}
-        {mode === "planner" && !showOnlyPriority && (
+        {mode === "planner" && (
           <PrioritySection
-            priorityIds={priorityIds}
+            priorityOrder={priorityOrder}
             timeSlotGroups={timeSlotGroups}
             onSelect={onSelect}
             onTogglePriority={onTogglePriority}
+            onReorderPriority={onReorderPriority}
           />
         )}
         {timeSlotGroups.map((group, idx) => (
