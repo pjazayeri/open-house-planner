@@ -226,7 +226,15 @@ export function DataView({
   onBack,
 }: DataViewProps) {
   const [sortKey, setSortKey] = useState<SortKey>("time");
-  const [filterKey, setFilterKey] = useState<FilterKey>("all");
+  const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
+
+  function toggleFilter(k: FilterKey) {
+    setActiveFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k); else next.add(k);
+      return next;
+    });
+  }
 
   function likedOrder(id: string): number {
     const v = visits[id];
@@ -240,18 +248,26 @@ export function DataView({
     return visits[id] ? 0 : 1;
   }
 
-  const filtered = allListings.filter((l) => {
-    const v = visits[l.id];
-    switch (filterKey) {
+  function matchesFilter(id: string, k: FilterKey): boolean {
+    const v = visits[id];
+    switch (k) {
       case "visited":   return !!v;
       case "unvisited": return !v;
       case "liked":     return v?.liked === true;
       case "disliked":  return v?.liked === false;
       case "neutral":   return !!v && v.liked === null;
-      case "priority":  return priorityIds.has(l.id);
-      case "hidden":    return hiddenIds.has(l.id);
-      default:          return true; // "all" — include everything
+      case "priority":  return priorityIds.has(id);
+      case "hidden":    return hiddenIds.has(id);
+      default:          return true;
     }
+  }
+
+  const filtered = allListings.filter((l) => {
+    if (activeFilters.size === 0) return true;
+    for (const k of activeFilters) {
+      if (matchesFilter(l.id, k)) return true;
+    }
+    return false;
   });
 
   const sorted = [...filtered].sort((a, b) => {
@@ -289,11 +305,19 @@ export function DataView({
           <div className="dv-control-row">
             <span className="dv-control-label">Filter</span>
             <div className="dv-chips">
-              {(Object.keys(FILTER_LABELS) as FilterKey[]).map((k) => (
+              {activeFilters.size > 0 && (
+                <button
+                  className="dv-chip dv-chip-clear"
+                  onClick={() => setActiveFilters(new Set())}
+                >
+                  Clear
+                </button>
+              )}
+              {(Object.keys(FILTER_LABELS) as FilterKey[]).filter((k) => k !== "all").map((k) => (
                 <button
                   key={k}
-                  className={`dv-chip ${filterKey === k ? "active" : ""}`}
-                  onClick={() => setFilterKey(k)}
+                  className={`dv-chip ${activeFilters.has(k) ? "active" : ""}`}
+                  onClick={() => toggleFilter(k)}
                 >
                   {FILTER_LABELS[k]}
                 </button>
