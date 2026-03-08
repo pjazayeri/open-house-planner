@@ -5,17 +5,20 @@ export interface MortgageParams {
   annualRatePct: number;        // e.g. 6.75
   termYears: number;            // 15 or 30
   opportunityReturnPct: number; // e.g. 7.0 — assumed annual return on down payment if invested
+  includePrincipal: boolean;    // whether to count principal repayment as a "cost"
 }
 
 export interface BuyVsRentResult {
   downPayment: number;
   loanAmount: number;
   monthlyPI: number;
+  monthlyInterest: number;      // first-month interest component
+  monthlyPrincipal: number;     // first-month principal component
   monthlyPropertyTax: number;
   monthlyInsurance: number;
   monthlyHOA: number;
   monthlyMaintenance: number;
-  totalMonthlyOwnershipCost: number;
+  totalMonthlyOwnershipCost: number;  // respects includePrincipal
   opportunityCostMonthly: number;
   effectiveMonthlyOwnershipCost: number;
   estimatedMonthlyRent: number;
@@ -23,7 +26,7 @@ export interface BuyVsRentResult {
 }
 
 export function calcBuyVsRent(listing: Listing, params: MortgageParams): BuyVsRentResult {
-  const { downPaymentPct, annualRatePct, termYears, opportunityReturnPct } = params;
+  const { downPaymentPct, annualRatePct, termYears, opportunityReturnPct, includePrincipal } = params;
   const { price, capRateBreakdown } = listing;
 
   const downPayment = price * downPaymentPct;
@@ -40,17 +43,20 @@ export function calcBuyVsRent(listing: Listing, params: MortgageParams): BuyVsRe
     monthlyPI = loanAmount * (r * factor) / (factor - 1);
   }
 
+  // First-month split: interest = balance × monthly rate; principal = remainder
+  const monthlyInterest = loanAmount * r;
+  const monthlyPrincipal = monthlyPI - monthlyInterest;
+
   const monthlyPropertyTax = capRateBreakdown.propertyTax / 12;
   const monthlyInsurance = capRateBreakdown.insurance / 12;
   const monthlyHOA = capRateBreakdown.annualHoa / 12;
   const monthlyMaintenance = capRateBreakdown.maintenance / 12;
 
+  const piContribution = includePrincipal ? monthlyPI : monthlyInterest;
   const totalMonthlyOwnershipCost =
-    monthlyPI + monthlyPropertyTax + monthlyInsurance + monthlyHOA + monthlyMaintenance;
+    piContribution + monthlyPropertyTax + monthlyInsurance + monthlyHOA + monthlyMaintenance;
 
-  // Opportunity cost: foregone annual return on the down payment if it were invested instead
   const opportunityCostMonthly = (downPayment * opportunityReturnPct) / 100 / 12;
-
   const effectiveMonthlyOwnershipCost = totalMonthlyOwnershipCost + opportunityCostMonthly;
   const estimatedMonthlyRent = capRateBreakdown.monthlyRent;
   const monthlyBuyPremium = effectiveMonthlyOwnershipCost - estimatedMonthlyRent;
@@ -59,6 +65,8 @@ export function calcBuyVsRent(listing: Listing, params: MortgageParams): BuyVsRe
     downPayment,
     loanAmount,
     monthlyPI,
+    monthlyInterest,
+    monthlyPrincipal,
     monthlyPropertyTax,
     monthlyInsurance,
     monthlyHOA,

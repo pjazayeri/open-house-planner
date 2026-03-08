@@ -235,6 +235,13 @@
   line-height: 1.8;
 }
 .fp-bd-row.muted   { color: #475569; }
+.fp-excluded-tag {
+  font-size: 10px;
+  color: #475569;
+  font-style: italic;
+  margin-left: 4px;
+}
+
 .fp-opp-formula {
   display: block;
   font-size: 10px;
