@@ -11,7 +11,7 @@ import type { TimeSlotGroup } from "./types";
 import "./App.css";
 
 type MobileTab = "map" | "list";
-export type Page = "home" | "planner" | "data" | "finance";
+export type Page = "home" | "planner" | "priority" | "data" | "finance";
 
 function MapIcon() {
   return (
@@ -36,7 +36,7 @@ function ListIcon() {
   );
 }
 
-const VALID_PAGES: Page[] = ["home", "planner", "data", "finance"];
+const VALID_PAGES: Page[] = ["home", "planner", "priority", "data", "finance"];
 
 function pageFromHash(): Page {
   const hash = window.location.hash.slice(1) as Page;
@@ -64,7 +64,7 @@ function App() {
   }
   const [financeInitId, setFinanceInitId] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>("map");
-  const [showOnlyPriority, setShowOnlyPriority] = useState(false);
+  const showOnlyPriority = page === "priority";
   const [sortKey, setSortKey] = useState<SortKey>("time");
   const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
   const [showSummary, setShowSummary] = useState(false);
@@ -144,7 +144,7 @@ function App() {
           .map((g) => ({ ...g, listings: g.listings.filter((l) => priorityIds.has(l.id)) }))
           .filter((g) => g.listings.length > 0)
       : timeSlotGroups;
-  }, [page, allListings, hiddenIds, selectedCity, timeSlotGroups, showOnlyPriority, priorityIds]);
+  }, [page, allListings, hiddenIds, selectedCity, timeSlotGroups, priorityIds]);
 
   // Apply filters + sort on top of base groups (shared between home and planner)
   const visibleGroups = useMemo(() => {
@@ -270,7 +270,7 @@ function App() {
       />
       <div className={`app-body show-${mobileTab}`}>
         <Sidebar
-          mode={page === "planner" ? "planner" : "browse"}
+          mode={page === "planner" || page === "priority" ? "planner" : "browse"}
           timeSlotGroups={visibleGroups}
           totalListings={totalListings}
           selectedId={selectedId}
@@ -283,7 +283,7 @@ function App() {
           onTogglePriority={togglePriority}
           onReorderPriority={reorderPriority}
           showOnlyPriority={showOnlyPriority}
-          onTogglePriorityFilter={() => setShowOnlyPriority((v) => !v)}
+          onTogglePriorityFilter={() => setPage(page === "priority" ? "planner" : "priority")}
           sortKey={sortKey}
           onSortChange={setSortKey}
           activeFilters={activeFilters}

@@ -101,7 +101,7 @@ export function Header({
           Browse
         </button>
         <button
-          className={`nav-tab ${page === "planner" ? "active" : ""}`}
+          className={`nav-tab ${page === "planner" || page === "priority" ? "active" : ""}`}
           onClick={() => onNavigate("planner")}
         >
           Open Houses
