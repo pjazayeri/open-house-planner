@@ -180,7 +180,12 @@
 .dv-thumb-placeholder {
   width: 100%;
   height: 100%;
-  background: #334155;
+  background: #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  font-size: 20px;
 }
 
 /* info */
@@ -324,8 +329,8 @@
   font-size: 12px;
   font-family: inherit;
   padding: 5px 8px;
-  resize: vertical;
   box-sizing: border-box;
+  min-height: 32px;
 }
 .dv-notes:focus { outline: none; border-color: #7c3aed; }
 .dv-saved {

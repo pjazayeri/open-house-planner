@@ -67,6 +67,7 @@ function App() {
   const showOnlyPriority = page === "priority";
   const [sortKey, setSortKey] = useState<SortKey>("time");
   const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
   const [showSummary, setShowSummary] = useState(false);
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
 
@@ -161,12 +162,28 @@ function App() {
         .filter((g) => g.listings.length > 0);
     }
 
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      groups = groups
+        .map((g) => ({
+          ...g,
+          listings: g.listings.filter(
+            (l) =>
+              l.address.toLowerCase().includes(q) ||
+              l.city.toLowerCase().includes(q) ||
+              l.zip.toLowerCase().includes(q) ||
+              l.id.toLowerCase().includes(q)
+          ),
+        }))
+        .filter((g) => g.listings.length > 0);
+    }
+
     if (sortKey !== "time") {
       groups = groups.map((g) => ({ ...g, listings: sortListings(g.listings, sortKey) }));
     }
 
     return groups;
-  }, [baseGroups, activeFilters, sortKey, visits, priorityIds]);
+  }, [baseGroups, activeFilters, sortKey, visits, priorityIds, searchQuery]);
 
   const totalListings = useMemo(
     () => baseGroups.reduce((s, g) => s + g.listings.length, 0),
@@ -288,6 +305,8 @@ function App() {
           onSortChange={setSortKey}
           activeFilters={activeFilters}
           onFiltersChange={setActiveFilters}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
           visits={visits}
           nearbyId={nearbyId}
           geoWatching={geoWatching}

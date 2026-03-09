@@ -15,7 +15,7 @@ import urllib.request
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
-CSV_PATH = os.path.join(PROJECT_DIR, "public", "redfin-favorites_2026-03-01-07-44-38.csv")
+CSV_PATH = os.path.join(PROJECT_DIR, "public", "redfin-favorites_2026-03-08-12-25-26.csv")
 OUT_DIR = os.path.join(PROJECT_DIR, "public", "thumbnails")
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 URL_COL = "URL (SEE https://www.redfin.com/buy-a-home/comparative-market-analysis FOR INFO ON PRICING)"

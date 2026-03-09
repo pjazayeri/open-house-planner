@@ -177,7 +177,7 @@ function SelectedPreview({
       >✕</button>
       <div className="preview-info">
         <div className="preview-address">
-          <span className="preview-num">#{listing.visitOrder}</span>
+          <span className="preview-num">#{listing.visitOrder ?? '?'}</span>
           {listing.address}
         </div>
         <div className="preview-sub">
@@ -369,7 +369,7 @@ export function MapView({
                 visit.liked === false ? "disliked" :
                 "visited";
               const priorityIdx = priorityOrder.indexOf(listing.id);
-              const markerNum = priorityIdx >= 0 ? priorityIdx + 1 : listing.visitOrder!;
+              const markerNum = priorityIdx >= 0 ? priorityIdx + 1 : (listing.visitOrder ?? coordIdx);
               const markerColor = priorityIdx >= 0 ? "#f59e0b" : color;
               return (
                 <Marker

@@ -20,7 +20,8 @@
       "Bash(npm install:*)",
       "Bash(sed:*)",
       "Bash(ls:*)",
-      "Bash(do:*)"
+      "Bash(do:*)",
+      "Bash(node:*)"
     ]
   }
 }

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import Papa from "papaparse";
 import type { Listing, VisitRecord } from "../../types";
 import { formatPrice, formatBedsBaths } from "../../utils/formatters";
@@ -33,6 +33,25 @@ function fmtVisitTime(iso: string) {
   return new Date(iso).toLocaleString("en-US", {
     month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
   });
+}
+
+function AutoTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const sync = () => {
+    if (ref.current) {
+      ref.current.style.height = "auto";
+      ref.current.style.height = ref.current.scrollHeight + "px";
+    }
+  };
+  useEffect(sync, [props.value]);
+  return (
+    <textarea
+      {...props}
+      ref={ref}
+      onInput={(e) => { sync(); props.onInput?.(e); }}
+      style={{ ...props.style, resize: "none", overflow: "hidden" }}
+    />
+  );
 }
 
 interface RowProps {
@@ -102,7 +121,7 @@ function DataRow({
             onError={() => setThumbError(true)}
           />
         ) : (
-          <div className="dv-thumb-placeholder" />
+          <div className="dv-thumb-placeholder">🏠</div>
         )}
       </div>
 
@@ -206,11 +225,10 @@ function DataRow({
         <div className="dv-notes-grid">
           <div className="dv-notes-field">
             <label className="dv-notes-label">Pros</label>
-            <textarea
+            <AutoTextarea
               className="dv-notes"
               placeholder="What did you like?"
               value={localPros}
-              rows={2}
               onChange={(e) => { setLocalPros(e.target.value); setSaved(false); }}
               onBlur={() => {
                 onSetNoteField("pros", localPros);
@@ -221,11 +239,10 @@ function DataRow({
           </div>
           <div className="dv-notes-field">
             <label className="dv-notes-label">Cons</label>
-            <textarea
+            <AutoTextarea
               className="dv-notes"
               placeholder="What didn't work?"
               value={localCons}
-              rows={2}
               onChange={(e) => { setLocalCons(e.target.value); setSaved(false); }}
               onBlur={() => {
                 onSetNoteField("cons", localCons);
@@ -287,8 +304,23 @@ export function DataView({
 }: DataViewProps) {
   const [sortKey, setSortKey] = useState<SortKey>("time");
   const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
+  const [visitDateFilter, setVisitDateFilter] = useState<string | null>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const visitDates = useMemo(() => {
+    const seen = new Set<string>();
+    const dates: { key: string; label: string }[] = [];
+    for (const v of Object.values(visits)) {
+      const d = new Date(v.visitedAt);
+      const key = d.toISOString().slice(0, 10);
+      if (!seen.has(key)) {
+        seen.add(key);
+        dates.push({ key, label: d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) });
+      }
+    }
+    return dates.sort((a, b) => a.key.localeCompare(b.key));
+  }, [visits]);
 
   function handleImport(file: File) {
     Papa.parse<Record<string, string>>(file, {
@@ -373,13 +405,21 @@ export function DataView({
     }
   }
 
-  const filtered = allListings.filter((l) => {
+  let filtered = allListings.filter((l) => {
     if (activeFilters.size === 0) return true;
     for (const k of activeFilters) {
       if (matchesFilter(l.id, k)) return true;
     }
     return false;
   });
+
+  if (visitDateFilter) {
+    filtered = filtered.filter((l) => {
+      const v = visits[l.id];
+      if (!v) return false;
+      return new Date(v.visitedAt).toISOString().slice(0, 10) === visitDateFilter;
+    });
+  }
 
   const sorted = [...filtered].sort((a, b) => {
     if (sortKey === "price")   return a.price - b.price;
@@ -493,6 +533,15 @@ export function DataView({
                   onClick={() => toggleFilter(k)}
                 >
                   {FILTER_LABELS[k]}
+                </button>
+              ))}
+              {visitDates.length >= 2 && visitDates.map(({ key, label }) => (
+                <button
+                  key={key}
+                  className={`dv-chip${visitDateFilter === key ? " active" : ""}`}
+                  onClick={() => setVisitDateFilter(visitDateFilter === key ? null : key)}
+                >
+                  {label}
                 </button>
               ))}
             </div>

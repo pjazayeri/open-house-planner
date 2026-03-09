@@ -23,6 +23,8 @@ interface SidebarProps {
   onSortChange: (key: SortKey) => void;
   activeFilters: Set<FilterKey>;
   onFiltersChange: (filters: Set<FilterKey>) => void;
+  searchQuery: string;
+  onSearchChange: (q: string) => void;
   visits: Record<string, VisitRecord>;
   nearbyId: string | null;
   geoWatching: boolean;
@@ -229,6 +231,8 @@ export function Sidebar({
   onSortChange,
   activeFilters,
   onFiltersChange,
+  searchQuery,
+  onSearchChange,
 }: SidebarProps) {
   function toggleFilter(k: FilterKey) {
     const next = new Set(activeFilters);
@@ -258,6 +262,18 @@ export function Sidebar({
 
         {/* ── Filter + Sort bar ── */}
         <div className="sidebar-controls">
+          <div className="sb-search-row">
+            <input
+              className="sb-search-input"
+              type="text"
+              placeholder="Search address, zip, city…"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+            {searchQuery && (
+              <button className="sb-search-clear" onClick={() => onSearchChange("")}>✕</button>
+            )}
+          </div>
           <div className="sb-control-row">
             <span className="sb-control-label">Sort</span>
             <div className="sb-chips">
@@ -294,7 +310,7 @@ export function Sidebar({
               ))}
             </div>
           </div>
-          {(activeFilters.size > 0 || sortKey !== "time") && (
+          {(activeFilters.size > 0 || sortKey !== "time" || searchQuery.trim()) && (
             <div className="sb-count">
               {totalVisible} of {totalListings} shown
             </div>
@@ -341,8 +357,8 @@ export function Sidebar({
             onOpenFinance={onOpenFinance}
           />
         ))}
-        {timeSlotGroups.length === 0 && activeFilters.size > 0 && (
-          <div className="sb-empty">No listings match this filter.</div>
+        {timeSlotGroups.length === 0 && (activeFilters.size > 0 || searchQuery.trim()) && (
+          <div className="sb-empty">No listings match.</div>
         )}
       </div>
     </aside>
