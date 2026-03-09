@@ -7,11 +7,12 @@ import { MapView } from "./components/Map/MapView";
 import { SummaryModal } from "./components/Summary/SummaryModal";
 import { DataView } from "./components/DataView/DataView";
 import { FinancePage } from "./components/Finance/FinancePage";
+import { AnalyticsPage } from "./components/Analytics/AnalyticsPage";
 import type { TimeSlotGroup } from "./types";
 import "./App.css";
 
 type MobileTab = "map" | "list";
-export type Page = "home" | "planner" | "priority" | "data" | "finance";
+export type Page = "home" | "planner" | "priority" | "data" | "finance" | "analytics";
 
 function MapIcon() {
   return (
@@ -36,7 +37,7 @@ function ListIcon() {
   );
 }
 
-const VALID_PAGES: Page[] = ["home", "planner", "priority", "data", "finance"];
+const VALID_PAGES: Page[] = ["home", "planner", "priority", "data", "finance", "analytics"];
 
 function pageFromHash(): Page {
   const hash = window.location.hash.slice(1) as Page;
@@ -229,6 +230,18 @@ function App() {
       <div className="error-screen">
         <p>Error loading data: {error}</p>
       </div>
+    );
+  }
+
+  if (page === "analytics") {
+    return (
+      <AnalyticsPage
+        allListings={allListings}
+        visits={visits}
+        hiddenIds={hiddenIds}
+        priorityIds={priorityIds}
+        onBack={() => setPage("data")}
+      />
     );
   }
 

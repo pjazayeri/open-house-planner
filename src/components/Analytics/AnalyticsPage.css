@@ -1,0 +1,376 @@
+/* AnalyticsPage — full-page dark dashboard */
+
+.an-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #0f172a;
+  overflow-y: auto;
+  color: #e2e8f0;
+  font-family: inherit;
+}
+
+.an-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+}
+
+.an-back-btn {
+  background: none;
+  border: 1px solid #475569;
+  color: #94a3b8;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.an-back-btn:hover {
+  color: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+.an-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.an-subtitle {
+  font-size: 13px;
+  color: #64748b;
+  margin-left: auto;
+}
+
+/* Body */
+.an-body {
+  flex: 1;
+  padding: 20px 20px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* Empty state */
+.an-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 16px;
+}
+.an-empty-sub {
+  font-size: 13px;
+  color: #475569;
+}
+
+/* Section */
+.an-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.an-section-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Stat grid */
+.an-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+}
+
+.an-stat-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.an-stat-card--green { border-color: #166534; }
+.an-stat-card--red { border-color: #7f1d1d; }
+.an-stat-card--purple { border-color: #4c1d95; }
+.an-stat-card--yellow { border-color: #78350f; }
+
+.an-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #f1f5f9;
+  line-height: 1.1;
+}
+
+.an-stat-label {
+  font-size: 11px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.an-stat-sub {
+  font-size: 11px;
+  color: #475569;
+}
+
+/* Rating distribution */
+.an-rating-dist {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.an-rating-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 28px;
+  align-items: center;
+  gap: 10px;
+}
+
+.an-rating-label {
+  font-size: 13px;
+  color: #eab308;
+  text-align: right;
+}
+
+.an-rating-bar-bg {
+  height: 18px;
+  background: #0f172a;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.an-rating-bar-fill {
+  height: 100%;
+  background: #7c3aed;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  min-width: 0;
+}
+
+.an-rating-count {
+  font-size: 12px;
+  color: #64748b;
+  text-align: right;
+}
+
+/* Visit timeline */
+.an-timeline {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.an-timeline-row {
+  display: grid;
+  grid-template-columns: 100px 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.an-timeline-label {
+  font-size: 13px;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.an-timeline-bar-bg {
+  height: 14px;
+  background: #0f172a;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.an-timeline-bar-fill {
+  height: 100%;
+  background: #7c3aed;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.an-timeline-meta {
+  font-size: 12px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.an-timeline-meta .green { color: #22c55e; }
+.an-timeline-meta .red { color: #ef4444; }
+
+/* Listing list */
+.an-listing-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.an-listing-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.an-listing-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.an-listing-address {
+  font-size: 14px;
+  font-weight: 500;
+  color: #93c5fd;
+  text-decoration: none;
+}
+.an-listing-address:hover {
+  color: #bfdbfe;
+  text-decoration: underline;
+}
+
+.an-listing-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.an-listing-price {
+  font-size: 13px;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.an-listing-cap {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.an-badge {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.an-badge--green { background: #14532d; color: #86efac; }
+.an-badge--red { background: #7f1d1d; color: #fca5a5; }
+.an-badge--purple { background: #4c1d95; color: #c4b5fd; }
+
+/* Stars */
+.an-stars {
+  display: inline-flex;
+  gap: 1px;
+}
+
+.an-star {
+  font-size: 14px;
+  color: #334155;
+}
+
+.an-star.filled {
+  color: #eab308;
+}
+
+/* Comparison table */
+.an-comparison-table {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.an-comparison-header,
+.an-comparison-row {
+  display: grid;
+  grid-template-columns: 100px repeat(3, 1fr);
+  gap: 0;
+}
+
+.an-comparison-header {
+  background: #0f172a;
+  border-bottom: 1px solid #334155;
+  padding: 8px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.an-comparison-header span,
+.an-comparison-row span {
+  padding: 0 6px;
+}
+
+.an-comparison-row {
+  padding: 10px 14px;
+  border-bottom: 1px solid #1e293b;
+  font-size: 13px;
+  color: #e2e8f0;
+  background: #1e293b;
+}
+
+.an-comparison-row:last-child {
+  border-bottom: none;
+}
+
+.an-comparison-label {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* Mobile */
+@media (max-width: 767px) {
+  .an-body {
+    padding: 14px 12px 40px;
+  }
+
+  .an-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .an-timeline-row {
+    grid-template-columns: 80px 1fr;
+    grid-template-rows: auto auto;
+  }
+
+  .an-timeline-meta {
+    grid-column: 1 / -1;
+  }
+
+  .an-comparison-header,
+  .an-comparison-row {
+    grid-template-columns: 80px repeat(3, 1fr);
+    font-size: 11px;
+  }
+}

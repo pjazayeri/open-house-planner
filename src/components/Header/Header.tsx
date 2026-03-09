@@ -118,6 +118,12 @@ export function Header({
         >
           Finance
         </button>
+        <button
+          className={`nav-tab ${page === "analytics" ? "active" : ""}`}
+          onClick={() => onNavigate("analytics")}
+        >
+          Analytics
+        </button>
         <button className="nav-tab nav-tab--summary" onClick={onShowSummary}>
           Summary
         </button>

@@ -7,15 +7,15 @@
  * Every write does a GET-then-PUT so that two hooks writing different
  * fields never clobber each other's data.
  */
-import { JSONBIN_API_KEY, JSONBIN_BIN_ID } from "../config";
 import type { VisitRecord } from "../types";
 
-export const USE_CLOUD = JSONBIN_API_KEY !== "" && JSONBIN_BIN_ID !== "";
+// Sync is always enabled — secrets live on the server, never in the bundle.
+// Set VITE_SYNC_DISABLED=true in .env.local to run offline without errors.
+export const USE_CLOUD = import.meta.env.VITE_SYNC_DISABLED !== "true";
 
 export type SyncStatus = "unconfigured" | "loading" | "ok" | "error" | "degraded";
 
-const BIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
-const HEADERS = { "X-Master-Key": JSONBIN_API_KEY };
+const BIN_URL = `/api/sync`;
 
 
 export interface CloudState {
@@ -64,7 +64,7 @@ let _pendingFetch: Promise<CloudState> | null = null;
 export async function cloudFetch(): Promise<CloudState> {
   if (_pendingFetch) return _pendingFetch;
   _pendingFetch = (async () => {
-    const res = await fetch(`${BIN_URL}/latest`, { headers: HEADERS });
+    const res = await fetch(BIN_URL);
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       console.error(`[cloudSync] fetch failed ${res.status}:`, body);
@@ -90,7 +90,7 @@ export async function cloudPatch(patch: Partial<CloudState>): Promise<void> {
   const merged: CloudState = { ...current, ...patch };
   const res = await fetch(BIN_URL, {
     method: "PUT",
-    headers: { ...HEADERS, "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(merged),
   });
   if (!res.ok) {

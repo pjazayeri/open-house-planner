@@ -1,5 +1,4 @@
 import { useState, useRef } from "react";
-import Anthropic from "@anthropic-ai/sdk";
 import type { Listing, VisitRecord } from "../../types";
 import { formatPrice, formatBedsBaths, formatTimeRange } from "../../utils/formatters";
 import "./SummaryModal.css";
@@ -112,30 +111,17 @@ export function SummaryModal({ allListings, visits, priorityIds, onClose }: Summ
   };
 
   const handleGenerateInsights = async () => {
-    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      setInsightsError("Add VITE_ANTHROPIC_API_KEY to .env.local to enable AI insights.");
-      setInsightsState("error");
-      return;
-    }
-
     abortRef.current = new AbortController();
     setInsightsState("loading");
     setInsights("");
     setInsightsError("");
 
     try {
-      const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
-
-      const stream = client.messages.stream({
-        model: "claude-opus-4-6",
-        max_tokens: 1024,
-        system: `You are a helpful real estate advisor analyzing open house visit notes.
-Be concise, practical, and direct.`,
-        messages: [
-          {
-            role: "user",
-            content: `Here is my open house tour summary. Please analyze it and summarize noting:
+      const response = await fetch("/api/insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          summaryText: `Here is my open house tour summary. Please analyze it and summarize noting:
 1. What was liked
 2. What wasn't liked
 3. What were the reasons for liking properties
@@ -143,17 +129,35 @@ Be concise, practical, and direct.`,
 
 Tour data:
 ${text}`,
-          },
-        ],
+        }),
+        signal: abortRef.current.signal,
       });
 
-      for await (const event of stream) {
-        if (abortRef.current?.signal.aborted) break;
-        if (event.type === "content_block_delta") {
-          const delta = event.delta;
-          if (delta.type === "text_delta") {
-            setInsights((prev) => prev + delta.text);
-          }
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(err.error ?? `API error ${response.status}`);
+      }
+
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") break;
+          try {
+            const event = JSON.parse(data) as { type: string; delta?: { type: string; text: string } };
+            if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
+              setInsights((prev) => prev + event.delta!.text);
+            }
+          } catch { /* ignore malformed SSE lines */ }
         }
       }
 

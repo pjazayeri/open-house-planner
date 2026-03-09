@@ -5,17 +5,11 @@ import { computeCapRateBreakdown } from "./capRate";
 const URL_COLUMN =
   "URL (SEE https://www.redfin.com/buy-a-home/comparative-market-analysis FOR INFO ON PRICING)";
 
-/** Returns midnight (start of day) in local time for the given date */
-function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
 /**
  * Filter raw CSV rows to active listings with open houses starting today
  * or in the future, and transform them into our Listing type.
  */
 export function filterAndTransform(rows: RawListing[]): Listing[] {
-  const today = startOfDay(new Date());
   const listings: Listing[] = [];
 
   for (const row of rows) {
@@ -24,7 +18,6 @@ export function filterAndTransform(rows: RawListing[]): Listing[] {
     const startTime = parseRedfinDate(row["NEXT OPEN HOUSE START TIME"]);
     const endTime = parseRedfinDate(row["NEXT OPEN HOUSE END TIME"]);
     if (!startTime || !endTime) continue;
-    if (startOfDay(startTime) < today) continue;
 
     const lat = parseFloat(row.LATITUDE);
     const lng = parseFloat(row.LONGITUDE);
