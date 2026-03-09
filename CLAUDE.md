@@ -5,11 +5,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev        # Start dev server (Vite HMR)
+npm run dev        # Start full-stack dev server (vercel dev — runs Vite + API functions)
 npm run build      # Type-check + production build (tsc -b && vite build)
 npm run lint       # ESLint
 npm run preview    # Preview production build
 
+vercel --prod      # Deploy to production manually
 python3 scripts/fetch-thumbnails.py  # Download listing thumbnails from Redfin
 ```
 
@@ -17,80 +18,95 @@ No test framework is configured.
 
 ## Architecture
 
-Single-page React + TypeScript app (Vite) for planning open house visits. Reads a Redfin CSV export, filters to active listings with future open houses, displays them on a map with a sidebar, and persists user state to JSONBin.io cloud sync.
+Single-page React + TypeScript app (Vite) hosted on Vercel for planning open house visits. Reads a Redfin CSV export, displays listings on a map with a sidebar, and persists user state to JSONBin.io via a server-side proxy.
 
 ### Data pipeline
 
 ```
 public/redfin-favorites_*.csv  (or localStorage "redfin-csv" if user uploaded)
   → parseCsv.ts       (PapaParse → RawListing[])
-  → filterListings.ts (filter STATUS=Active + openHouseStart >= today → Listing[])
+  → filterListings.ts (filter STATUS=Active + valid open house times → Listing[])
   → capRate.ts        (compute capRate + CapRateBreakdown per listing)
-  → routeOptimizer.ts (group by time slot, nearest-neighbor order → TimeSlotGroup[])
   → useListings.ts    (orchestrates pipeline + all UI state)
+      → cityListings  (filters allListings to future open houses + selected city)
+      → routeOptimizer.ts (group by time slot, nearest-neighbor → TimeSlotGroup[])
 ```
 
-**Updating for a new weekend:** upload a new Redfin CSV via the "↑ Upload CSV" button in the header (persists to `localStorage`), or drop the file in `public/` and update `CSV_PATH` in `src/utils/parseCsv.ts`. The date filter is dynamic — no code change needed for open house dates.
+`allListings` contains all active listings regardless of open house date — used by Browse, Data, Finance, Analytics. `timeSlotGroups` (for the Planner) derives from `cityListings` which filters to `openHouseEnd > now`.
+
+**Updating for a new weekend:** upload a new Redfin CSV via the "↑ Upload CSV" button (persists to `localStorage`), or drop the file in `public/` and update `CSV_PATH` in `src/utils/parseCsv.ts`.
 
 ### Pages & routing
 
-Hash-based routing (`window.location.hash`). `type Page = "home" | "planner" | "priority" | "data" | "finance"` in `src/App.tsx`.
+Hash-based routing (`window.location.hash`). `type Page = "home" | "planner" | "priority" | "data" | "finance" | "analytics"` in `src/App.tsx`.
 
 - `/#home` — Browse: all non-hidden city listings, flat list + map, sort/filter controls.
-- `/#planner` — Open Houses: time-slot groups, geo tracking, priority section.
-- `/#priority` — same as planner but filtered to priority listings only (URL-encoded so it's bookmarkable/shareable).
-- `/#data` — DataView full-screen: all listings regardless of city, multi-column sort/filter, CSV export.
+- `/#planner` — Open Houses: future time-slot groups, geo tracking, priority section.
+- `/#priority` — same as planner but filtered to priority listings only.
+- `/#data` — DataView full-screen: all listings, multi-column sort/filter, CSV export.
 - `/#finance` — FinancePage full-screen: buy-vs-rent breakdown per listing.
+- `/#analytics` — AnalyticsPage full-screen: visit stats dashboard (ratings, timeline, top-rated).
 
 ### State management
 
 All user state lives in two hooks, both backed by JSONBin.io cloud sync:
 
-- **`useHiddenIds.ts`** — `hiddenIds: Set<string>` + `priorityOrder: string[]` (ordered array; `priorityIds: Set<string>` is derived via `useMemo`). Drag-reordering in the sidebar updates `priorityOrder` and persists it.
-- **`useVisits.ts`** — `visits: Record<string, VisitRecord>` keyed by listing ID. A visit record is only created explicitly via `markVisited(id)` — `setLiked`, `setRating`, `setNoteField`, `toggleWantOffer` are strict no-ops on unvisited listings.
+- **`useHiddenIds.ts`** — `hiddenIds: Set<string>` + `priorityOrder: string[]` (ordered array; `priorityIds: Set<string>` derived via `useMemo`). Drag-reordering updates `priorityOrder` and persists it.
+- **`useVisits.ts`** — `visits: Record<string, VisitRecord>` keyed by listing ID. Visit records only created via `markVisited(id)` — other setters are no-ops on unvisited listings.
 
 Both hooks are composed in **`useListings.ts`**, which merges `syncStatus` values and exposes a unified API to `App.tsx`.
 
-### Cloud sync (`src/utils/cloudSync.ts`)
+### Cloud sync
 
-Single JSONBin.io bin stores `{ hiddenIds, priorityIds, visits }`. Every write is a GET-then-PUT merge so concurrent writes don't clobber each other. A module-level `_pendingFetch` promise deduplicates React StrictMode double-invocation.
+Secrets never reach the client. The browser calls `/api/sync` (GET/PUT) and `/api/insights` (POST streaming), which are Vercel serverless functions in `api/` that proxy to JSONBin and Anthropic respectively.
+
+`src/utils/cloudSync.ts` calls `/api/sync`. Every write is a GET-then-PUT merge. A module-level `_pendingFetch` deduplicates React StrictMode double-invocation.
 
 `SyncStatus`: `"loading" | "ok" | "error" | "unconfigured" | "degraded"`
-- `"degraded"` — 401 from JSONBin (stale key). App loads with empty in-memory state; header shows orange badge.
-- `"unconfigured"` — env vars not set; app shows a hard error screen.
+- `"degraded"` — 401 from JSONBin (stale key). App loads with empty in-memory state.
+- Set `VITE_SYNC_DISABLED=true` in `.env.local` to run fully offline.
 
-**Env var injection:** `vite.config.ts` reads `.env.local` with raw Node `fs` (no dotenv-expand, avoids `$`-mangling of API keys) and injects `__JSONBIN_API_KEY__` and `__JSONBIN_BIN_ID__` via Vite `define`. `src/config.ts` re-exports these globals. Falls back to `process.env[key]` in CI.
+**Required env vars** — stored in Vercel dashboard (not baked into the bundle):
+```
+JSONBIN_API_KEY    # JSONBin master key
+JSONBIN_BIN_ID     # JSONBin bin ID
+ANTHROPIC_API_KEY  # enables AI insights in SummaryModal
+```
 
-**Required env vars** (`.env.local` for dev, GitHub Secrets for deploy):
-```
-VITE_JSONBIN_API_KEY=...
-VITE_JSONBIN_BIN_ID=...
-VITE_ANTHROPIC_API_KEY=...   # enables AI insights in SummaryModal
-```
+For local dev, `vercel env pull .env.local` pulls these down (or add manually). Run `./scripts/setup-vercel-env.sh` (gitignored) to add them to Vercel for a fresh setup.
 
 ### Key types (`src/types.ts`)
 
 ```ts
-Listing          // transformed CSV row: capRate, capRateBreakdown, visitOrder, timeSlot
-TimeSlotGroup    // { label, startTime, endTime, listings: Listing[] }
-VisitRecord      // { visitedAt, liked: boolean|null, rating: number|null (1-5), pros, cons, wantOffer }
+Listing       // transformed CSV row: capRate, capRateBreakdown, openHouseStart/End
+TimeSlotGroup // { label, startTime, endTime, listings: Listing[] }
+VisitRecord   // { visitedAt, liked: boolean|null, rating: number|null (1-5), pros, cons, wantOffer }
 ```
 
 ### Pages / top-level components
 
-**`App.tsx`** owns `page: Page`, `mobileTab: "map" | "list"`, sort/filter state. Derives `showOnlyPriority` from `page === "priority"` (not a separate state). `visibleGroups` applies filters + sort on top of `baseGroups` — shared between home and planner.
+**`App.tsx`** owns `page: Page`, `mobileTab`, sort/filter state. Full-page components (`DataView`, `FinancePage`, `AnalyticsPage`) render instead of the main layout when active. `visibleGroups` applies filters + sort on top of `baseGroups`, shared between Browse and Planner.
 
-- **`Header`** — city selector, stats, hidden/restore button, sync badge, nav tabs (Browse / Open Houses / Data / Finance / Summary), CSV upload button.
-- **`Sidebar`** → `TimeSlotGroup` → `PropertyCard` — scrollable list with sort/filter controls. `PrioritySection` shows drag-reorderable numbered list of starred properties.
-- **`MapView`** — React-Leaflet map. Priority markers numbered by priority order (gold). Route fetched from OSRM public API for street-following path with directional arrow markers. Falls back to dashed straight-line if OSRM fails.
-- **`DataView`** — full-screen table of all listings; multi-select filter chips, sort, CSV export.
-- **`FinancePage`** — buy-vs-rent analysis. Inputs (down %, rate, term) persisted to `localStorage`. Mortgage rate auto-fetched from FRED `MORTGAGE30US` on mount. Reuses `listing.capRateBreakdown` for tax/insurance/HOA/maintenance. Color-coded rows by buy premium.
-- **`SummaryModal`** — tour summary + streaming AI insights via `@anthropic-ai/sdk` (`dangerouslyAllowBrowser: true`, model `claude-opus-4-6`).
+- **`Header`** — city selector, stats, sync badge, nav tabs, CSV upload.
+- **`Sidebar`** → `TimeSlotGroup` → `PropertyCard` — scrollable list. `PrioritySection` shows drag-reorderable starred properties.
+- **`MapView`** — React-Leaflet. Priority markers numbered in gold. Route from OSRM public API with directional arrows; falls back to dashed line.
+- **`DataView`** — full-screen table, filter chips, sort, CSV export.
+- **`FinancePage`** — buy-vs-rent analysis. Mortgage rate auto-fetched from FRED. Inputs persisted to `localStorage`.
+- **`AnalyticsPage`** — visit stats: overview cards, rating distribution bars, per-day timeline, top-rated listings, want-offer list, price/cap rate comparison table.
+- **`SummaryModal`** — tour summary text + streaming AI insights via `POST /api/insights` (SSE, parsed manually — no Anthropic SDK in the browser).
+
+### `capRate` field
+
+`listing.capRate` is stored as a plain percentage (e.g. `2.04` = 2.04%). Do not multiply by 100 when displaying.
 
 ### Mobile layout
 
-Breakpoint at `max-width: 767px`. Map/List tab bar at the bottom; active panel toggled via `show-map` / `show-list` class on `.app-body`. Uses `100dvh` and `env(safe-area-inset-*)` for notch devices.
+Breakpoint at `max-width: 767px`. Map/List tab bar at bottom; active panel toggled via `show-map` / `show-list` class on `.app-body`. Uses `100dvh` and `env(safe-area-inset-*)`.
 
 ### Thumbnails
 
-Pre-fetched by `scripts/fetch-thumbnails.py` into `public/thumbnails/{MLS#}.jpg`. Loaded at runtime by MLS# with no fallback beyond browser default broken-image.
+Pre-fetched by `scripts/fetch-thumbnails.py` into `public/thumbnails/{MLS#}.jpg`.
+
+### Deployment
+
+Hosted on Vercel. Push to `main` triggers auto-deploy via `.github/workflows/deploy.yml` (uses `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` GitHub Secrets). `vercel --prod` deploys immediately from local.
