@@ -38,12 +38,8 @@ export function useHiddenIds(): UseHiddenIdsResult {
       .catch((err: unknown) => {
         console.error("[useHiddenIds] cloud fetch failed:", err);
         const isAuth = err instanceof Error && (err as { authError?: boolean }).authError;
-        if (isAuth) {
-          setHiddenIds(new Set());
-          setSyncStatus("degraded");
-        } else {
-          setSyncStatus("error");
-        }
+        setHiddenIds(new Set());
+        setSyncStatus(isAuth ? "degraded" : "error");
       });
   }, []);
 

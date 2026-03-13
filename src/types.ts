@@ -33,6 +33,7 @@ export type { CapRateBreakdown } from "./utils/capRate";
 export interface Listing {
   id: string;
   address: string;
+  location: string;
   city: string;
   state: string;
   zip: string;

@@ -36,6 +36,7 @@ export function filterAndTransform(rows: RawListing[]): Listing[] {
     listings.push({
       id: row["MLS#"] || `${row.ADDRESS}-${row.CITY}`,
       address: row.ADDRESS,
+      location: row.LOCATION || "",
       city: row.CITY,
       state: row["STATE OR PROVINCE"],
       zip,

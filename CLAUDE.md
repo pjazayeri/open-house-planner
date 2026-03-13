@@ -5,12 +5,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev        # Start full-stack dev server (vercel dev — runs Vite + API functions)
+npm run dev        # Start Vite dev server with local API proxy (reads .env.local)
 npm run build      # Type-check + production build (tsc -b && vite build)
 npm run lint       # ESLint
 npm run preview    # Preview production build
 
 vercel --prod      # Deploy to production manually
+node scripts/test-jsonbin.mjs  # Validate JSONBin credentials in .env.local
 python3 scripts/fetch-thumbnails.py  # Download listing thumbnails from Redfin
 ```
 
@@ -73,7 +74,9 @@ JSONBIN_BIN_ID     # JSONBin bin ID
 ANTHROPIC_API_KEY  # enables AI insights in SummaryModal
 ```
 
-For local dev, `vercel env pull .env.local` pulls these down (or add manually). Run `./scripts/setup-vercel-env.sh` (gitignored) to add them to Vercel for a fresh setup.
+For local dev, `vercel env pull .env.local` pulls these down. The Vite dev server (`npm run dev`) implements `/api/sync` as a middleware in `vite.config.ts`, reading `.env.local` directly via `fs.readFileSync` — **do not use `loadEnv` or `process.env` to read these secrets** because Vite's env loader interpolates `$` characters in values, corrupting bcrypt-format keys like `$2a$10$...`. Always read `.env.local` with the raw file parser in `vite.config.ts`.
+
+Run `node scripts/test-jsonbin.mjs` to verify credentials work before debugging sync issues.
 
 ### Key types (`src/types.ts`)
 

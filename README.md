@@ -36,21 +36,42 @@ A single-page React + TypeScript app for planning weekend open house visits. Rea
 ### Cap rate model
 Estimates cap rate for each listing using zip- and city-level rent $/sqft data, with expense line items for property tax (1.1%), insurance (type-adjusted), vacancy (5%), maintenance (age-adjusted), HOA, and management (multi-family only).
 
-## Setup
+## Local development
+
+### Prerequisites
+
+- Node.js 18+
+- [Vercel CLI](https://vercel.com/docs/cli): `npm i -g vercel`
+
+### First-time setup
 
 ```bash
-npm install
-npm run dev
+npm install          # install dependencies
+npm run dev          # start Vite dev server at http://localhost:5173
 ```
 
-### Required environment variables
+For cloud sync and AI insights to work locally, the API functions need to run too. That requires the Vercel CLI:
 
-Create `.env.local` for local dev (add as GitHub Secrets for deployment):
+```bash
+vercel link                  # link to the Vercel project (one-time)
+vercel env pull .env.local   # pull secrets from Vercel dashboard
+npm run dev:api              # start Vite + API functions via vercel dev
+```
+
+### Environment variables
+
+Secrets live in the Vercel dashboard (not baked into the frontend bundle). After `vercel env pull`, `.env.local` will contain:
 
 ```
-VITE_JSONBIN_API_KEY=...    # JSONBin.io API key
-VITE_JSONBIN_BIN_ID=...     # JSONBin.io bin ID for cloud sync
-VITE_ANTHROPIC_API_KEY=...  # Enables AI insights in Summary modal
+JSONBIN_API_KEY=...    # JSONBin master key (cloud sync)
+JSONBIN_BIN_ID=...     # JSONBin bin ID
+ANTHROPIC_API_KEY=...  # enables AI insights in the Summary modal
+```
+
+To run fully offline without any cloud sync, add to `.env.local`:
+
+```
+VITE_SYNC_DISABLED=true
 ```
 
 ### Updating for a new weekend
@@ -63,10 +84,12 @@ VITE_ANTHROPIC_API_KEY=...  # Enables AI insights in Summary modal
 ## Commands
 
 ```bash
-npm run dev      # Start dev server (Vite HMR)
+npm run dev      # Start Vite dev server (frontend only)
+npm run dev:api  # Start Vite + API functions via vercel dev (requires Vercel CLI)
 npm run build    # Type-check + production build
 npm run lint     # ESLint
 npm run preview  # Preview production build
+vercel --prod    # Deploy to production manually
 
 python3 scripts/fetch-thumbnails.py  # Download listing thumbnails from Redfin
 ```
@@ -77,5 +100,5 @@ python3 scripts/fetch-thumbnails.py  # Download listing thumbnails from Redfin
 - React-Leaflet for the map
 - PapaParse for CSV parsing
 - JSONBin.io for cloud sync (GET-then-PUT merge to handle concurrent writes)
-- `@anthropic-ai/sdk` for streaming AI summary (browser-side)
-- No backend, no test framework
+- Vercel serverless functions (`api/`) proxy to JSONBin and Anthropic — secrets never reach the browser
+- No test framework

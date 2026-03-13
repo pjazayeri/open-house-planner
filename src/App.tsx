@@ -200,30 +200,6 @@ function App() {
     );
   }
 
-  if (syncStatus === "unconfigured") {
-    return (
-      <div className="error-screen">
-        <h2>Cloud sync not configured</h2>
-        <p>
-          Set <code>VITE_JSONBIN_API_KEY</code> and <code>VITE_JSONBIN_BIN_ID</code> in{" "}
-          GitHub repo Settings &rarr; Secrets and variables &rarr; Actions, then redeploy.
-        </p>
-        <p>For local dev, add these to <code>.env.local</code>.</p>
-      </div>
-    );
-  }
-
-  if (syncStatus === "error") {
-    return (
-      <div className="error-screen">
-        <h2>Could not load data from cloud</h2>
-        <p>Check your network connection or JSONBin credentials, then reload.</p>
-        <button className="retry-btn" onClick={() => window.location.reload()}>
-          Retry
-        </button>
-      </div>
-    );
-  }
 
   if (error) {
     return (

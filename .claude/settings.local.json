@@ -21,7 +21,9 @@
       "Bash(sed:*)",
       "Bash(ls:*)",
       "Bash(do:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(chmod +x:*)",
+      "Bash(grep:*)"
     ]
   }
 }

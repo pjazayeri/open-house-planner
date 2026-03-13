@@ -17,7 +17,6 @@ export type SyncStatus = "unconfigured" | "loading" | "ok" | "error" | "degraded
 
 const BIN_URL = `/api/sync`;
 
-
 export interface CloudState {
   hiddenIds: string[];
   priorityIds: string[];
@@ -26,7 +25,6 @@ export interface CloudState {
 
 function parseVisitRecord(v: unknown): VisitRecord {
   const r = v && typeof v === "object" ? (v as Record<string, unknown>) : {};
-  // Migrate old single `notes` field into `pros`
   const legacyNotes = typeof r.notes === "string" ? r.notes : "";
   const rating =
     typeof r.rating === "number" && r.rating >= 1 && r.rating <= 5 ? r.rating : null;
@@ -58,16 +56,16 @@ function parseCloudState(record: unknown): CloudState {
 }
 
 // Deduplicate concurrent fetches (React StrictMode fires effects twice).
-// All callers within the same tick share one in-flight request.
 let _pendingFetch: Promise<CloudState> | null = null;
 
 export async function cloudFetch(): Promise<CloudState> {
   if (_pendingFetch) return _pendingFetch;
+
   _pendingFetch = (async () => {
     const res = await fetch(BIN_URL);
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      console.error(`[cloudSync] fetch failed ${res.status}:`, body);
+      console.error(`[cloudSync] fetch failed ${res.status}:`, body.slice(0, 200));
       const err = Object.assign(new Error(`JSONBin ${res.status}`), {
         authError: res.status === 401,
       });
@@ -76,14 +74,13 @@ export async function cloudFetch(): Promise<CloudState> {
     const json = (await res.json()) as { record: unknown };
     return parseCloudState(json.record);
   })();
-  // Clear after 2 s so subsequent writes read fresh data
-  _pendingFetch.finally(() => setTimeout(() => { _pendingFetch = null; }, 2000));
+
+  _pendingFetch.finally(() => setTimeout(() => { _pendingFetch = null; }, 2000)).catch(() => {});
   return _pendingFetch;
 }
 
 /**
  * Merge `patch` into the current cloud state and write back.
- * Safe to call from multiple hooks — each only touches its own field.
  */
 export async function cloudPatch(patch: Partial<CloudState>): Promise<void> {
   const current = await cloudFetch();
@@ -95,7 +92,7 @@ export async function cloudPatch(patch: Partial<CloudState>): Promise<void> {
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    console.error(`[cloudSync] patch failed ${res.status}:`, body);
+    console.error(`[cloudSync] patch failed ${res.status}:`, body.slice(0, 200));
     throw new Error(`JSONBin ${res.status}`);
   }
 }

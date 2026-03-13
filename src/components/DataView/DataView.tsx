@@ -54,7 +54,7 @@ function AutoTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) 
   );
 }
 
-interface RowProps {
+interface DetailPanelProps {
   listing: Listing;
   isHidden: boolean;
   isPriority: boolean;
@@ -71,7 +71,7 @@ interface RowProps {
   onOpenFinance: () => void;
 }
 
-function DataRow({
+function DetailPanel({
   listing: l,
   isHidden,
   isPriority,
@@ -86,14 +86,13 @@ function DataRow({
   onSetNoteField,
   onClearVisit,
   onOpenFinance,
-}: RowProps) {
+}: DetailPanelProps) {
   const [localPros, setLocalPros] = useState(visit?.pros ?? "");
   const [localCons, setLocalCons] = useState(visit?.cons ?? "");
   const [saved, setSaved] = useState(false);
   const [thumbError, setThumbError] = useState(false);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
 
-  // Auto-create visit record when rating or liked is set on unvisited listing
   const handleSetLiked = (liked: boolean | null) => {
     if (!visit && liked !== null) onMarkVisited();
     onSetLiked(liked);
@@ -103,125 +102,157 @@ function DataRow({
     onSetRating(rating);
   };
 
-  const rowClass = [
-    "dv-row",
-    isHidden ? "dv-row--hidden" : "",
-    visit?.liked === true ? "dv-row--liked" : "",
-    visit?.liked === false ? "dv-row--disliked" : "",
-    isPriority && !isHidden ? "dv-row--priority" : "",
+  const panelClass = [
+    "dv-detail",
+    isPriority && !isHidden ? "dv-detail--priority" : "",
+    visit?.liked === true ? "dv-detail--liked" : "",
+    visit?.liked === false ? "dv-detail--disliked" : "",
+    isHidden ? "dv-detail--hidden" : "",
   ].filter(Boolean).join(" ");
 
   return (
-    <div className={rowClass}>
-      <div className="dv-thumb">
-        {!thumbError ? (
-          <img
-            src={`${import.meta.env.BASE_URL}thumbnails/${l.id}.jpg`}
-            alt={l.address}
-            onError={() => setThumbError(true)}
-          />
-        ) : (
-          <div className="dv-thumb-placeholder">🏠</div>
-        )}
-      </div>
-
-      <div className="dv-info">
-        <a className="dv-address" href={l.url} target="_blank" rel="noopener noreferrer">
-          {l.address}
-        </a>
-        <div className="dv-details">
-          <span>{formatPrice(l.price)}</span>
-          <span>·</span>
-          <span>{formatBedsBaths(l.beds, l.baths)}</span>
-          {l.sqft && <><span>·</span><span>{l.sqft.toLocaleString()} sqft</span></>}
-          <span>·</span>
-          <span className={`dv-cap ${l.capRate >= 3.5 ? "good" : l.capRate >= 1.5 ? "ok" : "low"}`}>
-            {l.capRate.toFixed(1)}% cap
-          </span>
+    <div className={panelClass}>
+      <div className="dv-detail-main">
+        <div className="dv-detail-thumb-wrap">
+          {!thumbError ? (
+            <img
+              className="dv-detail-thumb"
+              src={`${import.meta.env.BASE_URL}thumbnails/${l.id}.jpg`}
+              alt={l.address}
+              onError={() => setThumbError(true)}
+            />
+          ) : (
+            <div className="dv-detail-thumb dv-detail-thumb-ph">🏠</div>
+          )}
         </div>
-        <div className="dv-time">
-          {fmtDate(l.openHouseStart)} · {fmtTime(l.openHouseStart)}–{fmtTime(l.openHouseEnd)}
-        </div>
-      </div>
 
-      <div className="dv-controls">
-        <button
-          className={`dv-btn dv-priority ${isPriority ? "active" : ""}`}
-          title={isPriority ? "Remove from priority" : "Mark as priority"}
-          onClick={onTogglePriority}
-        >
-          {isPriority ? "★" : "☆"}
-        </button>
-
-        {visit ? (
-          <div className="dv-visited">
-            <span className="dv-visited-time">{fmtVisitTime(visit.visitedAt)}</span>
-            <button className="dv-btn dv-clear" title="Clear visit" onClick={onClearVisit}>✕</button>
+        <div className="dv-detail-info">
+          <div className="dv-detail-header">
+            <a className="dv-detail-address" href={l.url} target="_blank" rel="noopener noreferrer">
+              {l.address}
+            </a>
+            <span className="dv-detail-location">{l.location || l.city}{l.state ? `, ${l.state}` : ""}</span>
           </div>
-        ) : (
-          <button className="dv-btn dv-visit" onClick={onMarkVisited}>Visit</button>
-        )}
 
-        {/* Thumbs */}
-        <div className="dv-thumbs">
-          <button
-            className={`dv-btn dv-thumb ${visit?.liked === true ? "active-up" : ""}`}
-            title="Liked it"
-            onClick={() => handleSetLiked(visit?.liked === true ? null : true)}
-          >👍</button>
-          <button
-            className={`dv-btn dv-thumb ${visit?.liked === false ? "active-down" : ""}`}
-            title="Didn't like it"
-            onClick={() => handleSetLiked(visit?.liked === false ? null : false)}
-          >👎</button>
-        </div>
+          <div className="dv-detail-price-row">
+            <span className="dv-detail-price">{formatPrice(l.price)}</span>
+            <span className="dv-detail-beds">{formatBedsBaths(l.beds, l.baths)}</span>
+            {l.sqft && <span className="dv-detail-sqft">{l.sqft.toLocaleString()} sqft</span>}
+          </div>
 
-        {/* Stars — clicking without a visit auto-marks visited */}
-        <div className="dv-stars" onMouseLeave={() => setHoverRating(null)}>
-          {[1, 2, 3, 4, 5].map((n) => {
-            const filled = hoverRating !== null ? n <= hoverRating : visit?.rating !== null && visit?.rating !== undefined && n <= visit.rating;
-            return (
+          <div className="dv-detail-stats">
+            {l.pricePerSqft != null && (
+              <div className="dv-stat">
+                <span className="dv-stat-label">$/sqft</span>
+                <span className="dv-stat-val">{formatPrice(Math.round(l.pricePerSqft))}</span>
+              </div>
+            )}
+            <div className="dv-stat">
+              <span className="dv-stat-label">Cap Rate</span>
+              <span className={`dv-stat-val dv-cap ${l.capRate >= 3.5 ? "good" : l.capRate >= 1.5 ? "ok" : "low"}`}>
+                {l.capRate.toFixed(1)}%
+              </span>
+            </div>
+            {l.yearBuilt != null && (
+              <div className="dv-stat">
+                <span className="dv-stat-label">Year Built</span>
+                <span className="dv-stat-val">{l.yearBuilt}</span>
+              </div>
+            )}
+            {l.daysOnMarket != null && (
+              <div className="dv-stat">
+                <span className="dv-stat-label">On Market</span>
+                <span className="dv-stat-val">{l.daysOnMarket}d</span>
+              </div>
+            )}
+            {l.hoa != null && (
+              <div className="dv-stat">
+                <span className="dv-stat-label">HOA/mo</span>
+                <span className="dv-stat-val">{formatPrice(l.hoa)}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="dv-detail-time">
+            Open: {fmtDate(l.openHouseStart)} · {fmtTime(l.openHouseStart)}–{fmtTime(l.openHouseEnd)}
+          </div>
+
+          <div className="dv-detail-controls">
+            <button
+              className={`dv-btn dv-priority ${isPriority ? "active" : ""}`}
+              title={isPriority ? "Remove from priority" : "Mark as priority"}
+              onClick={onTogglePriority}
+            >
+              {isPriority ? "★" : "☆"}
+            </button>
+
+            {visit ? (
+              <>
+                <span className="dv-visited-time">{fmtVisitTime(visit.visitedAt)}</span>
+                <button className="dv-btn dv-clear" title="Clear visit" onClick={onClearVisit}>✕ visit</button>
+              </>
+            ) : (
+              <button className="dv-btn dv-visit" onClick={onMarkVisited}>Mark Visited</button>
+            )}
+
+            <div className="dv-thumbs">
               <button
-                key={n}
-                className={`dv-star ${filled ? "active" : ""}`}
-                onMouseEnter={() => setHoverRating(n)}
-                onClick={() => handleSetRating(visit?.rating === n ? null : n)}
-                title={`${n} star${n > 1 ? "s" : ""}`}
+                className={`dv-btn dv-thumb-btn ${visit?.liked === true ? "active-up" : ""}`}
+                title="Liked it"
+                onClick={() => handleSetLiked(visit?.liked === true ? null : true)}
+              >👍</button>
+              <button
+                className={`dv-btn dv-thumb-btn ${visit?.liked === false ? "active-down" : ""}`}
+                title="Didn't like it"
+                onClick={() => handleSetLiked(visit?.liked === false ? null : false)}
+              >👎</button>
+            </div>
+
+            <div className="dv-stars" onMouseLeave={() => setHoverRating(null)}>
+              {[1, 2, 3, 4, 5].map((n) => {
+                const filled = hoverRating !== null ? n <= hoverRating : visit?.rating != null && n <= visit.rating;
+                return (
+                  <button
+                    key={n}
+                    className={`dv-star ${filled ? "active" : ""}`}
+                    onMouseEnter={() => setHoverRating(n)}
+                    onClick={() => handleSetRating(visit?.rating === n ? null : n)}
+                    title={`${n} star${n > 1 ? "s" : ""}`}
+                  >
+                    {filled ? "★" : "☆"}
+                  </button>
+                );
+              })}
+            </div>
+
+            {visit && (
+              <button
+                className={`dv-btn dv-offer ${visit.wantOffer ? "active" : ""}`}
+                title={visit.wantOffer ? "Remove offer interest" : "Want to put in an offer"}
+                onClick={onToggleWantOffer}
               >
-                {filled ? "★" : "☆"}
+                🏠
               </button>
-            );
-          })}
+            )}
+
+            <button className="dv-btn dv-finance" title="View finance breakdown" onClick={onOpenFinance}>$</button>
+
+            <button
+              className={`dv-btn dv-hide ${isHidden ? "is-hidden" : ""}`}
+              title={isHidden ? "Restore listing" : "Hide listing"}
+              onClick={isHidden ? onUnhide : onHide}
+            >
+              {isHidden ? "Restore" : "Hide"}
+            </button>
+
+            <a className="dv-btn dv-see-listing" href={l.url} target="_blank" rel="noopener noreferrer">
+              See listing ↗
+            </a>
+          </div>
         </div>
-
-        {visit && (
-          <button
-            className={`dv-btn dv-offer ${visit.wantOffer ? "active" : ""}`}
-            title={visit.wantOffer ? "Remove offer interest" : "Want to put in an offer"}
-            onClick={onToggleWantOffer}
-          >
-            🏠
-          </button>
-        )}
-
-        <button
-          className="dv-btn dv-finance"
-          title="View finance breakdown"
-          onClick={onOpenFinance}
-        >
-          $
-        </button>
-
-        <button
-          className={`dv-btn dv-hide ${isHidden ? "is-hidden" : ""}`}
-          title={isHidden ? "Restore listing" : "Hide listing"}
-          onClick={isHidden ? onUnhide : onHide}
-        >
-          {isHidden ? "👁" : "✕"}
-        </button>
       </div>
 
-      <div className="dv-notes-col">
+      <div className="dv-detail-notes">
         <div className="dv-notes-grid">
           <div className="dv-notes-field">
             <label className="dv-notes-label">Pros</label>
@@ -265,7 +296,7 @@ const SORT_LABELS: Record<SortKey, string> = {
   time: "Time",
   price: "Price",
   capRate: "Cap Rate",
-  pricePerSqft: "\$/sqft",
+  pricePerSqft: "$/sqft",
   visited: "Visited",
   rating: "Rating",
 };
@@ -305,8 +336,11 @@ export function DataView({
   const [sortKey, setSortKey] = useState<SortKey>("time");
   const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
   const [visitDateFilter, setVisitDateFilter] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const visitDates = useMemo(() => {
     const seen = new Set<string>();
@@ -327,9 +361,7 @@ export function DataView({
       header: true,
       skipEmptyLines: true,
       complete: (result) => {
-        // Build URL → listing ID map
         const urlToId = new Map(allListings.map((l) => [l.url, l.id]));
-
         const newHiddenIds: string[] = [];
         const newPriorityIds: string[] = [];
         const newVisits: Record<string, VisitRecord> = {};
@@ -339,15 +371,11 @@ export function DataView({
           const id = urlToId.get(row["Redfin URL"]);
           if (!id) continue;
           matched++;
-
           if (row["Hidden"] === "yes") newHiddenIds.push(id);
           if (row["Priority"] === "yes") newPriorityIds.push(id);
-
           if (row["Visited"] === "yes") {
             const rating = parseInt(row["Stars (1-5)"] ?? "");
-            const liked =
-              row["Liked"] === "liked" ? true :
-              row["Liked"] === "disliked" ? false : null;
+            const liked = row["Liked"] === "liked" ? true : row["Liked"] === "disliked" ? false : null;
             newVisits[id] = {
               visitedAt: row["Visited At"] ? new Date(row["Visited At"]).toISOString() : new Date().toISOString(),
               liked,
@@ -378,60 +406,103 @@ export function DataView({
     });
   }
 
-  function ratingOrder(id: string): number {
-    const v = visits[id];
-    if (!v || v.rating === null) return 99;
-    return -v.rating; // higher rating = earlier
-  }
-
-  function visitedOrder(id: string): number {
-    return visits[id] ? 0 : 1;
-  }
-
-  function matchesFilter(id: string, k: FilterKey): boolean {
-    const v = visits[id];
-    switch (k) {
-      case "visited":   return !!v;
-      case "unvisited": return !v;
-      case "liked":     return v?.liked === true;
-      case "disliked":  return v?.liked === false;
-      case "rated":     return !!v && v.rating !== null;
-      case "unrated":   return !!v && v.rating === null;
-      case "highRated": return !!v && v.rating !== null && v.rating >= 4;
-      case "priority":  return priorityIds.has(id);
-      case "hidden":    return hiddenIds.has(id);
-      case "wantOffer": return visits[id]?.wantOffer === true;
-      default:          return true;
+  const sorted = useMemo(() => {
+    function matchesFilter(id: string, k: FilterKey): boolean {
+      const v = visits[id];
+      switch (k) {
+        case "visited":   return !!v;
+        case "unvisited": return !v;
+        case "liked":     return v?.liked === true;
+        case "disliked":  return v?.liked === false;
+        case "rated":     return !!v && v.rating !== null;
+        case "unrated":   return !!v && v.rating === null;
+        case "highRated": return !!v && v.rating !== null && v.rating >= 4;
+        case "priority":  return priorityIds.has(id);
+        case "hidden":    return hiddenIds.has(id);
+        case "wantOffer": return visits[id]?.wantOffer === true;
+        default:          return true;
+      }
     }
-  }
 
-  let filtered = allListings.filter((l) => {
-    if (activeFilters.size === 0) return true;
-    for (const k of activeFilters) {
-      if (matchesFilter(l.id, k)) return true;
-    }
-    return false;
-  });
+    const q = searchQuery.trim().toLowerCase();
 
-  if (visitDateFilter) {
-    filtered = filtered.filter((l) => {
-      const v = visits[l.id];
-      if (!v) return false;
-      return new Date(v.visitedAt).toISOString().slice(0, 10) === visitDateFilter;
+    let filtered = allListings.filter((l) => {
+      if (q) {
+        const inAddress = l.address.toLowerCase().includes(q);
+        const inCity = l.city.toLowerCase().includes(q);
+        const inLocation = l.location.toLowerCase().includes(q);
+        if (!inAddress && !inCity && !inLocation) return false;
+      }
+      if (activeFilters.size === 0) return true;
+      for (const k of activeFilters) {
+        if (matchesFilter(l.id, k)) return true;
+      }
+      return false;
     });
-  }
 
-  const sorted = [...filtered].sort((a, b) => {
-    if (sortKey === "price")   return a.price - b.price;
-    if (sortKey === "capRate") return b.capRate - a.capRate;
-    if (sortKey === "pricePerSqft") { const aPsf = a.sqft ? a.price / a.sqft : Infinity; const bPsf = b.sqft ? b.price / b.sqft : Infinity; return aPsf - bPsf; }
-    if (sortKey === "visited") return visitedOrder(a.id) - visitedOrder(b.id);
-    if (sortKey === "rating")  return ratingOrder(a.id) - ratingOrder(b.id);
-    return a.openHouseStart.getTime() - b.openHouseStart.getTime();
-  });
+    if (visitDateFilter) {
+      filtered = filtered.filter((l) => {
+        const v = visits[l.id];
+        if (!v) return false;
+        return new Date(v.visitedAt).toISOString().slice(0, 10) === visitDateFilter;
+      });
+    }
 
-  const visitedCount  = Object.keys(visits).length;
-  const ratedCount    = Object.values(visits).filter((v) => v.rating !== null).length;
+    return [...filtered].sort((a, b) => {
+      if (sortKey === "price")   return a.price - b.price;
+      if (sortKey === "capRate") return b.capRate - a.capRate;
+      if (sortKey === "pricePerSqft") {
+        const aPsf = a.sqft ? a.price / a.sqft : Infinity;
+        const bPsf = b.sqft ? b.price / b.sqft : Infinity;
+        return aPsf - bPsf;
+      }
+      if (sortKey === "visited") return (visits[a.id] ? 0 : 1) - (visits[b.id] ? 0 : 1);
+      if (sortKey === "rating") {
+        const ar = visits[a.id]?.rating ?? null;
+        const br = visits[b.id]?.rating ?? null;
+        if (ar === null && br === null) return 0;
+        if (ar === null) return 1;
+        if (br === null) return -1;
+        return br - ar;
+      }
+      return a.openHouseStart.getTime() - b.openHouseStart.getTime();
+    });
+  }, [allListings, searchQuery, activeFilters, visitDateFilter, visits, hiddenIds, priorityIds, sortKey]);
+
+  // Auto-select first item when sorted list changes
+  useEffect(() => {
+    if (sorted.length > 0 && (!selectedId || !sorted.some((l) => l.id === selectedId))) {
+      setSelectedId(sorted[0].id);
+    } else if (sorted.length === 0) {
+      setSelectedId(null);
+    }
+  }, [sorted, selectedId]);
+
+  // Arrow key navigation
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === "textarea" || tag === "input") return;
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      e.preventDefault();
+      if (!sorted.length) return;
+      const idx = sorted.findIndex((l) => l.id === selectedId);
+      const newIdx =
+        e.key === "ArrowDown"
+          ? idx === -1 ? 0 : Math.min(idx + 1, sorted.length - 1)
+          : idx === -1 ? 0 : Math.max(idx - 1, 0);
+      const newId = sorted[newIdx].id;
+      setSelectedId(newId);
+      rowRefs.current.get(newId)?.scrollIntoView({ block: "nearest" });
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [sorted, selectedId]);
+
+  const selectedListing = selectedId ? sorted.find((l) => l.id === selectedId) ?? null : null;
+
+  const visitedCount = Object.keys(visits).length;
+  const ratedCount = Object.values(visits).filter((v) => v.rating !== null).length;
   const highRatedCount = Object.values(visits).filter((v) => v.rating !== null && v.rating >= 4).length;
 
   function exportCsv() {
@@ -470,7 +541,6 @@ export function DataView({
           esc(l.url),
         ].join(",");
       });
-
     const csv = [headers.join(","), ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -486,8 +556,21 @@ export function DataView({
       <div className="dv-header">
         <div className="dv-header-top">
           <button className="dv-back" onClick={onBack}>← Back</button>
+          <input
+            className="dv-search"
+            type="text"
+            placeholder="Search address or neighborhood…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <div className="dv-header-stats">
+            <span>{sorted.length}/{allListings.length} listings</span>
+            {visitedCount > 0 && <><span>·</span><span>{visitedCount} visited</span></>}
+            {ratedCount > 0 && <><span>·</span><span>{ratedCount} rated</span></>}
+            {highRatedCount > 0 && <><span>·</span><span>{highRatedCount} ★4+</span></>}
+          </div>
           <button className="dv-export" onClick={exportCsv}>Export CSV</button>
-          <button className="dv-import" onClick={() => fileInputRef.current?.click()}>Import CSV</button>
+          <button className="dv-import" onClick={() => fileInputRef.current?.click()}>Import</button>
           <input
             ref={fileInputRef}
             type="file"
@@ -500,18 +583,6 @@ export function DataView({
             }}
           />
           {importStatus && <span className="dv-import-status">{importStatus}</span>}
-          <div className="dv-header-center">
-            <h2>All Listings</h2>
-            <div className="dv-stats">
-              <span>{allListings.length} total</span>
-              <span>·</span>
-              <span>{visitedCount} visited</span>
-              <span>·</span>
-              <span>{ratedCount} rated</span>
-              {highRatedCount > 0 && <><span>·</span><span>{highRatedCount} high-rated ★</span></>}
-              {hiddenIds.size > 0 && <><span>·</span><span>{hiddenIds.size} hidden</span></>}
-            </div>
-          </div>
         </div>
 
         <div className="dv-header-bottom">
@@ -519,12 +590,7 @@ export function DataView({
             <span className="dv-control-label">Filter</span>
             <div className="dv-chips">
               {activeFilters.size > 0 && (
-                <button
-                  className="dv-chip dv-chip-clear"
-                  onClick={() => setActiveFilters(new Set())}
-                >
-                  Clear
-                </button>
+                <button className="dv-chip dv-chip-clear" onClick={() => setActiveFilters(new Set())}>Clear</button>
               )}
               {(Object.keys(FILTER_LABELS) as FilterKey[]).filter((k) => k !== "all").map((k) => (
                 <button
@@ -563,29 +629,97 @@ export function DataView({
         </div>
       </div>
 
-      <div className="dv-list">
-        {sorted.length === 0 && (
-          <div className="dv-empty">No listings match this filter.</div>
-        )}
-        {sorted.map((l) => (
-          <DataRow
-            key={l.id}
-            listing={l}
-            isHidden={hiddenIds.has(l.id)}
-            isPriority={priorityIds.has(l.id)}
-            visit={visits[l.id] ?? null}
-            onHide={() => onHide(l.id)}
-            onUnhide={() => onUnhide(l.id)}
-            onTogglePriority={() => onTogglePriority(l.id)}
-            onMarkVisited={() => onMarkVisited(l.id)}
-            onSetLiked={(liked) => onSetLiked(l.id, liked)}
-            onSetRating={(rating) => onSetRating(l.id, rating)}
-            onToggleWantOffer={() => onToggleWantOffer(l.id)}
-            onSetNoteField={(field, value) => onSetNoteField(l.id, field, value)}
-            onClearVisit={() => onClearVisit(l.id)}
-            onOpenFinance={() => onOpenFinance(l.id)}
+      <div className="dv-body">
+        {selectedListing ? (
+          <DetailPanel
+            key={selectedId}
+            listing={selectedListing}
+            isHidden={hiddenIds.has(selectedListing.id)}
+            isPriority={priorityIds.has(selectedListing.id)}
+            visit={visits[selectedListing.id] ?? null}
+            onHide={() => onHide(selectedListing.id)}
+            onUnhide={() => onUnhide(selectedListing.id)}
+            onTogglePriority={() => onTogglePriority(selectedListing.id)}
+            onMarkVisited={() => onMarkVisited(selectedListing.id)}
+            onSetLiked={(liked) => onSetLiked(selectedListing.id, liked)}
+            onSetRating={(rating) => onSetRating(selectedListing.id, rating)}
+            onToggleWantOffer={() => onToggleWantOffer(selectedListing.id)}
+            onSetNoteField={(field, value) => onSetNoteField(selectedListing.id, field, value)}
+            onClearVisit={() => onClearVisit(selectedListing.id)}
+            onOpenFinance={() => onOpenFinance(selectedListing.id)}
           />
-        ))}
+        ) : (
+          <div className="dv-no-selection">No listings match.</div>
+        )}
+
+        <div className="dv-table-container">
+          <div className="dv-table-header">
+            <div className="dv-th dv-tc-badge"></div>
+            <div className="dv-th dv-tc-address">Address</div>
+            <div className="dv-th dv-tc-location">Location</div>
+            <div className="dv-th dv-tc-price">Price</div>
+            <div className="dv-th dv-tc-beds">Bd</div>
+            <div className="dv-th dv-tc-baths">Ba</div>
+            <div className="dv-th dv-tc-sqft">Sqft</div>
+            <div className="dv-th dv-tc-psf">$/sqft</div>
+            <div className="dv-th dv-tc-cap">Cap%</div>
+            <div className="dv-th dv-tc-mark"></div>
+          </div>
+
+          <div className="dv-table-body">
+            {sorted.length === 0 && (
+              <div className="dv-empty">No listings match this filter.</div>
+            )}
+            {sorted.map((l) => {
+              const visit = visits[l.id];
+              const isSelected = l.id === selectedId;
+              const rowClass = [
+                "dv-tr",
+                isSelected ? "dv-tr--selected" : "",
+                hiddenIds.has(l.id) ? "dv-tr--hidden" : "",
+                visit?.liked === true ? "dv-tr--liked" : "",
+                visit?.liked === false ? "dv-tr--disliked" : "",
+                priorityIds.has(l.id) && !hiddenIds.has(l.id) ? "dv-tr--priority" : "",
+              ].filter(Boolean).join(" ");
+
+              return (
+                <div
+                  key={l.id}
+                  ref={(el) => { if (el) rowRefs.current.set(l.id, el); else rowRefs.current.delete(l.id); }}
+                  className={rowClass}
+                  onClick={() => setSelectedId(l.id)}
+                >
+                  <div className="dv-tc dv-tc-badge">
+                    {visit ? (
+                      <span className="dv-badge dv-badge-visited">✓</span>
+                    ) : (
+                      <span className="dv-badge dv-badge-open">OPEN</span>
+                    )}
+                  </div>
+                  <div className="dv-tc dv-tc-address">{l.address}</div>
+                  <div className="dv-tc dv-tc-location">{l.location || l.city}</div>
+                  <div className="dv-tc dv-tc-price">{formatPrice(l.price)}</div>
+                  <div className="dv-tc dv-tc-beds">{l.beds || "—"}</div>
+                  <div className="dv-tc dv-tc-baths">{l.baths || "—"}</div>
+                  <div className="dv-tc dv-tc-sqft">{l.sqft?.toLocaleString() ?? "—"}</div>
+                  <div className="dv-tc dv-tc-psf">
+                    {l.pricePerSqft ? `$${Math.round(l.pricePerSqft).toLocaleString()}` : "—"}
+                  </div>
+                  <div className={`dv-tc dv-tc-cap ${l.capRate >= 3.5 ? "good" : l.capRate >= 1.5 ? "ok" : "low"}`}>
+                    {l.capRate.toFixed(1)}%
+                  </div>
+                  <div className="dv-tc dv-tc-mark">
+                    {priorityIds.has(l.id) ? (
+                      <span className="dv-row-star">★</span>
+                    ) : visit?.liked === true ? (
+                      <span className="dv-row-heart">♥</span>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
