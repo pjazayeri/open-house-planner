@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { list } from "@vercel/blob";
+import { list, head } from "@vercel/blob";
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   if (req.method !== "GET") {
@@ -18,8 +18,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   // Return the latest by pathname (filenames include ISO date so lexicographic = chronological)
   const sorted = blobs.sort((a, b) => a.pathname.localeCompare(b.pathname));
   const latest = sorted[sorted.length - 1];
-  // Use downloadUrl (pre-signed, no auth needed) — blob.url requires auth for private blobs
-  const csvRes = await fetch(latest.downloadUrl);
+  // Call head() to get a fresh pre-signed downloadUrl — list() downloadUrl requires auth
+  const blobInfo = await head(latest.pathname);
+  const csvRes = await fetch(blobInfo.downloadUrl);
   if (!csvRes.ok) {
     res.writeHead(502, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: `Blob fetch failed: ${csvRes.status}` }));

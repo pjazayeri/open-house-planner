@@ -23,8 +23,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       "Cache-Control": "public, max-age=604800, immutable",
     });
     res.end(buf);
-  } catch {
-    res.writeHead(404);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.writeHead(404, { "X-Thumb-Error": msg.slice(0, 200) });
     res.end("Not found");
   }
 }
