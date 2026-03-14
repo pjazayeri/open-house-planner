@@ -3,7 +3,8 @@
 .an-page {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   background: #0f172a;
   overflow-y: auto;
   color: #e2e8f0;

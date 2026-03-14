@@ -17,7 +17,9 @@ const env = Object.fromEntries(
     .filter((l) => l.includes("=") && !l.startsWith("#"))
     .map((l) => {
       const i = l.indexOf("=");
-      return [l.slice(0, i).trim(), l.slice(i + 1).trim()];
+      const raw = l.slice(i + 1).trim();
+      const val = raw.startsWith('"') && raw.endsWith('"') ? raw.slice(1, -1) : raw;
+      return [l.slice(0, i).trim(), val];
     })
 );
 

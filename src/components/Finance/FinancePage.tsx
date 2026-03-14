@@ -10,7 +10,6 @@ interface FinancePageProps {
   priorityIds: Set<string>;
   hiddenIds: Set<string>;
   initialSelectedId?: string | null;
-  onBack: () => void;
 }
 
 type SortKey = "price" | "cost" | "premium" | "capRate" | "ppsf";
@@ -166,7 +165,7 @@ interface DetailProps {
 }
 
 function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPct, includePrincipal }: DetailProps) {
-  const thumbSrc = `${import.meta.env.BASE_URL}thumbnails/${listing.id}.jpg`;
+  const thumbSrc = `/api/thumbnail/${listing.id}`;
   const accent = accentClass(result.monthlyBuyPremium, listing.capRate);
   const b = listing.capRateBreakdown;
 
@@ -331,7 +330,7 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
 }
 
 // ── Page ─────────────────────────────────────────────────────────
-export function FinancePage({ allListings, initialSelectedId, onBack }: FinancePageProps) {
+export function FinancePage({ allListings, initialSelectedId }: FinancePageProps) {
   const [downPct, setDownPct] = useState(() => readLs(LS_DOWN, 20));
   const [ratePct, setRatePct] = useState(() => readLs(LS_RATE, 6.75));
   const [oppReturnPct, setOppReturnPct] = useState(() => readLs(LS_OPP, 7));
@@ -408,7 +407,6 @@ export function FinancePage({ allListings, initialSelectedId, onBack }: FinanceP
       {/* ── Header ── */}
       <div className="fp-header">
         <div className="fp-header-top">
-          <button className="fp-back" onClick={onBack}>← Back</button>
           <div className="fp-header-center">
             <h2>Finance — Buy vs Rent</h2>
           </div>

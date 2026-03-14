@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { TimeSlotGroup } from "../../types";
 import type { SyncStatus } from "../../utils/cloudSync";
 import type { Page } from "../../App";
@@ -17,8 +17,9 @@ interface HeaderProps {
   syncStatus: SyncStatus;
   saveFailed: boolean;
   onShowSummary: () => void;
-  onUploadCsv: (text: string) => void;
+  onUploadCsv: (text: string) => Promise<number>;
 }
+
 
 function SyncBadge({ syncStatus, saveFailed }: { syncStatus: SyncStatus; saveFailed: boolean }) {
   let cls = "sync-badge";
@@ -60,6 +61,14 @@ export function Header({
   onUploadCsv,
 }: HeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [toast, setToast] = useState<{ msg: string; kind: "loading" | "ok" | "error" } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function showToast(msg: string, kind: "loading" | "ok" | "error", autoDismiss = false) {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ msg, kind });
+    if (autoDismiss) toastTimer.current = setTimeout(() => setToast(null), 4000);
+  }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -67,10 +76,28 @@ export function Header({
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result;
-      if (typeof text === "string") onUploadCsv(text);
+      if (typeof text === "string") {
+        showToast("Loading\u2026", "loading");
+        onUploadCsv(text).then((count) => {
+          showToast(`${count} listings loaded · saving to cloud\u2026`, "loading");
+          fetch("/api/ingest", {
+            method: "POST",
+            headers: { "Content-Type": "text/csv" },
+            body: text,
+          })
+            .then((r) => r.ok ? r.json() : Promise.reject(r.status))
+            .then((d) => {
+              const th = d.thumbnails ?? {};
+              const parts = [`${count} listings`];
+              if (th.fetched > 0) parts.push(`${th.fetched} new photos`);
+              showToast(parts.join(" · "), "ok", true);
+            })
+            .catch(() => showToast(`${count} listings loaded (cloud save failed)`, "error", true));
+        });
+      }
     };
     reader.readAsText(file);
-    e.target.value = ""; // reset so same file can be re-uploaded
+    e.target.value = "";
   }
   const cityCount = timeSlotGroups.reduce(
     (sum, g) => sum + g.listings.length,
@@ -141,7 +168,22 @@ export function Header({
         >
           ↑ Upload CSV
         </button>
+        <a
+          className="nav-tab nav-tab--redfin"
+          href="https://www.redfin.com/myredfin/favorites"
+          target="_blank"
+          rel="noreferrer"
+          title="Go to Redfin favorites to download CSV"
+        >
+          Redfin Favorites ↗
+        </a>
       </nav>
+      {toast && (
+        <div className={`ingest-toast ingest-toast--${toast.kind}`} onClick={() => setToast(null)}>
+          {toast.kind === "loading" && <span className="ingest-toast-spinner" />}
+          {toast.msg}
+        </div>
+      )}
 
       <div className="header-right">
         {cities.map((city) => (

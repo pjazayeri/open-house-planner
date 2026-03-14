@@ -53,7 +53,7 @@ interface UseListingsResult {
   toggleWantOffer: (id: string) => void;
   clearVisit: (id: string) => void;
   importData: (hiddenIds: string[], priorityIds: string[], visits: Record<string, VisitRecord>) => void;
-  uploadListings: (csvText: string) => Promise<void>;
+  uploadListings: (csvText: string) => Promise<number>;
   // Geolocation
   geoPosition: { lat: number; lng: number } | null;
   nearbyId: string | null;
@@ -171,6 +171,7 @@ export function useListings(): UseListingsResult {
       setAllListings(filtered);
       const cities = getCities(filtered);
       if (cities.length > 0) setSelectedCity(cities[0]);
+      return filtered.length;
     },
     geoPosition,
     nearbyId,

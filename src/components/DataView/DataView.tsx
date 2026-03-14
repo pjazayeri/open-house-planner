@@ -1,8 +1,44 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import Papa from "papaparse";
+import { MapContainer, TileLayer, Marker } from "react-leaflet";
+import L from "leaflet";
 import type { Listing, VisitRecord } from "../../types";
 import { formatPrice, formatBedsBaths } from "../../utils/formatters";
 import "./DataView.css";
+
+const pinIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:14px;height:14px;background:#3b82f6;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.5)"></div>`,
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+});
+
+function MiniMap({ lat, lng }: { lat: number; lng: number }) {
+  return (
+    <div className="dv-minimap-wrap">
+      <MapContainer
+        center={[lat, lng]}
+        zoom={15}
+        zoomControl={false}
+        attributionControl={false}
+        scrollWheelZoom={false}
+        dragging={false}
+        className="dv-minimap"
+      >
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <Marker position={[lat, lng]} icon={pinIcon} />
+      </MapContainer>
+      <a
+        className="dv-minimap-link"
+        href={`https://www.google.com/maps?q=${lat},${lng}`}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Open in Maps ↗
+      </a>
+    </div>
+  );
+}
 
 interface DataViewProps {
   allListings: Listing[];
@@ -18,7 +54,6 @@ interface DataViewProps {
   onToggleWantOffer: (id: string) => void;
   onSetNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   onClearVisit: (id: string) => void;
-  onBack: () => void;
   onOpenFinance: (id: string) => void;
   onImportCsv: (hiddenIds: string[], priorityIds: string[], visits: Record<string, VisitRecord>) => void;
 }
@@ -113,11 +148,12 @@ function DetailPanel({
   return (
     <div className={panelClass}>
       <div className="dv-detail-main">
+        <MiniMap lat={l.lat} lng={l.lng} />
         <div className="dv-detail-thumb-wrap">
           {!thumbError ? (
             <img
               className="dv-detail-thumb"
-              src={`${import.meta.env.BASE_URL}thumbnails/${l.id}.jpg`}
+              src={`/api/thumbnail/${l.id}`}
               alt={l.address}
               onError={() => setThumbError(true)}
             />
@@ -329,7 +365,6 @@ export function DataView({
   onToggleWantOffer,
   onSetNoteField,
   onClearVisit,
-  onBack,
   onOpenFinance,
   onImportCsv,
 }: DataViewProps) {
@@ -555,7 +590,6 @@ export function DataView({
     <div className="dv-page">
       <div className="dv-header">
         <div className="dv-header-top">
-          <button className="dv-back" onClick={onBack}>← Back</button>
           <input
             className="dv-search"
             type="text"
@@ -697,7 +731,14 @@ export function DataView({
                     )}
                   </div>
                   <div className="dv-tc dv-tc-address">{l.address}</div>
-                  <div className="dv-tc dv-tc-location">{l.location || l.city}</div>
+                  <div className="dv-tc dv-tc-location">
+                    <a
+                      href={`https://www.google.com/maps?q=${l.lat},${l.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                    >{l.location || l.city}</a>
+                  </div>
                   <div className="dv-tc dv-tc-price">{formatPrice(l.price)}</div>
                   <div className="dv-tc dv-tc-beds">{l.beds || "—"}</div>
                   <div className="dv-tc dv-tc-baths">{l.baths || "—"}</div>

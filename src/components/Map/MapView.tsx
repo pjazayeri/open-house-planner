@@ -18,6 +18,7 @@ interface MapViewProps {
   hoveredId: string | null;
   visits: Record<string, VisitRecord>;
   priorityOrder: string[];
+  showRoute?: boolean;
   onSelect: (id: string) => void;
   onDeselect: () => void;
   onNavigate: (id: string) => void;
@@ -198,6 +199,7 @@ export function MapView({
   hoveredId,
   visits,
   priorityOrder,
+  showRoute = true,
   onSelect,
   onDeselect,
   onNavigate,
@@ -292,7 +294,7 @@ export function MapView({
         <PanToUserPosition userPosition={userPosition} />
 
         {/* Route polyline — white halo + blue line so it reads against any tile */}
-        {routeCoords.length > 1 && (
+        {showRoute && routeCoords.length > 1 && (
           <>
             <Polyline
               positions={routeCoords}
@@ -311,7 +313,7 @@ export function MapView({
           </>
         )}
         {/* Directional arrows along the route */}
-        {routeCoords.length > 1 && (() => {
+        {showRoute && routeCoords.length > 1 && (() => {
           const N = Math.min(8, Math.max(2, Math.floor(routeCoords.length / 12)));
           const step = Math.floor(routeCoords.length / (N + 1));
           return Array.from({ length: N }, (_, a) => {
@@ -349,6 +351,10 @@ export function MapView({
 
         {/* Markers — click selects only; navigation is via the preview card below */}
         {(() => {
+          // Mirror the sidebar: only count priority IDs that are actually visible
+          const visibleIds = new Set(timeSlotGroups.flatMap((g) => g.listings.map((l) => l.id)));
+          const filteredPriorityOrder = priorityOrder.filter((id) => visibleIds.has(id));
+
           let coordIdx = 0;
           return timeSlotGroups.flatMap((group, groupIdx) => {
             const color = SLOT_COLORS[groupIdx % SLOT_COLORS.length];
@@ -368,7 +374,7 @@ export function MapView({
                 visit.liked === true ? "liked" :
                 visit.liked === false ? "disliked" :
                 "visited";
-              const priorityIdx = priorityOrder.indexOf(listing.id);
+              const priorityIdx = filteredPriorityOrder.indexOf(listing.id);
               const markerNum = priorityIdx >= 0 ? priorityIdx + 1 : (listing.visitOrder ?? coordIdx);
               const markerColor = priorityIdx >= 0 ? "#f59e0b" : color;
               return (

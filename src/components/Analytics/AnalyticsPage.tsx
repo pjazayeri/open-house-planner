@@ -7,7 +7,6 @@ interface AnalyticsPageProps {
   visits: Record<string, VisitRecord>;
   hiddenIds: Set<string>;
   priorityIds: Set<string>;
-  onBack: () => void;
 }
 
 function formatPrice(n: number): string {
@@ -26,7 +25,7 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 
-export function AnalyticsPage({ allListings, visits, hiddenIds, priorityIds, onBack }: AnalyticsPageProps) {
+export function AnalyticsPage({ allListings, visits, hiddenIds, priorityIds }: AnalyticsPageProps) {
   const visitedListings = useMemo(() => {
     return allListings.filter((l) => visits[l.id]);
   }, [allListings, visits]);
@@ -117,7 +116,6 @@ export function AnalyticsPage({ allListings, visits, hiddenIds, priorityIds, onB
     return (
       <div className="an-page">
         <div className="an-header">
-          <button className="an-back-btn" onClick={onBack}>← Back</button>
           <h2 className="an-title">Analytics</h2>
         </div>
         <div className="an-empty">
@@ -131,7 +129,6 @@ export function AnalyticsPage({ allListings, visits, hiddenIds, priorityIds, onB
   return (
     <div className="an-page">
       <div className="an-header">
-        <button className="an-back-btn" onClick={onBack}>← Back</button>
         <h2 className="an-title">Analytics</h2>
         <span className="an-subtitle">{stats.visited} visits recorded</span>
       </div>

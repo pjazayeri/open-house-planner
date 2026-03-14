@@ -15,7 +15,11 @@ import urllib.request
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
-CSV_PATH = os.path.join(PROJECT_DIR, "public", "redfin-favorites_2026-03-08-12-25-26.csv")
+_csvs = sorted(f for f in os.listdir(os.path.join(PROJECT_DIR, "public")) if f.startswith("redfin-favorites_") and f.endswith(".csv"))
+if not _csvs:
+    raise FileNotFoundError("No redfin-favorites_*.csv found in public/")
+CSV_PATH = os.path.join(PROJECT_DIR, "public", _csvs[-1])
+print(f"Using CSV: {_csvs[-1]}")
 OUT_DIR = os.path.join(PROJECT_DIR, "public", "thumbnails")
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 URL_COL = "URL (SEE https://www.redfin.com/buy-a-home/comparative-market-analysis FOR INFO ON PRICING)"

@@ -209,54 +209,6 @@ function App() {
     );
   }
 
-  if (page === "analytics") {
-    return (
-      <AnalyticsPage
-        allListings={allListings}
-        visits={visits}
-        hiddenIds={hiddenIds}
-        priorityIds={priorityIds}
-        onBack={() => setPage("data")}
-      />
-    );
-  }
-
-  if (page === "finance") {
-    return (
-      <FinancePage
-        allListings={allListings}
-        visits={visits}
-        priorityIds={priorityIds}
-        hiddenIds={hiddenIds}
-        initialSelectedId={financeInitId}
-        onBack={() => setPage("home")}
-      />
-    );
-  }
-
-  if (page === "data") {
-    return (
-      <DataView
-        allListings={allListings}
-        hiddenIds={hiddenIds}
-        visits={visits}
-        priorityIds={priorityIds}
-        onHide={hideListing}
-        onUnhide={unhideListing}
-        onTogglePriority={togglePriority}
-        onMarkVisited={markVisited}
-        onSetLiked={setLiked}
-        onSetRating={setRating}
-        onToggleWantOffer={toggleWantOffer}
-        onSetNoteField={setNoteField}
-        onClearVisit={clearVisit}
-        onBack={() => setPage("home")}
-        onImportCsv={importData}
-        onOpenFinance={(id) => { setFinanceInitId(id); setPage("finance"); }}
-      />
-    );
-  }
-
   return (
     <div className="app">
       <Header
@@ -274,6 +226,44 @@ function App() {
         onShowSummary={() => setShowSummary(true)}
         onUploadCsv={uploadListings}
       />
+      {page === "analytics" && (
+        <AnalyticsPage
+          allListings={allListings}
+          visits={visits}
+          hiddenIds={hiddenIds}
+          priorityIds={priorityIds}
+        />
+      )}
+      {page === "finance" && (
+        <FinancePage
+          allListings={allListings}
+          visits={visits}
+          priorityIds={priorityIds}
+          hiddenIds={hiddenIds}
+          initialSelectedId={financeInitId}
+        />
+      )}
+      {page === "data" && (
+        <DataView
+          allListings={allListings}
+          hiddenIds={hiddenIds}
+          visits={visits}
+          priorityIds={priorityIds}
+          onHide={hideListing}
+          onUnhide={unhideListing}
+          onTogglePriority={togglePriority}
+          onMarkVisited={markVisited}
+          onSetLiked={setLiked}
+          onSetRating={setRating}
+          onToggleWantOffer={toggleWantOffer}
+          onSetNoteField={setNoteField}
+          onClearVisit={clearVisit}
+          onImportCsv={importData}
+          onOpenFinance={(id) => { setFinanceInitId(id); setPage("finance"); }}
+        />
+      )}
+      {page !== "analytics" && page !== "finance" && page !== "data" && (
+      <>
       <div className={`app-body show-${mobileTab}`}>
         <Sidebar
           mode={page === "planner" || page === "priority" ? "planner" : "browse"}
@@ -315,6 +305,7 @@ function App() {
           hoveredId={hoveredId}
           visits={visits}
           priorityOrder={priorityOrder}
+          showRoute={page !== "home"}
           onSelect={setSelectedId}
           onDeselect={() => setSelectedId(null)}
           onNavigate={navigateToListing}
@@ -340,6 +331,8 @@ function App() {
           <span>List</span>
         </button>
       </nav>
+      </>
+      )}
       {showSummary && (
         <SummaryModal
           allListings={allListings}

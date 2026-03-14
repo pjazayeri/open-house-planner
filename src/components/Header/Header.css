@@ -41,6 +41,43 @@
 .nav-tab--summary { color: #94a3b8; }
 .nav-tab--upload { color: #34d399; }
 .nav-tab--upload:hover { border-color: #34d399 !important; color: #34d399 !important; }
+.nav-tab--redfin { color: #f97316; text-decoration: none; }
+.nav-tab--redfin:hover { border-color: #f97316 !important; color: #f97316 !important; }
+
+/* ── Ingest toast ─────────────────────────────── */
+.ingest-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 2000;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  animation: toast-in 0.2s ease;
+}
+.ingest-toast--loading { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+.ingest-toast--ok      { background: #14532d; color: #86efac; border: 1px solid #166534; }
+.ingest-toast--error   { background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; }
+
+.ingest-toast-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #475569;
+  border-top-color: #94a3b8;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
 
 .header-title {
   margin: 0;
