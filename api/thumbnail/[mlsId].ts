@@ -3,7 +3,8 @@ import { head } from "@vercel/blob";
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   const url = req.url ?? "";
-  const mlsId = url.split("/").at(-1)?.split("?")[0] ?? "";
+  const urlParts = url.split("/");
+  const mlsId = (urlParts[urlParts.length - 1] ?? "").split("?")[0];
 
   if (!mlsId) {
     res.writeHead(400);

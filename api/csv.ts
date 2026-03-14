@@ -16,7 +16,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   }
 
   // Return the latest by pathname (filenames include ISO date so lexicographic = chronological)
-  const latest = blobs.sort((a, b) => a.pathname.localeCompare(b.pathname)).at(-1)!;
+  const sorted = blobs.sort((a, b) => a.pathname.localeCompare(b.pathname));
+  const latest = sorted[sorted.length - 1];
   const csvRes = await fetch(latest.url);
   const text = await csvRes.text();
 

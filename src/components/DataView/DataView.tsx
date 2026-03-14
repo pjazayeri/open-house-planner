@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import L from "leaflet";
 import type { Listing, VisitRecord } from "../../types";
 import { formatPrice, formatBedsBaths } from "../../utils/formatters";
+import { getCities } from "../../utils/filterListings";
 import "./DataView.css";
 
 const pinIcon = L.divIcon({
@@ -15,26 +16,25 @@ const pinIcon = L.divIcon({
 
 function MiniMap({ lat, lng }: { lat: number; lng: number }) {
   return (
-    <div className="dv-minimap-wrap">
+    <div className="dv-map-panel-inner">
       <MapContainer
         center={[lat, lng]}
         zoom={15}
         zoomControl={false}
         attributionControl={false}
         scrollWheelZoom={false}
-        dragging={false}
-        className="dv-minimap"
+        className="dv-map-panel-leaflet"
       >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <Marker position={[lat, lng]} icon={pinIcon} />
       </MapContainer>
       <a
-        className="dv-minimap-link"
+        className="dv-map-panel-link"
         href={`https://www.google.com/maps?q=${lat},${lng}`}
         target="_blank"
         rel="noopener noreferrer"
       >
-        Open in Maps ↗
+        Open in Google Maps ↗
       </a>
     </div>
   );
@@ -148,7 +148,6 @@ function DetailPanel({
   return (
     <div className={panelClass}>
       <div className="dv-detail-main">
-        <MiniMap lat={l.lat} lng={l.lng} />
         <div className="dv-detail-thumb-wrap">
           {!thumbError ? (
             <img
@@ -368,6 +367,15 @@ export function DataView({
   onOpenFinance,
   onImportCsv,
 }: DataViewProps) {
+  const cities = useMemo(() => getCities(allListings), [allListings]);
+  const [selectedCity, setSelectedCity] = useState<string>("");
+  // Keep selectedCity in sync when cities list changes
+  useEffect(() => {
+    if (cities.length > 0 && !cities.includes(selectedCity)) {
+      setSelectedCity(cities[0]);
+    }
+  }, [cities, selectedCity]);
+
   const [sortKey, setSortKey] = useState<SortKey>("time");
   const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
   const [visitDateFilter, setVisitDateFilter] = useState<string | null>(null);
@@ -462,6 +470,7 @@ export function DataView({
     const q = searchQuery.trim().toLowerCase();
 
     let filtered = allListings.filter((l) => {
+      if (selectedCity && l.city !== selectedCity) return false;
       if (q) {
         const inAddress = l.address.toLowerCase().includes(q);
         const inCity = l.city.toLowerCase().includes(q);
@@ -502,7 +511,7 @@ export function DataView({
       }
       return a.openHouseStart.getTime() - b.openHouseStart.getTime();
     });
-  }, [allListings, searchQuery, activeFilters, visitDateFilter, visits, hiddenIds, priorityIds, sortKey]);
+  }, [allListings, selectedCity, searchQuery, activeFilters, visitDateFilter, visits, hiddenIds, priorityIds, sortKey]);
 
   // Auto-select first item when sorted list changes
   useEffect(() => {
@@ -620,6 +629,22 @@ export function DataView({
         </div>
 
         <div className="dv-header-bottom">
+          {cities.length > 1 && (
+            <div className="dv-control-row">
+              <span className="dv-control-label">City</span>
+              <div className="dv-chips">
+                {cities.map((city) => (
+                  <button
+                    key={city}
+                    className={`dv-chip${selectedCity === city ? " active" : ""}`}
+                    onClick={() => setSelectedCity(city)}
+                  >
+                    {city}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="dv-control-row">
             <span className="dv-control-label">Filter</span>
             <div className="dv-chips">
@@ -664,27 +689,28 @@ export function DataView({
       </div>
 
       <div className="dv-body">
-        {selectedListing ? (
-          <DetailPanel
-            key={selectedId}
-            listing={selectedListing}
-            isHidden={hiddenIds.has(selectedListing.id)}
-            isPriority={priorityIds.has(selectedListing.id)}
-            visit={visits[selectedListing.id] ?? null}
-            onHide={() => onHide(selectedListing.id)}
-            onUnhide={() => onUnhide(selectedListing.id)}
-            onTogglePriority={() => onTogglePriority(selectedListing.id)}
-            onMarkVisited={() => onMarkVisited(selectedListing.id)}
-            onSetLiked={(liked) => onSetLiked(selectedListing.id, liked)}
-            onSetRating={(rating) => onSetRating(selectedListing.id, rating)}
-            onToggleWantOffer={() => onToggleWantOffer(selectedListing.id)}
-            onSetNoteField={(field, value) => onSetNoteField(selectedListing.id, field, value)}
-            onClearVisit={() => onClearVisit(selectedListing.id)}
-            onOpenFinance={() => onOpenFinance(selectedListing.id)}
-          />
-        ) : (
-          <div className="dv-no-selection">No listings match.</div>
-        )}
+        <div className="dv-left">
+          {selectedListing ? (
+            <DetailPanel
+              key={selectedId}
+              listing={selectedListing}
+              isHidden={hiddenIds.has(selectedListing.id)}
+              isPriority={priorityIds.has(selectedListing.id)}
+              visit={visits[selectedListing.id] ?? null}
+              onHide={() => onHide(selectedListing.id)}
+              onUnhide={() => onUnhide(selectedListing.id)}
+              onTogglePriority={() => onTogglePriority(selectedListing.id)}
+              onMarkVisited={() => onMarkVisited(selectedListing.id)}
+              onSetLiked={(liked) => onSetLiked(selectedListing.id, liked)}
+              onSetRating={(rating) => onSetRating(selectedListing.id, rating)}
+              onToggleWantOffer={() => onToggleWantOffer(selectedListing.id)}
+              onSetNoteField={(field, value) => onSetNoteField(selectedListing.id, field, value)}
+              onClearVisit={() => onClearVisit(selectedListing.id)}
+              onOpenFinance={() => onOpenFinance(selectedListing.id)}
+            />
+          ) : (
+            <div className="dv-no-selection">No listings match.</div>
+          )}
 
         <div className="dv-table-container">
           <div className="dv-table-header">
@@ -760,6 +786,15 @@ export function DataView({
               );
             })}
           </div>
+        </div>
+        </div>
+
+        <div className="dv-map-panel">
+          {selectedListing ? (
+            <MiniMap key={selectedListing.id} lat={selectedListing.lat} lng={selectedListing.lng} />
+          ) : (
+            <div className="dv-map-panel-empty">Select a listing to see its location</div>
+          )}
         </div>
       </div>
     </div>
