@@ -152,7 +152,7 @@ function DetailPanel({
           {!thumbError ? (
             <img
               className="dv-detail-thumb"
-              src={`/api/thumbnail/${l.id}`}
+              src={`/thumbnails/${l.id}.jpg`}
               alt={l.address}
               onError={() => setThumbError(true)}
             />
