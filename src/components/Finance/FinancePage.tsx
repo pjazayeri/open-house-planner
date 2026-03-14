@@ -165,7 +165,7 @@ interface DetailProps {
 }
 
 function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPct, includePrincipal }: DetailProps) {
-  const thumbSrc = `/thumbnails/${listing.id}.jpg`;
+  const thumbSrc = `/api/thumbnail/${listing.id}`;
   const accent = accentClass(result.monthlyBuyPremium, listing.capRate);
   const b = listing.capRateBreakdown;
 

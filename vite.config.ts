@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import type { Plugin } from 'vite'
 import type { IncomingMessage, ServerResponse } from 'http'
-import { readFileSync, readdirSync, writeFileSync } from 'fs'
+import { readFileSync, readdirSync, writeFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
 
 function readEnvLocal(): Record<string, string> {
@@ -75,6 +75,19 @@ function localApis(): Plugin {
 
         res.writeHead(405);
         res.end('Method not allowed');
+      });
+
+      // /api/thumbnail — serve from public/thumbnails/ locally
+      server.middlewares.use('/api/thumbnail', (req: IncomingMessage, res: ServerResponse) => {
+        const mlsId = req.url?.split('/').pop()?.split('?')[0] ?? '';
+        const file = resolve(process.cwd(), 'public', 'thumbnails', `${mlsId}.jpg`);
+        if (mlsId && existsSync(file)) {
+          res.writeHead(200, { 'Content-Type': 'image/jpeg' });
+          res.end(readFileSync(file));
+        } else {
+          res.writeHead(404);
+          res.end('Not found');
+        }
       });
 
       // /api/ingest — save CSV to public/ (local dev substitute for Vercel Blob)

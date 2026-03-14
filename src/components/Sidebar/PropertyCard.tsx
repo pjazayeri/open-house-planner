@@ -160,7 +160,7 @@ export function PropertyCard({
       {!thumbError && (
         <img
           className="card-thumbnail"
-          src={`/thumbnails/${listing.id}.jpg`}
+          src={`/api/thumbnail/${listing.id}`}
           alt={listing.address}
           loading="lazy"
           onError={() => setThumbError(true)}

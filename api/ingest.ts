@@ -1,11 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { put } from "@vercel/blob";
+import { put, list, del } from "@vercel/blob";
 
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 const OG_IMAGE_RE = /og:image"\s+content="([^"]+)"/;
-const URL_COL =
-  "URL (SEE https://www.redfin.com/buy-a-home/comparative-market-analysis FOR INFO ON PRICING)";
 
 function corsHeaders(): Record<string, string> {
   return {
@@ -73,7 +71,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
-  // Store CSV to Blob
+  // Store new CSV to Blob
   const date = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   const csvBlob = await put(`csv/redfin-favorites_${date}.csv`, csvText, {
     access: "private",
@@ -81,11 +79,18 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     addRandomSuffix: false,
   });
 
+  // Delete all previous CSV blobs (keep only the one we just uploaded)
+  const allCsvBlobs = await list({ prefix: "csv/redfin-favorites_" });
+  const oldCsvBlobs = allCsvBlobs.blobs.filter((b) => b.pathname !== csvBlob.pathname);
+  if (oldCsvBlobs.length > 0) {
+    await del(oldCsvBlobs.map((b) => b.url));
+  }
+
   // Parse rows to find active listings with open houses
   const lines = csvText.split("\n");
   if (lines.length < 2) {
     res.writeHead(200, { "Content-Type": "application/json", ...headers });
-    res.end(JSON.stringify({ csvUrl: csvBlob.url, thumbnails: { fetched: 0, skipped: 0, failed: 0 } }));
+    res.end(JSON.stringify({ csvUrl: csvBlob.url, thumbnails: { fetched: 0, skipped: 0, failed: 0 }, deleted: 0 }));
     return;
   }
 
@@ -96,11 +101,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const mlsIdx = headers2.indexOf("MLS#");
   const urlIdx = headers2.findIndex((h) => h.startsWith("URL (SEE"));
 
-  let fetched = 0;
-  let skipped = 0;
-  let failed = 0;
-
+  const activeIds = new Set<string>();
   const activeListings: { mlsId: string; url: string }[] = [];
+
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
@@ -113,16 +116,21 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     const mlsId = cols[mlsIdx]?.trim() ?? "";
     const url = cols[urlIdx]?.trim() ?? "";
     if (status === "Active" && openHouse && mlsId && url) {
+      activeIds.add(mlsId);
       activeListings.push({ mlsId, url });
     }
   }
 
-  // Check which thumbnails already exist in Blob and fetch missing ones
-  const { list } = await import("@vercel/blob");
-  const existingBlobs = await list({ prefix: "thumbnails/" });
+  // Get all existing thumbnail blobs
+  const existingThumbBlobs = await list({ prefix: "thumbnails/" });
   const existingIds = new Set(
-    existingBlobs.blobs.map((b) => b.pathname.replace("thumbnails/", "").replace(".jpg", ""))
+    existingThumbBlobs.blobs.map((b) => b.pathname.replace("thumbnails/", "").replace(".jpg", ""))
   );
+
+  // Fetch thumbnails for new listings not already in Blob
+  let fetched = 0;
+  let skipped = 0;
+  let failed = 0;
 
   for (const { mlsId, url } of activeListings) {
     if (existingIds.has(mlsId)) {
@@ -144,6 +152,19 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     await new Promise((r) => setTimeout(r, 500));
   }
 
+  // Delete thumbnail blobs for listings no longer in the active set
+  const staleBlobs = existingThumbBlobs.blobs.filter((b) => {
+    const id = b.pathname.replace("thumbnails/", "").replace(".jpg", "");
+    return !activeIds.has(id);
+  });
+  if (staleBlobs.length > 0) {
+    await del(staleBlobs.map((b) => b.url));
+  }
+
   res.writeHead(200, { "Content-Type": "application/json", ...headers });
-  res.end(JSON.stringify({ csvUrl: csvBlob.url, thumbnails: { fetched, skipped, failed } }));
+  res.end(JSON.stringify({
+    csvUrl: csvBlob.url,
+    thumbnails: { fetched, skipped, failed },
+    deleted: staleBlobs.length,
+  }));
 }
