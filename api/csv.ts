@@ -18,7 +18,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   // Return the latest by pathname (filenames include ISO date so lexicographic = chronological)
   const sorted = blobs.sort((a, b) => a.pathname.localeCompare(b.pathname));
   const latest = sorted[sorted.length - 1];
-  const csvRes = await fetch(latest.url);
+  // Use downloadUrl (pre-signed, no auth needed) — blob.url requires auth for private blobs
+  const csvRes = await fetch(latest.downloadUrl);
+  if (!csvRes.ok) {
+    res.writeHead(502, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: `Blob fetch failed: ${csvRes.status}` }));
+    return;
+  }
   const text = await csvRes.text();
 
   res.writeHead(200, { "Content-Type": "text/csv" });
