@@ -14,6 +14,8 @@ function parseCsvText(text: string): Promise<RawListing[]> {
   });
 }
 
+declare const __LATEST_CSV__: string;
+
 export async function loadCsv(): Promise<RawListing[]> {
   // 1. Cloud Blob (latest uploaded CSV)
   try {
@@ -29,6 +31,16 @@ export async function loadCsv(): Promise<RawListing[]> {
   // 2. localStorage (previously uploaded via file picker)
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored) return parseCsvText(stored);
+
+  // 3. Static public CSV bundled with the deploy
+  if (typeof __LATEST_CSV__ !== "undefined" && __LATEST_CSV__) {
+    try {
+      const r = await fetch(`/${__LATEST_CSV__}`);
+      if (r.ok) return parseCsvText(await r.text());
+    } catch {
+      // fall through
+    }
+  }
 
   return [];
 }

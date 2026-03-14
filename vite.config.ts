@@ -142,6 +142,15 @@ function localApis(): Plugin {
   };
 }
 
+// Find the latest committed public CSV for the static fallback
+const publicCsvFiles = readdirSync(resolve(process.cwd(), 'public'))
+  .filter((f) => f.startsWith('redfin-favorites_') && f.endsWith('.csv'))
+  .sort();
+const latestPublicCsv = publicCsvFiles[publicCsvFiles.length - 1] ?? '';
+
 export default defineConfig({
   plugins: [react(), localApis()],
+  define: {
+    __LATEST_CSV__: JSON.stringify(latestPublicCsv),
+  },
 });
