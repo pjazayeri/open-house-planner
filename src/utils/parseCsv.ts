@@ -1,7 +1,6 @@
 import Papa from "papaparse";
 import type { RawListing } from "../types";
 
-const STORAGE_KEY = "redfin-csv";
 
 function parseCsvText(text: string): Promise<RawListing[]> {
   return new Promise((resolve, reject) => {
@@ -28,11 +27,7 @@ export async function loadCsv(): Promise<RawListing[]> {
     // fall through
   }
 
-  // 2. localStorage (previously uploaded via file picker)
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) return parseCsvText(stored);
-
-  // 3. Static public CSV bundled with the deploy
+  // 2. Static public CSV bundled with the deploy
   if (typeof __LATEST_CSV__ !== "undefined" && __LATEST_CSV__) {
     try {
       const r = await fetch(`/${__LATEST_CSV__}`);
@@ -46,6 +41,5 @@ export async function loadCsv(): Promise<RawListing[]> {
 }
 
 export async function uploadCsvText(text: string): Promise<RawListing[]> {
-  localStorage.setItem(STORAGE_KEY, text);
   return parseCsvText(text);
 }
