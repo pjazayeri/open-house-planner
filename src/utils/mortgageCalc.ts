@@ -55,7 +55,7 @@ export function calcTimeSeries(
   tsParams: TimeSeriesParams,
   rentOverride?: number,
 ): TimeSeriesPoint[] {
-  const { downPaymentPct, annualRatePct, termYears, opportunityReturnPct, includePrincipal, marginalTaxRatePct, appreciationRatePct, saltHeadroomAnnual } = params;
+  const { downPaymentPct, annualRatePct, termYears, opportunityReturnPct, marginalTaxRatePct, appreciationRatePct, saltHeadroomAnnual } = params;
   const { holdYears, buyerClosingCostPct, sellerCostPct, rentInflationPct } = tsParams;
   const { price } = listing;
 
@@ -95,8 +95,10 @@ export function calcTimeSeries(
     const principal = monthlyPI - interest;
     balance = Math.max(0, balance - principal);
 
-    // Monthly buy cash-out
-    const piCost = includePrincipal ? monthlyPI : interest;
+    // Monthly buy cash-out: always use full P&I regardless of includePrincipal toggle —
+    // principal is real cash out and is recovered at sale via saleProceeds (homeValue - balance).
+    // The toggle is a display preference for the monthly snapshot only.
+    const piCost = monthlyPI;
     const taxSavings = interest * (marginalTaxRatePct / 100);
     const propTaxSavings = Math.min(listing.capRateBreakdown.propertyTax, saltHeadroomAnnual) * (marginalTaxRatePct / 100) / 12;
     cumulativeBuy += piCost + fixedMonthly + oppCostMonthly - taxSavings - propTaxSavings;
