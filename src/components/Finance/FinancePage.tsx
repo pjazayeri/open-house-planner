@@ -169,6 +169,7 @@ interface DetailProps {
 }
 
 function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPct, includePrincipal, rentOverride, onSetRentOverride }: DetailProps) {
+  const [thumbError, setThumbError] = useState(false);
   const thumbSrc = `/api/thumbnail/${listing.id}`;
   const accent = accentClass(result.monthlyBuyPremium, listing.capRate);
   const b = listing.capRateBreakdown;
@@ -240,7 +241,11 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
   return (
     <div className={`fp-detail ${accent}`}>
       <div className="fp-detail-hero">
-        <img className="fp-detail-thumb" src={thumbSrc} alt="" />
+        {thumbError ? (
+          <div className="fp-detail-thumb fp-detail-thumb-ph">🏠</div>
+        ) : (
+          <img className="fp-detail-thumb" src={thumbSrc} alt="" onError={() => setThumbError(true)} />
+        )}
         <div className="fp-detail-meta">
           <div className="fp-detail-address">{listing.address}</div>
           <div className="fp-detail-sub">

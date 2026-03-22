@@ -234,6 +234,14 @@
   background: #0f172a;
   flex-shrink: 0;
 }
+
+.fp-detail-thumb-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  background: #1e293b;
+}
 .fp-detail-address {
   font-size: 15px;
   font-weight: 700;

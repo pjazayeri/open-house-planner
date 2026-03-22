@@ -157,12 +157,14 @@ export function PropertyCard({
         </button>
       </div>
 
-      {!thumbError && (
+      {thumbError ? (
+        <div className="card-thumbnail-ph">🏠</div>
+      ) : (
         <img
           className="card-thumbnail"
           src={`/api/thumbnail/${listing.id}`}
           alt={listing.address}
-          loading="lazy"
+          loading="eager"
           onError={() => setThumbError(true)}
         />
       )}
