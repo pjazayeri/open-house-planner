@@ -120,7 +120,21 @@
     bottom: 8px;
     left: 8px;
     right: 8px;
+    padding: 14px 44px 14px 14px;
   }
+
+  /* Bigger dismiss tap target */
+  .preview-dismiss {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+    top: 6px;
+    right: 6px;
+  }
+
+  .preview-address { font-size: 14px; }
+  .preview-sub     { font-size: 13px; }
+  .preview-time    { font-size: 12px; }
 }
 
 /* ── User location dot ─────────────────────────────────────── */

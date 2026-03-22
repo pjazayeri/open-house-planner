@@ -96,28 +96,22 @@
   gap: 8px;
 }
 
-.city-pill {
-  padding: 6px 16px;
+.city-select {
+  padding: 5px 10px;
   border: 1px solid #334155;
-  border-radius: 20px;
-  background: transparent;
-  color: #94a3b8;
+  border-radius: 8px;
+  background: #1e293b;
+  color: #e2e8f0;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
-  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  transition: border-color 0.15s ease;
 }
 
-.city-pill:hover {
-  border-color: #64748b;
-  color: #e2e8f0;
-}
-
-.city-pill.active {
-  background: #3b82f6;
+.city-select:hover,
+.city-select:focus {
   border-color: #3b82f6;
-  color: #fff;
 }
 
 .restore-btn {
@@ -200,10 +194,14 @@
   }
 
   .nav-tab {
-    padding: 4px 10px;
+    padding: 8px 10px;
     font-size: 12px;
     white-space: nowrap;
+    min-height: 36px;
   }
+
+  /* Not enough room in nav on mobile */
+  .nav-tab--redfin { display: none; }
 
   .header-right {
     width: 100%;
@@ -211,8 +209,8 @@
     gap: 6px;
   }
 
-  .city-pill {
-    padding: 5px 14px;
-    font-size: 12px;
+  .city-select {
+    width: 100%;
+    font-size: 16px;
   }
 }

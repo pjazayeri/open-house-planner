@@ -567,4 +567,17 @@
   .visit-notes {
     font-size: 14px;
   }
+
+  /* Notes side-by-side is too cramped on mobile */
+  .visit-notes-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Bigger touch targets for header action buttons */
+  .priority-btn,
+  .hide-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 15px;
+  }
 }

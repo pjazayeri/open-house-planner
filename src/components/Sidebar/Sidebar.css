@@ -379,3 +379,70 @@
   color: #94a3b8;
   font-size: 13px;
 }
+
+/* ── Time range row ───────────────────────── */
+.sb-time-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sb-time-sep {
+  font-size: 12px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.sb-select--sm {
+  width: auto;
+}
+
+/* ── Filter select dropdown ───────────────── */
+.sb-select {
+  flex: 1;
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #334155;
+  font-size: 12px;
+  padding: 3px 8px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.12s;
+}
+
+.sb-select:focus {
+  border-color: #7c3aed;
+}
+
+/* ── Mobile ────────────────────────────────── */
+@media (max-width: 767px) {
+  .sb-control-label {
+    width: 28px;
+    font-size: 9px;
+  }
+
+  /* Larger touch targets */
+  .sb-chip {
+    font-size: 12px;
+    padding: 6px 10px;
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* Prevent iOS zoom on focus */
+  .sb-search-input {
+    font-size: 16px;
+    padding: 8px 12px;
+  }
+
+  /* Full width select */
+  .sb-select {
+    width: 100%;
+    font-size: 14px;
+    padding: 6px 8px;
+  }
+}
+

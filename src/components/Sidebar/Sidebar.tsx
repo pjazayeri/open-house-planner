@@ -25,6 +25,16 @@ interface SidebarProps {
   onFiltersChange: (filters: Set<FilterKey>) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
+  neighborhoods: string[];
+  selectedNeighborhood: string;
+  onNeighborhoodChange: (n: string) => void;
+  availableDates: { key: string; label: string }[];
+  selectedDate: string;
+  onDateChange: (d: string) => void;
+  timeFrom: number | null;
+  timeTo: number | null;
+  onTimeFromChange: (h: number | null) => void;
+  onTimeToChange: (h: number | null) => void;
   visits: Record<string, VisitRecord>;
   nearbyId: string | null;
   geoWatching: boolean;
@@ -233,7 +243,22 @@ export function Sidebar({
   onFiltersChange,
   searchQuery,
   onSearchChange,
+  neighborhoods,
+  selectedNeighborhood,
+  onNeighborhoodChange,
+  availableDates,
+  selectedDate,
+  onDateChange,
+  timeFrom,
+  timeTo,
+  onTimeFromChange,
+  onTimeToChange,
 }: SidebarProps) {
+  function fmtHour(h: number): string {
+    if (h === 12) return "12pm";
+    if (h === 0) return "12am";
+    return h < 12 ? `${h}am` : `${h - 12}pm`;
+  }
   function toggleFilter(k: FilterKey) {
     const next = new Set(activeFilters);
     if (next.has(k)) next.delete(k); else next.add(k);
@@ -274,6 +299,65 @@ export function Sidebar({
               <button className="sb-search-clear" onClick={() => onSearchChange("")}>✕</button>
             )}
           </div>
+          {neighborhoods.length > 1 && (
+            <div className="sb-control-row">
+              <span className="sb-control-label">Hood</span>
+              <select
+                className="sb-select"
+                value={selectedNeighborhood}
+                onChange={(e) => onNeighborhoodChange(e.target.value)}
+              >
+                <option value="">All neighborhoods</option>
+                {neighborhoods.map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {mode === "planner" && availableDates.length > 1 && (
+            <div className="sb-control-row">
+              <span className="sb-control-label">Date</span>
+              <div className="sb-chips">
+                {availableDates.map((d) => (
+                  <button
+                    key={d.key}
+                    className={`sb-chip ${selectedDate === d.key ? "active" : ""}`}
+                    onClick={() => onDateChange(selectedDate === d.key ? "" : d.key)}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {mode === "planner" && (
+            <div className="sb-control-row">
+              <span className="sb-control-label">Time</span>
+              <div className="sb-time-range">
+                <select
+                  className="sb-select sb-select--sm"
+                  value={timeFrom ?? ""}
+                  onChange={(e) => onTimeFromChange(e.target.value !== "" ? parseInt(e.target.value) : null)}
+                >
+                  <option value="">Any</option>
+                  {[8,9,10,11,12,13,14,15,16].map((h) => (
+                    <option key={h} value={h}>{fmtHour(h)}</option>
+                  ))}
+                </select>
+                <span className="sb-time-sep">–</span>
+                <select
+                  className="sb-select sb-select--sm"
+                  value={timeTo ?? ""}
+                  onChange={(e) => onTimeToChange(e.target.value !== "" ? parseInt(e.target.value) : null)}
+                >
+                  <option value="">Any</option>
+                  {[9,10,11,12,13,14,15,16,17].map((h) => (
+                    <option key={h} value={h}>{fmtHour(h)}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
           <div className="sb-control-row">
             <span className="sb-control-label">Sort</span>
             <div className="sb-chips">
@@ -310,7 +394,7 @@ export function Sidebar({
               ))}
             </div>
           </div>
-          {(activeFilters.size > 0 || sortKey !== "time" || searchQuery.trim()) && (
+          {(activeFilters.size > 0 || sortKey !== "time" || searchQuery.trim() || selectedNeighborhood || selectedDate || timeFrom !== null || timeTo !== null) && (
             <div className="sb-count">
               {totalVisible} of {totalListings} shown
             </div>

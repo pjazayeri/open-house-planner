@@ -354,11 +354,17 @@
 @media (max-width: 767px) {
   .an-body {
     padding: 14px 12px 40px;
+    gap: 18px;
   }
 
   .an-stat-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
   }
+
+  /* Shrink stat value so it fits in the narrower 2-col card */
+  .an-stat-value { font-size: 18px; }
+  .an-stat-label { font-size: 10px; }
 
   .an-timeline-row {
     grid-template-columns: 80px 1fr;
@@ -369,9 +375,19 @@
     grid-column: 1 / -1;
   }
 
+  /* Listing cards: wrap meta items */
+  .an-listing-meta {
+    gap: 6px;
+  }
+
+  /* Scroll comparison table instead of cramming 4 columns */
+  .an-comparison-table {
+    overflow-x: auto;
+  }
   .an-comparison-header,
   .an-comparison-row {
-    grid-template-columns: 80px repeat(3, 1fr);
+    grid-template-columns: 90px repeat(3, minmax(80px, 1fr));
     font-size: 11px;
+    min-width: 360px;
   }
 }

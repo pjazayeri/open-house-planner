@@ -186,15 +186,17 @@ export function Header({
       )}
 
       <div className="header-right">
-        {cities.map((city) => (
-          <button
-            key={city}
-            className={`city-pill ${city === selectedCity ? "active" : ""}`}
-            onClick={() => onCityChange(city)}
+        {cities.length > 1 && (
+          <select
+            className="city-select"
+            value={selectedCity}
+            onChange={(e) => onCityChange(e.target.value)}
           >
-            {city}
-          </button>
-        ))}
+            {cities.map((city) => (
+              <option key={city} value={city}>{city}</option>
+            ))}
+          </select>
+        )}
       </div>
     </header>
   );

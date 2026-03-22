@@ -5,6 +5,21 @@ import { computeCapRateBreakdown } from "./capRate";
 const URL_COLUMN =
   "URL (SEE https://www.redfin.com/buy-a-home/comparative-market-analysis FOR INFO ON PRICING)";
 
+// Override SF MLS district codes with real neighborhood names.
+// Fill in the correct mapping for your listings — leave blank to show the raw district label.
+export const SF_DISTRICT_MAP: Record<string, string> = {
+  // "SF District 1": "Richmond",
+  // "SF District 2": "...",
+  // etc.
+};
+
+function normalizeLocation(location: string, city: string): string {
+  if (city === "San Francisco" && location in SF_DISTRICT_MAP) {
+    return SF_DISTRICT_MAP[location];
+  }
+  return location;
+}
+
 /**
  * Filter raw CSV rows to active listings with open houses starting today
  * or in the future, and transform them into our Listing type.
@@ -36,7 +51,7 @@ export function filterAndTransform(rows: RawListing[]): Listing[] {
     listings.push({
       id: row["MLS#"] || `${row.ADDRESS}-${row.CITY}`,
       address: row.ADDRESS,
-      location: row.LOCATION || "",
+      location: normalizeLocation(row.LOCATION || "", row.CITY),
       city: row.CITY,
       state: row["STATE OR PROVINCE"],
       zip,
@@ -60,6 +75,23 @@ export function filterAndTransform(rows: RawListing[]): Listing[] {
   }
 
   return listings;
+}
+
+const SKIP_NEIGHBORHOODS = new Set([
+  "", "not applicable", "not defined", "other", "699 - not defined",
+  "san francisco", // too broad — only used when there's no real neighborhood
+]);
+
+/**
+ * Get distinct neighborhoods from listings, filtered to meaningful values.
+ */
+export function getNeighborhoods(listings: Listing[]): string[] {
+  const seen = new Set<string>();
+  for (const l of listings) {
+    const n = l.location.trim();
+    if (n && !SKIP_NEIGHBORHOODS.has(n.toLowerCase())) seen.add(n);
+  }
+  return Array.from(seen).sort();
 }
 
 /**

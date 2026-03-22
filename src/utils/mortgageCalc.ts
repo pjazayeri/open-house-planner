@@ -25,7 +25,7 @@ export interface BuyVsRentResult {
   monthlyBuyPremium: number;
 }
 
-export function calcBuyVsRent(listing: Listing, params: MortgageParams): BuyVsRentResult {
+export function calcBuyVsRent(listing: Listing, params: MortgageParams, rentOverride?: number): BuyVsRentResult {
   const { downPaymentPct, annualRatePct, termYears, opportunityReturnPct, includePrincipal } = params;
   const { price, capRateBreakdown } = listing;
 
@@ -58,7 +58,7 @@ export function calcBuyVsRent(listing: Listing, params: MortgageParams): BuyVsRe
 
   const opportunityCostMonthly = (downPayment * opportunityReturnPct) / 100 / 12;
   const effectiveMonthlyOwnershipCost = totalMonthlyOwnershipCost + opportunityCostMonthly;
-  const estimatedMonthlyRent = capRateBreakdown.monthlyRent;
+  const estimatedMonthlyRent = rentOverride ?? capRateBreakdown.monthlyRent;
   const monthlyBuyPremium = effectiveMonthlyOwnershipCost - estimatedMonthlyRent;
 
   return {

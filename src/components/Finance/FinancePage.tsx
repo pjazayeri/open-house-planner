@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import type { Listing, VisitRecord } from "../../types";
 import { calcBuyVsRent, type BuyVsRentResult } from "../../utils/mortgageCalc";
+import { getNeighborhoods } from "../../utils/filterListings";
 import { formatPrice, formatBedsBaths } from "../../utils/formatters";
 import "./FinancePage.css";
 
@@ -18,6 +19,7 @@ const LS_DOWN = "finance-down-pct";
 const LS_RATE = "finance-rate";
 const LS_OPP  = "finance-opp-return";
 const LS_PRINCIPAL = "finance-include-principal";
+const LS_RENT_OVERRIDES = "finance-rent-overrides";
 
 function readLs(key: string, fallback: number): number {
   try {
@@ -162,9 +164,11 @@ interface DetailProps {
   termYears: number;
   oppReturnPct: number;
   includePrincipal: boolean;
+  rentOverride: number | null;
+  onSetRentOverride: (rent: number | null) => void;
 }
 
-function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPct, includePrincipal }: DetailProps) {
+function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPct, includePrincipal, rentOverride, onSetRentOverride }: DetailProps) {
   const thumbSrc = `/api/thumbnail/${listing.id}`;
   const accent = accentClass(result.monthlyBuyPremium, listing.capRate);
   const b = listing.capRateBreakdown;
@@ -313,9 +317,36 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
           <span className="fp-bd-label">Effective cost</span>
           <span className="fp-bd-val">{fmtMo(result.effectiveMonthlyOwnershipCost)}</span>
         </div>
-        <div className="fp-bd-row">
-          <span className="fp-bd-label">Est. rent</span>
-          <Tip tip={tipRent}>{fmtMo(result.estimatedMonthlyRent)}</Tip>
+        <div className="fp-bd-row fp-bd-row--rent">
+          <span className="fp-bd-label">
+            Est. rent
+            {rentOverride !== null && (
+              <button
+                className="fp-rent-reset"
+                title="Reset to estimated rent"
+                onClick={() => onSetRentOverride(null)}
+              >↺</button>
+            )}
+          </span>
+          <div className="fp-rent-edit">
+            <span className="fp-rent-prefix">$</span>
+            <input
+              className="fp-rent-input"
+              type="number"
+              min={0}
+              step={50}
+              value={rentOverride ?? Math.round(result.estimatedMonthlyRent)}
+              onChange={(e) => {
+                const n = parseFloat(e.target.value);
+                if (!isNaN(n) && n >= 0) onSetRentOverride(n);
+              }}
+              title="Override estimated rent"
+            />
+            <span className="fp-rent-suffix">/ mo</span>
+            {rentOverride === null && (
+              <Tip tip={tipRent}><span className="fp-rent-auto">auto</span></Tip>
+            )}
+          </div>
         </div>
         <hr className="fp-divider" />
         <div className={`fp-bd-row ${premiumClass(result.monthlyBuyPremium)}`}>
@@ -340,12 +371,23 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
   });
   const [fetchingRate, setFetchingRate] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>("premium");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState("");
+
+  const neighborhoods = useMemo(() => getNeighborhoods(allListings), [allListings]);
+  const [rentOverrides, setRentOverrides] = useState<Record<string, number>>(() => {
+    try {
+      const v = localStorage.getItem(LS_RENT_OVERRIDES);
+      return v ? JSON.parse(v) : {};
+    } catch { return {}; }
+  });
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
 
   useEffect(() => { try { localStorage.setItem(LS_DOWN, String(downPct)); } catch {} }, [downPct]);
   useEffect(() => { try { localStorage.setItem(LS_RATE, String(ratePct)); } catch {} }, [ratePct]);
   useEffect(() => { try { localStorage.setItem(LS_OPP,  String(oppReturnPct)); } catch {} }, [oppReturnPct]);
   useEffect(() => { try { localStorage.setItem(LS_PRINCIPAL, String(includePrincipal)); } catch {} }, [includePrincipal]);
+  useEffect(() => { try { localStorage.setItem(LS_RENT_OVERRIDES, JSON.stringify(rentOverrides)); } catch {} }, [rentOverrides]);
 
   // Fetch live 30-yr mortgage rate from FRED
   useEffect(() => {
@@ -373,11 +415,20 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
   );
 
   const listingsWithResults = useMemo(() => {
-    return allListings.map((l) => ({ listing: l, result: calcBuyVsRent(l, params) }));
-  }, [allListings, params]);
+    return allListings.map((l) => ({
+      listing: l,
+      result: calcBuyVsRent(l, params, rentOverrides[l.id]),
+    }));
+  }, [allListings, params, rentOverrides]);
 
   const sorted = useMemo(() => {
-    return [...listingsWithResults].sort((a, b) => {
+    const q = searchQuery.trim().toLowerCase();
+    const filtered = listingsWithResults.filter(({ listing: l }) => {
+      if (selectedNeighborhood && l.location !== selectedNeighborhood) return false;
+      if (q && !l.address.toLowerCase().includes(q) && !l.city.toLowerCase().includes(q) && !l.location.toLowerCase().includes(q)) return false;
+      return true;
+    });
+    return [...filtered].sort((a, b) => {
       switch (sortKey) {
         case "price":   return a.listing.price - b.listing.price;
         case "capRate": return b.listing.capRate - a.listing.capRate;
@@ -391,7 +442,7 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
         default:        return a.result.monthlyBuyPremium - b.result.monthlyBuyPremium;
       }
     });
-  }, [listingsWithResults, sortKey]);
+  }, [listingsWithResults, sortKey, searchQuery, selectedNeighborhood]);
 
   // Keep selection valid; fall back to first item only if current selection is gone
   useEffect(() => {
@@ -401,6 +452,41 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
   }, [sorted]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedEntry = sorted.find((x) => x.listing.id === selectedId) ?? sorted[0];
+
+  function calcBreakevenDown() {
+    if (!selectedEntry) return;
+    const { listing } = selectedEntry;
+    const { capRateBreakdown: b, price } = listing;
+
+    // Fixed monthly costs that don't depend on down payment
+    const fixedCosts = b.propertyTax / 12 + b.insurance / 12 + b.annualHoa / 12 + b.maintenance / 12;
+
+    // PI factor per dollar of loan (respects includePrincipal toggle)
+    const r = ratePct / 12 / 100;
+    const n = termYears * 12;
+    let k: number;
+    if (r === 0) {
+      k = n > 0 ? 1 / n : 0;
+    } else {
+      const factor = Math.pow(1 + r, n);
+      k = includePrincipal ? (r * factor) / (factor - 1) : r;
+    }
+
+    if (k === 0) return; // can't compute
+
+    const rent = rentOverrides[listing.id] ?? b.monthlyRent;
+    // Solve: price*(1-D)*k + fixedCosts = rent  →  D = 1 - (rent - fixedCosts)/(price*k)
+    const D = (1 - (rent - fixedCosts) / (price * k)) * 100;
+    setDownPct(Math.round(Math.min(100, Math.max(0, D)) * 10) / 10);
+  }
+
+  function setRentOverride(id: string, rent: number | null) {
+    setRentOverrides((prev) => {
+      const next = { ...prev };
+      if (rent === null) delete next[id]; else next[id] = rent;
+      return next;
+    });
+  }
 
   return (
     <div className="fp-page">
@@ -415,6 +501,11 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
               <label>Down</label>
               <NumInput value={downPct} onChange={setDownPct} min={0} max={100} step={1} />
               <span>%</span>
+              <button
+                className="fp-term-btn fp-breakeven-btn"
+                onClick={calcBreakevenDown}
+                title="Set down payment so total ownership cost equals estimated rent"
+              >= rent</button>
             </div>
             <div className="fp-input-group">
               <label>Rate</label>
@@ -451,7 +542,29 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
           </div>
         </div>
 
+        {neighborhoods.length > 1 && (
+          <div className="fp-sort-row">
+            <span className="fp-sort-label">Hood:</span>
+            <select
+              className="fp-filter-select"
+              value={selectedNeighborhood}
+              onChange={(e) => setSelectedNeighborhood(e.target.value)}
+            >
+              <option value="">All neighborhoods</option>
+              {neighborhoods.map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="fp-sort-row">
+          <input
+            className="fp-search"
+            type="text"
+            placeholder="Search address or neighborhood…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
           <span className="fp-sort-label">Sort:</span>
           {(
             [
@@ -497,6 +610,8 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
               termYears={termYears}
               oppReturnPct={oppReturnPct}
               includePrincipal={includePrincipal}
+              rentOverride={rentOverrides[selectedEntry.listing.id] ?? null}
+              onSetRentOverride={(rent) => setRentOverride(selectedEntry.listing.id, rent)}
             />
           ) : (
             <div className="fp-empty">Select a property.</div>

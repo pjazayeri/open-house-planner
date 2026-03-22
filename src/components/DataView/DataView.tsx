@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import Papa from "papaparse";
-import { MapContainer, TileLayer, Marker } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import type { Listing, VisitRecord } from "../../types";
 import { formatPrice, formatBedsBaths } from "../../utils/formatters";
-import { getCities } from "../../utils/filterListings";
+import { getCities, getNeighborhoods } from "../../utils/filterListings";
 import "./DataView.css";
 
 const pinIcon = L.divIcon({
@@ -14,19 +14,60 @@ const pinIcon = L.divIcon({
   iconAnchor: [7, 7],
 });
 
-function MiniMap({ lat, lng }: { lat: number; lng: number }) {
+type MapType = "street" | "satellite" | "light";
+
+const TILE_LAYERS: Record<MapType, { url: string; label: string }> = {
+  street: {
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    label: "Street",
+  },
+  satellite: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    label: "Satellite",
+  },
+  light: {
+    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    label: "Light",
+  },
+};
+
+/** Sits inside MapContainer — pans to new listing without remounting, syncs zoom from slider. */
+function MapController({ lat, lng, zoom, onZoomChange }: {
+  lat: number; lng: number; zoom: number; onZoomChange: (z: number) => void;
+}) {
+  const map = useMap();
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    if (mounted.current) map.panTo([lat, lng]);
+    mounted.current = true;
+  }, [lat, lng]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (map.getZoom() !== zoom) map.setZoom(zoom);
+  }, [zoom]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useMapEvents({ zoomend: () => onZoomChange(map.getZoom()) });
+  return null;
+}
+
+function MiniMap({ lat, lng, mapType, zoom, onZoomChange }: {
+  lat: number; lng: number; mapType: MapType; zoom: number; onZoomChange: (z: number) => void;
+}) {
+  const tile = TILE_LAYERS[mapType];
   return (
     <div className="dv-map-panel-inner">
       <MapContainer
         center={[lat, lng]}
-        zoom={15}
+        zoom={zoom}
         zoomControl={false}
         attributionControl={false}
         scrollWheelZoom={false}
         className="dv-map-panel-leaflet"
       >
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <TileLayer key={mapType} url={tile.url} />
         <Marker position={[lat, lng]} icon={pinIcon} />
+        <MapController lat={lat} lng={lng} zoom={zoom} onZoomChange={onZoomChange} />
       </MapContainer>
       <a
         className="dv-map-panel-link"
@@ -376,7 +417,27 @@ export function DataView({
     }
   }, [cities, selectedCity]);
 
+  const neighborhoods = useMemo(
+    () => getNeighborhoods(allListings.filter((l) => !selectedCity || l.city === selectedCity)),
+    [allListings, selectedCity]
+  );
+
+  // Reset neighborhood when city changes
+  useEffect(() => { setSelectedNeighborhood(""); }, [selectedCity]);
+
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState("");
+  const [mapType, setMapType] = useState<MapType>(() => {
+    try { return (localStorage.getItem("dv-map-type") as MapType) ?? "street"; } catch { return "street"; }
+  });
+  const [mapZoom, setMapZoom] = useState<number>(() => {
+    try { return parseInt(localStorage.getItem("dv-map-zoom") ?? "14") || 14; } catch { return 14; }
+  });
+  function handleZoomChange(z: number) {
+    setMapZoom(z);
+    try { localStorage.setItem("dv-map-zoom", String(z)); } catch {}
+  }
   const [sortKey, setSortKey] = useState<SortKey>("time");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
   const [visitDateFilter, setVisitDateFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -449,6 +510,15 @@ export function DataView({
     });
   }
 
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
   const sorted = useMemo(() => {
     function matchesFilter(id: string, k: FilterKey): boolean {
       const v = visits[id];
@@ -471,6 +541,7 @@ export function DataView({
 
     let filtered = allListings.filter((l) => {
       if (selectedCity && l.city !== selectedCity) return false;
+      if (selectedNeighborhood && l.location !== selectedNeighborhood) return false;
       if (q) {
         const inAddress = l.address.toLowerCase().includes(q);
         const inCity = l.city.toLowerCase().includes(q);
@@ -492,26 +563,27 @@ export function DataView({
       });
     }
 
+    const dir = sortDir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
-      if (sortKey === "price")   return a.price - b.price;
-      if (sortKey === "capRate") return b.capRate - a.capRate;
+      if (sortKey === "price")   return (a.price - b.price) * dir;
+      if (sortKey === "capRate") return (b.capRate - a.capRate) * dir;
       if (sortKey === "pricePerSqft") {
         const aPsf = a.sqft ? a.price / a.sqft : Infinity;
         const bPsf = b.sqft ? b.price / b.sqft : Infinity;
-        return aPsf - bPsf;
+        return (aPsf - bPsf) * dir;
       }
-      if (sortKey === "visited") return (visits[a.id] ? 0 : 1) - (visits[b.id] ? 0 : 1);
+      if (sortKey === "visited") return ((visits[a.id] ? 0 : 1) - (visits[b.id] ? 0 : 1)) * dir;
       if (sortKey === "rating") {
         const ar = visits[a.id]?.rating ?? null;
         const br = visits[b.id]?.rating ?? null;
         if (ar === null && br === null) return 0;
         if (ar === null) return 1;
         if (br === null) return -1;
-        return br - ar;
+        return (br - ar) * dir;
       }
-      return a.openHouseStart.getTime() - b.openHouseStart.getTime();
+      return (a.openHouseStart.getTime() - b.openHouseStart.getTime()) * dir;
     });
-  }, [allListings, selectedCity, searchQuery, activeFilters, visitDateFilter, visits, hiddenIds, priorityIds, sortKey]);
+  }, [allListings, selectedCity, selectedNeighborhood, searchQuery, activeFilters, visitDateFilter, visits, hiddenIds, priorityIds, sortKey, sortDir]);
 
   // Auto-select first item when sorted list changes
   useEffect(() => {
@@ -632,17 +704,30 @@ export function DataView({
           {cities.length > 1 && (
             <div className="dv-control-row">
               <span className="dv-control-label">City</span>
-              <div className="dv-chips">
+              <select
+                className="dv-filter-select"
+                value={selectedCity}
+                onChange={(e) => setSelectedCity(e.target.value)}
+              >
                 {cities.map((city) => (
-                  <button
-                    key={city}
-                    className={`dv-chip${selectedCity === city ? " active" : ""}`}
-                    onClick={() => setSelectedCity(city)}
-                  >
-                    {city}
-                  </button>
+                  <option key={city} value={city}>{city}</option>
                 ))}
-              </div>
+              </select>
+            </div>
+          )}
+          {neighborhoods.length > 1 && (
+            <div className="dv-control-row">
+              <span className="dv-control-label">Hood</span>
+              <select
+                className="dv-filter-select"
+                value={selectedNeighborhood}
+                onChange={(e) => setSelectedNeighborhood(e.target.value)}
+              >
+                <option value="">All neighborhoods</option>
+                {neighborhoods.map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
             </div>
           )}
           <div className="dv-control-row">
@@ -678,9 +763,9 @@ export function DataView({
                 <button
                   key={k}
                   className={`dv-chip ${sortKey === k ? "active" : ""}`}
-                  onClick={() => setSortKey(k)}
+                  onClick={() => handleSort(k)}
                 >
-                  {SORT_LABELS[k]}
+                  {SORT_LABELS[k]}{sortKey === k ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
                 </button>
               ))}
             </div>
@@ -689,7 +774,7 @@ export function DataView({
       </div>
 
       <div className="dv-body">
-        <div className="dv-left">
+        <div className="dv-top">
           {selectedListing ? (
             <DetailPanel
               key={selectedId}
@@ -711,19 +796,64 @@ export function DataView({
           ) : (
             <div className="dv-no-selection">No listings match.</div>
           )}
+          <div className="dv-map-panel">
+            <div className="dv-map-type-bar">
+              {(Object.keys(TILE_LAYERS) as MapType[]).map((t) => (
+                <button
+                  key={t}
+                  className={`dv-map-type-btn${mapType === t ? " active" : ""}`}
+                  onClick={() => {
+                    setMapType(t);
+                    try { localStorage.setItem("dv-map-type", t); } catch {}
+                  }}
+                >
+                  {TILE_LAYERS[t].label}
+                </button>
+              ))}
+            </div>
+            <div className="dv-zoom-bar">
+              <span className="dv-zoom-label">{mapZoom}</span>
+              <input
+                type="range"
+                min={10}
+                max={18}
+                value={mapZoom}
+                onChange={(e) => handleZoomChange(parseInt(e.target.value))}
+                className="dv-zoom-slider"
+              />
+            </div>
+            {selectedListing ? (
+              <MiniMap lat={selectedListing.lat} lng={selectedListing.lng} mapType={mapType} zoom={mapZoom} onZoomChange={handleZoomChange} />
+            ) : (
+              <div className="dv-map-panel-empty">Select a listing to see its location</div>
+            )}
+          </div>
+        </div>
 
         <div className="dv-table-container">
           <div className="dv-table-header">
-            <div className="dv-th dv-tc-badge"></div>
-            <div className="dv-th dv-tc-address">Address</div>
+            <div className="dv-th dv-tc-badge" onClick={() => handleSort("visited")} title="Sort by visited" style={{ cursor: "pointer" }}>
+              {sortKey === "visited" ? (sortDir === "asc" ? "↑" : "↓") : ""}
+            </div>
+            <div className="dv-th dv-tc-address dv-th--sortable" onClick={() => handleSort("time")}>
+              Address{sortKey === "time" ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+            </div>
             <div className="dv-th dv-tc-location">Location</div>
-            <div className="dv-th dv-tc-price">Price</div>
+            <div className="dv-th dv-tc-price dv-th--sortable" onClick={() => handleSort("price")}>
+              Price{sortKey === "price" ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+            </div>
             <div className="dv-th dv-tc-beds">Bd</div>
             <div className="dv-th dv-tc-baths">Ba</div>
             <div className="dv-th dv-tc-sqft">Sqft</div>
-            <div className="dv-th dv-tc-psf">$/sqft</div>
-            <div className="dv-th dv-tc-cap">Cap%</div>
-            <div className="dv-th dv-tc-mark"></div>
+            <div className="dv-th dv-tc-psf dv-th--sortable" onClick={() => handleSort("pricePerSqft")}>
+              $/sqft{sortKey === "pricePerSqft" ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+            </div>
+            <div className="dv-th dv-tc-cap dv-th--sortable" onClick={() => handleSort("capRate")}>
+              Cap%{sortKey === "capRate" ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+            </div>
+            <div className="dv-th dv-tc-mark dv-th--sortable" onClick={() => handleSort("rating")} title="Sort by rating">
+              {sortKey === "rating" ? (sortDir === "asc" ? "↑" : "↓") : "★"}
+            </div>
           </div>
 
           <div className="dv-table-body">
@@ -786,15 +916,6 @@ export function DataView({
               );
             })}
           </div>
-        </div>
-        </div>
-
-        <div className="dv-map-panel">
-          {selectedListing ? (
-            <MiniMap key={selectedListing.id} lat={selectedListing.lat} lng={selectedListing.lng} />
-          ) : (
-            <div className="dv-map-panel-empty">Select a listing to see its location</div>
-          )}
         </div>
       </div>
     </div>

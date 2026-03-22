@@ -139,20 +139,40 @@
 .dv-chip-clear { border-color: #475569; color: #94a3b8; }
 .dv-chip-clear:hover { border-color: #ef4444; color: #f87171; }
 
+.dv-filter-select {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  color: #94a3b8;
+  font-size: 12px;
+  padding: 3px 8px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.12s;
+}
+.dv-filter-select:focus { border-color: #7c3aed; color: #e2e8f0; }
+
 /* ── Body ───────────────────────────────────── */
 .dv-body {
   flex: 1;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   overflow: hidden;
   min-height: 0;
 }
 
-.dv-left {
-  flex: 1;
+/* Detail + map side by side */
+.dv-top {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-shrink: 0;
+  border-bottom: 2px solid #334155;
   overflow: hidden;
+}
+
+.dv-top > .dv-detail,
+.dv-top > .dv-no-selection {
+  flex: 1;
   min-width: 0;
 }
 
@@ -163,6 +183,56 @@
   background: #0f172a;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+/* Map type toggle bar */
+.dv-map-type-bar {
+  display: flex;
+  flex-shrink: 0;
+  border-bottom: 1px solid #334155;
+}
+
+.dv-map-type-btn {
+  flex: 1;
+  background: #0f172a;
+  border: none;
+  border-right: 1px solid #334155;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 5px 0;
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s;
+}
+.dv-map-type-btn:last-child { border-right: none; }
+.dv-map-type-btn:hover { background: #1e293b; color: #cbd5e1; }
+.dv-map-type-btn.active { background: #1e293b; color: #f1f5f9; font-weight: 600; }
+
+/* Zoom slider bar */
+.dv-zoom-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 4px 10px;
+  background: #0f172a;
+  border-bottom: 1px solid #334155;
+}
+
+.dv-zoom-label {
+  font-size: 11px;
+  color: #64748b;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.dv-zoom-slider {
+  flex: 1;
+  height: 3px;
+  accent-color: #3b82f6;
+  cursor: pointer;
 }
 
 .dv-map-panel-inner {
@@ -174,6 +244,7 @@
 
 .dv-map-panel-leaflet {
   flex: 1;
+  min-height: 0;
 }
 
 .dv-map-panel-link {
@@ -202,9 +273,7 @@
 
 /* ── Detail Panel ───────────────────────────── */
 .dv-detail {
-  flex-shrink: 0;
   background: #162032;
-  border-bottom: 2px solid #334155;
   overflow-y: auto;
   max-height: 42vh;
 }
@@ -475,6 +544,13 @@
   user-select: none;
 }
 
+.dv-th--sortable {
+  cursor: pointer;
+}
+.dv-th--sortable:hover {
+  color: #94a3b8;
+}
+
 .dv-table-body {
   flex: 1;
   overflow-y: auto;
@@ -539,8 +615,8 @@
 /* ── Mobile ───────────────────────────────── */
 @media (max-width: 767px) {
   .dv-detail-thumb-wrap {
-    width: 110px;
-    height: 88px;
+    width: 96px;
+    height: 76px;
   }
 
   .dv-detail-main {
@@ -548,13 +624,29 @@
     padding: 10px 12px 6px;
   }
 
-  .dv-detail {
-    max-height: 50vh;
+  /* Cap detail so table is always visible below */
+  .dv-top {
+    flex-direction: column;
+    max-height: 55vh;
+    overflow-y: auto;
   }
 
-  /* Let table scroll horizontally on mobile */
+  /* Prevent iOS zoom on focus */
+  .dv-search { font-size: 16px; }
+  .dv-notes  { font-size: 14px; }
+
+  /* Bigger touch targets for action buttons */
+  .dv-btn {
+    padding: 8px 10px;
+    font-size: 13px;
+    min-height: 36px;
+  }
+  .dv-star { font-size: 20px; }
+
+  /* Let table scroll horizontally */
   .dv-table-container {
     overflow-x: auto;
+    flex: 1;
   }
 
   .dv-table-header,
@@ -563,6 +655,11 @@
   }
 
   .dv-header-stats { display: none; }
+  .dv-see-listing  { display: none; }
 
-  .dv-see-listing { display: none; }
+  /* Hide map panel on mobile */
+  .dv-map-panel { display: none; }
+
+  /* Notes side-by-side is too cramped on mobile */
+  .dv-notes-grid { grid-template-columns: 1fr; }
 }

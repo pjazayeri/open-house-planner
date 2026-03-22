@@ -14,8 +14,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
   try {
     const blob = await head(`thumbnails/${mlsId}.jpg`);
-    // Use downloadUrl (pre-signed, no auth needed) — blob.url requires auth for private blobs
-    const imgRes = await fetch(blob.downloadUrl);
+    const token = process.env.BLOB_READ_WRITE_TOKEN ?? "";
+    const imgRes = await fetch(blob.url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     if (!imgRes.ok) throw new Error(`Blob fetch ${imgRes.status}`);
     const buf = Buffer.from(await imgRes.arrayBuffer());
     res.writeHead(200, {

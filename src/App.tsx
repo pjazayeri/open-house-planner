@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useListings } from "./hooks/useListings";
 import { Header } from "./components/Header/Header";
 import { Sidebar, sortListings, matchesFilter } from "./components/Sidebar/Sidebar";
+import { getNeighborhoods } from "./utils/filterListings";
 import type { SortKey, FilterKey } from "./components/Sidebar/Sidebar";
 import { MapView } from "./components/Map/MapView";
 import { SummaryModal } from "./components/Summary/SummaryModal";
@@ -69,6 +70,10 @@ function App() {
   const [sortKey, setSortKey] = useState<SortKey>("time");
   const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [timeFrom, setTimeFrom] = useState<number | null>(null);
+  const [timeTo, setTimeTo] = useState<number | null>(null);
   const [showSummary, setShowSummary] = useState(false);
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
 
@@ -148,9 +153,66 @@ function App() {
       : timeSlotGroups;
   }, [page, allListings, hiddenIds, selectedCity, timeSlotGroups, priorityIds]);
 
+  // Neighborhoods for the current city (derived from base listings before filtering)
+  const neighborhoods = useMemo(
+    () => getNeighborhoods(baseGroups.flatMap((g) => g.listings)),
+    [baseGroups]
+  );
+
+  // Distinct dates available in the planner (from time slot groups)
+  const availableDates = useMemo(() => {
+    const seen = new Set<string>();
+    const dates: { key: string; label: string }[] = [];
+    for (const g of timeSlotGroups) {
+      const key = g.startTime.toISOString().slice(0, 10);
+      if (!seen.has(key)) {
+        seen.add(key);
+        dates.push({
+          key,
+          label: g.startTime.toLocaleDateString("en-US", { weekday: "short", month: "numeric", day: "numeric" }),
+        });
+      }
+    }
+    return dates;
+  }, [timeSlotGroups]);
+
+  // Reset neighborhood selection when city changes
+  useEffect(() => { setSelectedNeighborhood(""); }, [selectedCity]);
+
   // Apply filters + sort on top of base groups (shared between home and planner)
   const visibleGroups = useMemo(() => {
     let groups = baseGroups;
+
+    if (selectedNeighborhood) {
+      groups = groups
+        .map((g) => ({
+          ...g,
+          listings: g.listings.filter((l) => l.location === selectedNeighborhood),
+        }))
+        .filter((g) => g.listings.length > 0);
+    }
+
+    // Date + time range filters (planner only)
+    if (page !== "home") {
+      if (selectedDate) {
+        groups = groups.filter(
+          (g) => g.startTime.toISOString().slice(0, 10) === selectedDate
+        );
+      }
+      if (timeFrom !== null || timeTo !== null) {
+        groups = groups
+          .map((g) => ({
+            ...g,
+            listings: g.listings.filter((l) => {
+              const h = l.openHouseStart.getHours();
+              if (timeFrom !== null && h < timeFrom) return false;
+              if (timeTo !== null && h > timeTo) return false;
+              return true;
+            }),
+          }))
+          .filter((g) => g.listings.length > 0);
+      }
+    }
 
     if (activeFilters.size > 0) {
       groups = groups
@@ -184,7 +246,7 @@ function App() {
     }
 
     return groups;
-  }, [baseGroups, activeFilters, sortKey, visits, priorityIds, searchQuery]);
+  }, [baseGroups, page, selectedNeighborhood, selectedDate, timeFrom, timeTo, activeFilters, sortKey, visits, priorityIds, searchQuery]);
 
   const totalListings = useMemo(
     () => baseGroups.reduce((s, g) => s + g.listings.length, 0),
@@ -286,6 +348,16 @@ function App() {
           onFiltersChange={setActiveFilters}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          neighborhoods={neighborhoods}
+          selectedNeighborhood={selectedNeighborhood}
+          onNeighborhoodChange={setSelectedNeighborhood}
+          availableDates={availableDates}
+          selectedDate={selectedDate}
+          onDateChange={setSelectedDate}
+          timeFrom={timeFrom}
+          timeTo={timeTo}
+          onTimeFromChange={setTimeFrom}
+          onTimeToChange={setTimeTo}
           visits={visits}
           nearbyId={nearbyId}
           geoWatching={geoWatching}
