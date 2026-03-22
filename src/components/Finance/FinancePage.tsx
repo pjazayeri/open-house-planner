@@ -401,6 +401,8 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
 
   return (
     <div className={`fp-detail ${accent}`}>
+      <div className="fp-detail-columns">
+      <div className="fp-detail-left">
       <div className="fp-detail-hero">
         {thumbError ? (
           <div className="fp-detail-thumb fp-detail-thumb-ph">🏠</div>
@@ -541,6 +543,9 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
         </div>
       </div>
 
+      </div>{/* end fp-detail-left */}
+
+      <div className="fp-detail-right">
       {/* ── Time Analysis ── */}
       <div className="fp-time-section">
         <button className="fp-time-toggle" onClick={() => setTimeOpen((v) => !v)}>
@@ -628,7 +633,9 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
             })()}
           </div>
         )}
-      </div>
+      </div>{/* end fp-time-section */}
+      </div>{/* end fp-detail-right */}
+      </div>{/* end fp-detail-columns */}
     </div>
   );
 }

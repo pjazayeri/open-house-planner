@@ -405,9 +405,25 @@
   font-size: 14px;
 }
 
+/* ── Detail two-column layout ────────────────────── */
+.fp-detail-columns {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.fp-detail-left {
+  flex: 0 0 340px;
+  min-width: 0;
+}
+
+.fp-detail-right {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ── Time Analysis section ───────────────────────── */
 .fp-time-section {
-  margin-top: 16px;
   border: 1px solid #334155;
   border-radius: 8px;
   overflow: hidden;
@@ -522,4 +538,8 @@
 
   /* Detail card fills full width */
   .fp-detail { max-width: none; }
+
+  /* Stack columns vertically on mobile */
+  .fp-detail-columns { flex-direction: column; }
+  .fp-detail-left { flex: none; width: 100%; }
 }
