@@ -291,6 +291,9 @@
 }
 .fp-bd-row.total   { color: #e2e8f0; font-weight: 600; }
 .fp-bd-row.effective { color: #f1f5f9; font-weight: 700; }
+.fp-bd-row.benefit { color: #64748b; }
+.fp-bd-val.benefit-val { color: #22c55e; }
+.fp-bd-row.net-cost { color: #f1f5f9; font-weight: 700; border-top: 1px solid #334155; padding-top: 4px; margin-top: 2px; }
 .fp-bd-val { text-align: right; white-space: nowrap; }
 .fp-bd-val--lg { font-size: 15px; }
 

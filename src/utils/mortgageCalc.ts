@@ -6,6 +6,8 @@ export interface MortgageParams {
   termYears: number;            // 15 or 30
   opportunityReturnPct: number; // e.g. 7.0 — assumed annual return on down payment if invested
   includePrincipal: boolean;    // whether to count principal repayment as a "cost"
+  marginalTaxRatePct: number;   // e.g. 28 — federal marginal rate for interest deduction
+  appreciationRatePct: number;  // e.g. 3 — assumed annual property appreciation
 }
 
 export interface BuyVsRentResult {
@@ -21,12 +23,15 @@ export interface BuyVsRentResult {
   totalMonthlyOwnershipCost: number;  // respects includePrincipal
   opportunityCostMonthly: number;
   effectiveMonthlyOwnershipCost: number;
+  monthlyTaxSavings: number;    // interest deduction benefit at marginalTaxRatePct
+  monthlyAppreciation: number;  // equity gain from property appreciation
+  netMonthlyOwnershipCost: number; // effective − taxSavings − appreciation
   estimatedMonthlyRent: number;
-  monthlyBuyPremium: number;
+  monthlyBuyPremium: number;    // net cost − rent
 }
 
 export function calcBuyVsRent(listing: Listing, params: MortgageParams, rentOverride?: number): BuyVsRentResult {
-  const { downPaymentPct, annualRatePct, termYears, opportunityReturnPct, includePrincipal } = params;
+  const { downPaymentPct, annualRatePct, termYears, opportunityReturnPct, includePrincipal, marginalTaxRatePct, appreciationRatePct } = params;
   const { price, capRateBreakdown } = listing;
 
   const downPayment = price * downPaymentPct;
@@ -58,8 +63,15 @@ export function calcBuyVsRent(listing: Listing, params: MortgageParams, rentOver
 
   const opportunityCostMonthly = (downPayment * opportunityReturnPct) / 100 / 12;
   const effectiveMonthlyOwnershipCost = totalMonthlyOwnershipCost + opportunityCostMonthly;
+
+  // Tax savings: mortgage interest is deductible if user itemizes
+  const monthlyTaxSavings = monthlyInterest * (marginalTaxRatePct / 100);
+  // Appreciation: annual price growth builds equity (reduces net cost)
+  const monthlyAppreciation = (price * appreciationRatePct) / 100 / 12;
+  const netMonthlyOwnershipCost = effectiveMonthlyOwnershipCost - monthlyTaxSavings - monthlyAppreciation;
+
   const estimatedMonthlyRent = rentOverride ?? capRateBreakdown.monthlyRent;
-  const monthlyBuyPremium = effectiveMonthlyOwnershipCost - estimatedMonthlyRent;
+  const monthlyBuyPremium = netMonthlyOwnershipCost - estimatedMonthlyRent;
 
   return {
     downPayment,
@@ -74,6 +86,9 @@ export function calcBuyVsRent(listing: Listing, params: MortgageParams, rentOver
     totalMonthlyOwnershipCost,
     opportunityCostMonthly,
     effectiveMonthlyOwnershipCost,
+    monthlyTaxSavings,
+    monthlyAppreciation,
+    netMonthlyOwnershipCost,
     estimatedMonthlyRent,
     monthlyBuyPremium,
   };

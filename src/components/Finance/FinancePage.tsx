@@ -20,6 +20,8 @@ const LS_RATE = "finance-rate";
 const LS_OPP  = "finance-opp-return";
 const LS_PRINCIPAL = "finance-include-principal";
 const LS_RENT_OVERRIDES = "finance-rent-overrides";
+const LS_TAX_RATE = "finance-tax-rate";
+const LS_APPRECIATION = "finance-appreciation";
 
 function readLs(key: string, fallback: number): number {
   try {
@@ -163,12 +165,14 @@ interface DetailProps {
   ratePct: number;
   termYears: number;
   oppReturnPct: number;
+  taxRatePct: number;
+  appreciationPct: number;
   includePrincipal: boolean;
   rentOverride: number | null;
   onSetRentOverride: (rent: number | null) => void;
 }
 
-function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPct, includePrincipal, rentOverride, onSetRentOverride }: DetailProps) {
+function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPct, taxRatePct, appreciationPct, includePrincipal, rentOverride, onSetRentOverride }: DetailProps) {
   const [thumbError, setThumbError] = useState(false);
   const thumbSrc = `/api/thumbnail/${listing.id}`;
   const accent = accentClass(result.monthlyBuyPremium, listing.capRate);
@@ -230,9 +234,30 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
     `Assumed annual return: ${oppReturnPct}% (configurable above)`,
   ].join("\n");
 
+  const tipTaxSavings = [
+    `Mortgage interest deduction (federal only).`,
+    ``,
+    `First-month interest: ${fmtDollar(result.monthlyInterest)}/mo`,
+    `× ${taxRatePct}% marginal tax rate`,
+    `= ${fmtDollar(result.monthlyTaxSavings)}/mo savings`,
+    ``,
+    `Only applies if you itemize deductions.`,
+    `Set tax rate to 0 to exclude.`,
+  ].join("\n");
+
+  const tipAppreciation = [
+    `Assumed property appreciation builds equity.`,
+    ``,
+    `${formatPrice(listing.price)} × ${appreciationPct}% ÷ 12`,
+    `= ${fmtDollar(result.monthlyAppreciation)}/mo equity gain`,
+    ``,
+    `This reduces your net monthly cost.`,
+    `Set to 0 to exclude.`,
+  ].join("\n");
+
   const tipBuyPremium = [
-    `Effective cost − Est. rent`,
-    `${fmtDollar(result.effectiveMonthlyOwnershipCost)} − ${fmtDollar(result.estimatedMonthlyRent)}`,
+    `Net cost − Est. rent`,
+    `${fmtDollar(result.netMonthlyOwnershipCost)} − ${fmtDollar(result.estimatedMonthlyRent)}`,
     result.monthlyBuyPremium >= 0
       ? `Positive = buying costs more than renting`
       : `Negative = buying is cheaper than renting`,
@@ -322,6 +347,24 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
           <span className="fp-bd-label">Effective cost</span>
           <span className="fp-bd-val">{fmtMo(result.effectiveMonthlyOwnershipCost)}</span>
         </div>
+        {result.monthlyTaxSavings > 0 && (
+          <div className="fp-bd-row benefit">
+            <span className="fp-bd-label">− Tax savings ({taxRatePct}%)</span>
+            <Tip tip={tipTaxSavings}><span className="fp-bd-val benefit-val">{fmtMo(result.monthlyTaxSavings)}</span></Tip>
+          </div>
+        )}
+        {result.monthlyAppreciation > 0 && (
+          <div className="fp-bd-row benefit">
+            <span className="fp-bd-label">− Appreciation ({appreciationPct}%/yr)</span>
+            <Tip tip={tipAppreciation}><span className="fp-bd-val benefit-val">{fmtMo(result.monthlyAppreciation)}</span></Tip>
+          </div>
+        )}
+        {(result.monthlyTaxSavings > 0 || result.monthlyAppreciation > 0) && (
+          <div className="fp-bd-row net-cost">
+            <span className="fp-bd-label">Net cost</span>
+            <span className="fp-bd-val">{fmtMo(result.netMonthlyOwnershipCost)}</span>
+          </div>
+        )}
         <div className="fp-bd-row fp-bd-row--rent">
           <span className="fp-bd-label">
             Est. rent
@@ -370,6 +413,8 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
   const [downPct, setDownPct] = useState(() => readLs(LS_DOWN, 20));
   const [ratePct, setRatePct] = useState(() => readLs(LS_RATE, 6.75));
   const [oppReturnPct, setOppReturnPct] = useState(() => readLs(LS_OPP, 7));
+  const [taxRatePct, setTaxRatePct] = useState(() => readLs(LS_TAX_RATE, 28));
+  const [appreciationPct, setAppreciationPct] = useState(() => readLs(LS_APPRECIATION, 3));
   const [termYears, setTermYears] = useState(30);
   const [includePrincipal, setIncludePrincipal] = useState(() => {
     try { return localStorage.getItem(LS_PRINCIPAL) !== "false"; } catch { return true; }
@@ -398,6 +443,8 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
   useEffect(() => { try { localStorage.setItem(LS_DOWN, String(downPct)); } catch {} }, [downPct]);
   useEffect(() => { try { localStorage.setItem(LS_RATE, String(ratePct)); } catch {} }, [ratePct]);
   useEffect(() => { try { localStorage.setItem(LS_OPP,  String(oppReturnPct)); } catch {} }, [oppReturnPct]);
+  useEffect(() => { try { localStorage.setItem(LS_TAX_RATE, String(taxRatePct)); } catch {} }, [taxRatePct]);
+  useEffect(() => { try { localStorage.setItem(LS_APPRECIATION, String(appreciationPct)); } catch {} }, [appreciationPct]);
   useEffect(() => { try { localStorage.setItem(LS_PRINCIPAL, String(includePrincipal)); } catch {} }, [includePrincipal]);
   useEffect(() => { try { localStorage.setItem(LS_RENT_OVERRIDES, JSON.stringify(rentOverrides)); } catch {} }, [rentOverrides]);
 
@@ -422,8 +469,8 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
   }, []);
 
   const params = useMemo(
-    () => ({ downPaymentPct: downPct / 100, annualRatePct: ratePct, termYears, opportunityReturnPct: oppReturnPct, includePrincipal }),
-    [downPct, ratePct, termYears, oppReturnPct, includePrincipal]
+    () => ({ downPaymentPct: downPct / 100, annualRatePct: ratePct, termYears, opportunityReturnPct: oppReturnPct, includePrincipal, marginalTaxRatePct: taxRatePct, appreciationRatePct: appreciationPct }),
+    [downPct, ratePct, termYears, oppReturnPct, includePrincipal, taxRatePct, appreciationPct]
   );
 
   const listingsWithResults = useMemo(() => {
@@ -531,6 +578,16 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
               <span>%</span>
             </div>
             <div className="fp-input-group">
+              <label>Tax rate</label>
+              <NumInput value={taxRatePct} onChange={setTaxRatePct} min={0} max={60} step={1} />
+              <span>%</span>
+            </div>
+            <div className="fp-input-group">
+              <label>Appreciation</label>
+              <NumInput value={appreciationPct} onChange={setAppreciationPct} min={0} max={20} step={0.5} />
+              <span>%/yr</span>
+            </div>
+            <div className="fp-input-group">
               <div className="fp-term-group">
                 <button
                   className={`fp-term-btn ${termYears === 15 ? "active" : ""}`}
@@ -621,6 +678,8 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
               ratePct={ratePct}
               termYears={termYears}
               oppReturnPct={oppReturnPct}
+              taxRatePct={taxRatePct}
+              appreciationPct={appreciationPct}
               includePrincipal={includePrincipal}
               rentOverride={rentOverrides[selectedEntry.listing.id] ?? null}
               onSetRentOverride={(rent) => setRentOverride(selectedEntry.listing.id, rent)}
