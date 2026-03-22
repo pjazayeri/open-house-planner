@@ -115,7 +115,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     const openHouse = cols[openHouseIdx]?.trim() ?? "";
     const mlsId = cols[mlsIdx]?.trim() ?? "";
     const url = cols[urlIdx]?.trim() ?? "";
-    if (status === "Active" && openHouse && mlsId && url) {
+    if (status === "Active" && mlsId && url) {
       activeIds.add(mlsId);
       activeListings.push({ mlsId, url });
     }

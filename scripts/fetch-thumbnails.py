@@ -15,11 +15,18 @@ import urllib.request
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
-_csvs = sorted(f for f in os.listdir(os.path.join(PROJECT_DIR, "public")) if f.startswith("redfin-favorites_") and f.endswith(".csv"))
-if not _csvs:
-    raise FileNotFoundError("No redfin-favorites_*.csv found in public/")
-CSV_PATH = os.path.join(PROJECT_DIR, "public", _csvs[-1])
-print(f"Using CSV: {_csvs[-1]}")
+
+# Search public/ then data/ for the latest CSV
+def find_latest_csv():
+    for search_dir in ["public", "data"]:
+        d = os.path.join(PROJECT_DIR, search_dir)
+        csvs = sorted(f for f in os.listdir(d) if f.startswith("redfin-favorites_") and f.endswith(".csv")) if os.path.isdir(d) else []
+        if csvs:
+            return os.path.join(d, csvs[-1]), csvs[-1]
+    raise FileNotFoundError("No redfin-favorites_*.csv found in public/ or data/")
+
+CSV_PATH, csv_name = find_latest_csv()
+print(f"Using CSV: {csv_name}")
 OUT_DIR = os.path.join(PROJECT_DIR, "public", "thumbnails")
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 URL_COL = "URL (SEE https://www.redfin.com/buy-a-home/comparative-market-analysis FOR INFO ON PRICING)"
@@ -48,13 +55,9 @@ def main():
     with open(CSV_PATH, newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
 
-    # Filter to active listings with open houses (matches filterListings.ts logic)
-    dashboard_rows = [
-        r for r in rows
-        if r["STATUS"] == "Active"
-        and r.get("NEXT OPEN HOUSE START TIME", "").strip()
-    ]
-    print(f"Found {len(dashboard_rows)} active listings with open houses")
+    # All active listings (Finance page shows everything, not just open-house listings)
+    dashboard_rows = [r for r in rows if (r.get("STATUS") or "").strip() == "Active"]
+    print(f"Found {len(dashboard_rows)} active listings")
 
     fetched = skipped = failed = 0
 
