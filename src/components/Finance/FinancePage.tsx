@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import type { Listing, VisitRecord } from "../../types";
-import { calcBuyVsRent, type BuyVsRentResult } from "../../utils/mortgageCalc";
+import { calcBuyVsRent, calcTimeSeries, type BuyVsRentResult, type TimeSeriesPoint } from "../../utils/mortgageCalc";
 import { getNeighborhoods } from "../../utils/filterListings";
 import { formatPrice, formatBedsBaths } from "../../utils/formatters";
 import "./FinancePage.css";
@@ -22,6 +22,10 @@ const LS_PRINCIPAL = "finance-include-principal";
 const LS_RENT_OVERRIDES = "finance-rent-overrides";
 const LS_TAX_RATE = "finance-tax-rate";
 const LS_APPRECIATION = "finance-appreciation";
+const LS_HOLD_YEARS = "finance-hold-years";
+const LS_BUYER_CLOSING = "finance-buyer-closing";
+const LS_SELLER_COST = "finance-seller-cost";
+const LS_RENT_INFLATION = "finance-rent-inflation";
 
 function readLs(key: string, fallback: number): number {
   try {
@@ -131,6 +135,94 @@ function Tip({ children, tip }: { children: React.ReactNode; tip: string }) {
   );
 }
 
+function fmtK(n: number): string {
+  if (Math.abs(n) >= 1_000_000) return "$" + (n / 1_000_000).toFixed(1) + "M";
+  if (Math.abs(n) >= 1_000) return "$" + Math.round(n / 1_000) + "k";
+  return "$" + Math.round(n);
+}
+
+// ── Time series chart ─────────────────────────────────────────────
+function TimeChart({ points }: { points: TimeSeriesPoint[] }) {
+  if (points.length === 0) return null;
+  const W = 460, H = 200, PAD_L = 52, PAD_R = 12, PAD_T = 12, PAD_B = 28;
+  const chartW = W - PAD_L - PAD_R;
+  const chartH = H - PAD_T - PAD_B;
+
+  const allVals = points.flatMap((p) => [p.netBuyCost, p.cumulativeRentCost]);
+  const minV = Math.min(0, ...allVals);
+  const maxV = Math.max(...allVals);
+  const range = maxV - minV || 1;
+
+  const xOf = (year: number) => PAD_L + ((year - 1) / (points.length - 1 || 1)) * chartW;
+  const yOf = (v: number) => PAD_T + chartH - ((v - minV) / range) * chartH;
+
+  const buyPts = points.map((p) => `${xOf(p.year)},${yOf(p.netBuyCost)}`).join(" ");
+  const rentPts = points.map((p) => `${xOf(p.year)},${yOf(p.cumulativeRentCost)}`).join(" ");
+
+  // Break-even year: where buy net cost crosses below rent cost
+  const breakEvenYear = points.find((p, i) => {
+    if (i === 0) return false;
+    const prev = points[i - 1];
+    return prev.netBuyCost > prev.cumulativeRentCost && p.netBuyCost <= p.cumulativeRentCost;
+  })?.year ?? null;
+
+  // Y-axis ticks
+  const tickCount = 4;
+  const ticks = Array.from({ length: tickCount + 1 }, (_, i) => minV + (range * i) / tickCount);
+
+  const zeroY = yOf(0);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="fp-time-chart" aria-label="Buy vs Rent over time">
+      {/* Zero line */}
+      {minV < 0 && maxV > 0 && (
+        <line x1={PAD_L} y1={zeroY} x2={W - PAD_R} y2={zeroY} stroke="#334155" strokeWidth={1} strokeDasharray="3 3" />
+      )}
+      {/* Y-axis ticks */}
+      {ticks.map((v, i) => (
+        <g key={i}>
+          <line x1={PAD_L - 4} y1={yOf(v)} x2={PAD_L} y2={yOf(v)} stroke="#475569" strokeWidth={1} />
+          <text x={PAD_L - 6} y={yOf(v) + 4} textAnchor="end" fontSize={9} fill="#64748b">{fmtK(v)}</text>
+        </g>
+      ))}
+      {/* X-axis labels */}
+      {points.filter((p) => p.year % 5 === 0 || p.year === 1).map((p) => (
+        <text key={p.year} x={xOf(p.year)} y={H - 6} textAnchor="middle" fontSize={9} fill="#64748b">yr{p.year}</text>
+      ))}
+      {/* Axes */}
+      <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={H - PAD_B} stroke="#475569" strokeWidth={1} />
+      <line x1={PAD_L} y1={H - PAD_B} x2={W - PAD_R} y2={H - PAD_B} stroke="#475569" strokeWidth={1} />
+      {/* Rent line (amber) */}
+      <polyline points={rentPts} fill="none" stroke="#f59e0b" strokeWidth={2} />
+      {/* Buy net cost line (purple) */}
+      <polyline points={buyPts} fill="none" stroke="#a78bfa" strokeWidth={2} />
+      {/* Break-even marker */}
+      {breakEvenYear !== null && (() => {
+        const p = points.find((pt) => pt.year === breakEvenYear)!;
+        return (
+          <g>
+            <circle cx={xOf(p.year)} cy={yOf(p.netBuyCost)} r={4} fill="#22c55e" />
+            <text x={xOf(p.year) + 6} y={yOf(p.netBuyCost) - 4} fontSize={9} fill="#22c55e">yr{p.year}</text>
+          </g>
+        );
+      })()}
+      {/* Legend */}
+      <g>
+        <line x1={PAD_L + 4} y1={PAD_T + 6} x2={PAD_L + 18} y2={PAD_T + 6} stroke="#a78bfa" strokeWidth={2} />
+        <text x={PAD_L + 22} y={PAD_T + 10} fontSize={9} fill="#a78bfa">Buy net cost</text>
+        <line x1={PAD_L + 90} y1={PAD_T + 6} x2={PAD_L + 104} y2={PAD_T + 6} stroke="#f59e0b" strokeWidth={2} />
+        <text x={PAD_L + 108} y={PAD_T + 10} fontSize={9} fill="#f59e0b">Rent</text>
+        {breakEvenYear !== null && (
+          <>
+            <circle cx={PAD_L + 158} cy={PAD_T + 6} r={3} fill="#22c55e" />
+            <text x={PAD_L + 164} y={PAD_T + 10} fontSize={9} fill="#22c55e">Break-even</text>
+          </>
+        )}
+      </g>
+    </svg>
+  );
+}
+
 // ── Compact list item ────────────────────────────────────────────
 interface ListItemProps {
   listing: Listing;
@@ -170,11 +262,38 @@ interface DetailProps {
   includePrincipal: boolean;
   rentOverride: number | null;
   onSetRentOverride: (rent: number | null) => void;
+  // time series params (lifted so they persist across selection changes)
+  holdYears: number;
+  setHoldYears: (n: number) => void;
+  buyerClosingPct: number;
+  setBuyerClosingPct: (n: number) => void;
+  sellerCostPct: number;
+  setSellerCostPct: (n: number) => void;
+  rentInflationPct: number;
+  setRentInflationPct: (n: number) => void;
 }
 
-function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPct, taxRatePct, appreciationPct, includePrincipal, rentOverride, onSetRentOverride }: DetailProps) {
+function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPct, taxRatePct, appreciationPct, includePrincipal, rentOverride, onSetRentOverride, holdYears, setHoldYears, buyerClosingPct, setBuyerClosingPct, sellerCostPct, setSellerCostPct, rentInflationPct, setRentInflationPct }: DetailProps) {
   const [thumbError, setThumbError] = useState(false);
+  const [timeOpen, setTimeOpen] = useState(true);
   const thumbSrc = `/api/thumbnail/${listing.id}`;
+
+  const params = useMemo(() => ({
+    downPaymentPct: downPct / 100,
+    annualRatePct: ratePct,
+    termYears,
+    opportunityReturnPct: oppReturnPct,
+    includePrincipal,
+    marginalTaxRatePct: taxRatePct,
+    appreciationRatePct: appreciationPct,
+  }), [downPct, ratePct, termYears, oppReturnPct, includePrincipal, taxRatePct, appreciationPct]);
+
+  const timeSeries = useMemo(() => calcTimeSeries(
+    listing,
+    params,
+    { holdYears, buyerClosingCostPct: buyerClosingPct, sellerCostPct, rentInflationPct },
+    rentOverride ?? undefined,
+  ), [listing, params, holdYears, buyerClosingPct, sellerCostPct, rentInflationPct, rentOverride]);
   const accent = accentClass(result.monthlyBuyPremium, listing.capRate);
   const b = listing.capRateBreakdown;
 
@@ -234,6 +353,7 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
     `Assumed annual return: ${oppReturnPct}% (configurable above)`,
   ].join("\n");
 
+  const annualInterest = result.monthlyInterest * 12;
   const tipTaxSavings = [
     `Mortgage interest deduction (federal only).`,
     ``,
@@ -241,8 +361,17 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
     `× ${taxRatePct}% marginal tax rate`,
     `= ${fmtDollar(result.monthlyTaxSavings)}/mo savings`,
     ``,
-    `Only applies if you itemize deductions.`,
-    `Set tax rate to 0 to exclude.`,
+    `Note: SALT deduction is capped at $10k/yr (TCJA).`,
+    `If your state taxes already exceed $10k, property`,
+    `tax adds no federal benefit — only mortgage interest`,
+    `is counted here.`,
+    ``,
+    `You only benefit if total itemized deductions`,
+    `(SALT $10k + ~${fmtDollar(annualInterest)} interest + charitable)`,
+    `exceed your standard deduction (~$15.3k single /`,
+    `~$30.6k married in 2025).`,
+    ``,
+    `Set tax rate to 0 to exclude entirely.`,
   ].join("\n");
 
   const tipAppreciation = [
@@ -404,6 +533,95 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
           </Tip>
         </div>
       </div>
+
+      {/* ── Time Analysis ── */}
+      <div className="fp-time-section">
+        <button className="fp-time-toggle" onClick={() => setTimeOpen((v) => !v)}>
+          <span>📈 Time Analysis</span>
+          <span className="fp-time-caret">{timeOpen ? "▲" : "▼"}</span>
+        </button>
+
+        {timeOpen && (
+          <div className="fp-time-body">
+            <div className="fp-time-inputs">
+              <div className="fp-input-group">
+                <label>Hold</label>
+                <NumInput value={holdYears} onChange={setHoldYears} min={1} max={30} step={1} width={44} />
+                <span>yr</span>
+              </div>
+              <div className="fp-input-group">
+                <label>Buyer closing</label>
+                <NumInput value={buyerClosingPct} onChange={setBuyerClosingPct} min={0} max={10} step={0.25} width={44} />
+                <span>%</span>
+              </div>
+              <div className="fp-input-group">
+                <label>Seller costs</label>
+                <NumInput value={sellerCostPct} onChange={setSellerCostPct} min={0} max={15} step={0.5} width={44} />
+                <span>%</span>
+              </div>
+              <div className="fp-input-group">
+                <label>Rent inflation</label>
+                <NumInput value={rentInflationPct} onChange={setRentInflationPct} min={0} max={15} step={0.5} width={44} />
+                <span>%/yr</span>
+              </div>
+            </div>
+
+            <TimeChart points={timeSeries} />
+
+            {/* Sell scenario table */}
+            {(() => {
+              const pt = timeSeries.find((p) => p.year === holdYears) ?? timeSeries[timeSeries.length - 1];
+              if (!pt) return null;
+              const buyWins = pt.netBuyCost < pt.cumulativeRentCost;
+              return (
+                <div className="fp-sell-table">
+                  <div className="fp-bd-row total">
+                    <span className="fp-bd-label">Sell in yr {pt.year} scenario</span>
+                    <span />
+                  </div>
+                  <div className="fp-bd-row">
+                    <span className="fp-bd-label">Home value</span>
+                    <span className="fp-bd-val">{fmtDollar(pt.homeValue)}</span>
+                  </div>
+                  <div className="fp-bd-row">
+                    <span className="fp-bd-label">Remaining balance</span>
+                    <span className="fp-bd-val">{fmtDollar(pt.remainingBalance)}</span>
+                  </div>
+                  <div className="fp-bd-row">
+                    <span className="fp-bd-label">Seller costs ({sellerCostPct}%)</span>
+                    <span className="fp-bd-val">−{fmtDollar(pt.homeValue * sellerCostPct / 100)}</span>
+                  </div>
+                  <div className="fp-bd-row total">
+                    <span className="fp-bd-label">Net sale proceeds</span>
+                    <span className={`fp-bd-val ${pt.saleProceeds >= 0 ? "benefit-val" : "premium-positive"}`}>{pt.saleProceeds >= 0 ? "+" : ""}{fmtDollar(pt.saleProceeds)}</span>
+                  </div>
+                  <hr className="fp-divider" />
+                  <div className="fp-bd-row">
+                    <span className="fp-bd-label">Total buy cash out</span>
+                    <span className="fp-bd-val">{fmtDollar(pt.cumulativeBuyCashOut)}</span>
+                  </div>
+                  <div className="fp-bd-row net-cost">
+                    <span className="fp-bd-label">Buy net cost</span>
+                    <span className={`fp-bd-val ${pt.netBuyCost <= 0 ? "benefit-val" : ""}`}>{fmtDollar(pt.netBuyCost)}</span>
+                  </div>
+                  <div className="fp-bd-row net-cost">
+                    <span className="fp-bd-label">Total rent cost</span>
+                    <span className="fp-bd-val">{fmtDollar(pt.cumulativeRentCost)}</span>
+                  </div>
+                  <div className={`fp-bd-row ${buyWins ? "benefit" : ""}`} style={{ marginTop: 6 }}>
+                    <span className="fp-bd-label">Verdict</span>
+                    <span className={`fp-bd-val ${buyWins ? "benefit-val" : "premium-positive"}`}>
+                      {buyWins
+                        ? `Buy saves ${fmtDollar(pt.cumulativeRentCost - pt.netBuyCost)}`
+                        : `Rent saves ${fmtDollar(pt.netBuyCost - pt.cumulativeRentCost)}`}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -431,6 +649,10 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
       return v ? JSON.parse(v) : {};
     } catch { return {}; }
   });
+  const [holdYears, setHoldYears] = useState(() => readLs(LS_HOLD_YEARS, 10));
+  const [buyerClosingPct, setBuyerClosingPct] = useState(() => readLs(LS_BUYER_CLOSING, 2.5));
+  const [sellerCostPct, setSellerCostPct] = useState(() => readLs(LS_SELLER_COST, 6));
+  const [rentInflationPct, setRentInflationPct] = useState(() => readLs(LS_RENT_INFLATION, 3));
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
 
   // Sync selected listing to URL for deep linking
@@ -447,6 +669,10 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
   useEffect(() => { try { localStorage.setItem(LS_APPRECIATION, String(appreciationPct)); } catch {} }, [appreciationPct]);
   useEffect(() => { try { localStorage.setItem(LS_PRINCIPAL, String(includePrincipal)); } catch {} }, [includePrincipal]);
   useEffect(() => { try { localStorage.setItem(LS_RENT_OVERRIDES, JSON.stringify(rentOverrides)); } catch {} }, [rentOverrides]);
+  useEffect(() => { try { localStorage.setItem(LS_HOLD_YEARS, String(holdYears)); } catch {} }, [holdYears]);
+  useEffect(() => { try { localStorage.setItem(LS_BUYER_CLOSING, String(buyerClosingPct)); } catch {} }, [buyerClosingPct]);
+  useEffect(() => { try { localStorage.setItem(LS_SELLER_COST, String(sellerCostPct)); } catch {} }, [sellerCostPct]);
+  useEffect(() => { try { localStorage.setItem(LS_RENT_INFLATION, String(rentInflationPct)); } catch {} }, [rentInflationPct]);
 
   // Fetch live 30-yr mortgage rate from FRED
   useEffect(() => {
@@ -683,6 +909,14 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
               includePrincipal={includePrincipal}
               rentOverride={rentOverrides[selectedEntry.listing.id] ?? null}
               onSetRentOverride={(rent) => setRentOverride(selectedEntry.listing.id, rent)}
+              holdYears={holdYears}
+              setHoldYears={setHoldYears}
+              buyerClosingPct={buyerClosingPct}
+              setBuyerClosingPct={setBuyerClosingPct}
+              sellerCostPct={sellerCostPct}
+              setSellerCostPct={setSellerCostPct}
+              rentInflationPct={rentInflationPct}
+              setRentInflationPct={setRentInflationPct}
             />
           ) : (
             <div className="fp-empty">Select a property.</div>

@@ -406,6 +406,61 @@
   font-size: 14px;
 }
 
+/* ── Time Analysis section ───────────────────────── */
+.fp-time-section {
+  margin-top: 16px;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.fp-time-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: #1e293b;
+  border: none;
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 14px;
+  cursor: pointer;
+  text-align: left;
+}
+.fp-time-toggle:hover { background: #273549; }
+.fp-time-caret { color: #64748b; font-size: 11px; }
+
+.fp-time-body {
+  padding: 14px;
+  background: #0f172a;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fp-time-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.fp-time-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: #0a1628;
+  border-radius: 6px;
+  border: 1px solid #1e293b;
+}
+
+.fp-sell-table {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-top: 4px;
+}
+
 /* ── Mobile ──────────────────────────────────────── */
 @media (max-width: 767px) {
   .fp-body {

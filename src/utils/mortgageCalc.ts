@@ -30,6 +30,93 @@ export interface BuyVsRentResult {
   monthlyBuyPremium: number;    // net cost − rent
 }
 
+export interface TimeSeriesPoint {
+  year: number;
+  cumulativeBuyCashOut: number;  // total out-of-pocket for buying (excl. principal if toggled off, incl. opp cost, minus tax savings)
+  saleProceeds: number;          // net sale proceeds if sold this year (after seller costs)
+  netBuyCost: number;            // cumulativeBuyCashOut - saleProceeds (negative = you made money)
+  cumulativeRentCost: number;    // cumulative rent paid (with inflation)
+  homeValue: number;
+  remainingBalance: number;
+}
+
+export interface TimeSeriesParams {
+  holdYears: number;
+  buyerClosingCostPct: number;  // upfront (% of price)
+  sellerCostPct: number;        // paid at sale (% of sale price)
+  rentInflationPct: number;     // annual rent growth %
+}
+
+export function calcTimeSeries(
+  listing: Listing,
+  params: MortgageParams,
+  tsParams: TimeSeriesParams,
+  rentOverride?: number,
+): TimeSeriesPoint[] {
+  const { downPaymentPct, annualRatePct, termYears, opportunityReturnPct, includePrincipal, marginalTaxRatePct, appreciationRatePct } = params;
+  const { holdYears, buyerClosingCostPct, sellerCostPct, rentInflationPct } = tsParams;
+  const { price } = listing;
+
+  const downPayment = price * downPaymentPct;
+  const buyerClosing = price * (buyerClosingCostPct / 100);
+  const loanAmount = price - downPayment;
+
+  const r = annualRatePct / 12 / 100;
+  const n = termYears * 12;
+  let monthlyPI: number;
+  if (r === 0) {
+    monthlyPI = n > 0 ? loanAmount / n : 0;
+  } else {
+    const factor = Math.pow(1 + r, n);
+    monthlyPI = loanAmount * (r * factor) / (factor - 1);
+  }
+
+  const monthlyPropertyTax = listing.capRateBreakdown.propertyTax / 12;
+  const monthlyInsurance = listing.capRateBreakdown.insurance / 12;
+  const monthlyHOA = listing.capRateBreakdown.annualHoa / 12;
+  const monthlyMaintenance = listing.capRateBreakdown.maintenance / 12;
+  const fixedMonthly = monthlyPropertyTax + monthlyInsurance + monthlyHOA + monthlyMaintenance;
+
+  const oppCostMonthly = (downPayment * opportunityReturnPct) / 100 / 12;
+  const baseMonthlyRent = rentOverride ?? listing.capRateBreakdown.monthlyRent;
+
+  // Start: upfront costs = down payment + buyer closing costs + opportunity cost of down payment (already counted in oppCost stream)
+  let cumulativeBuy = downPayment + buyerClosing;
+  let balance = loanAmount;
+  let cumulativeRent = 0;
+
+  const points: TimeSeriesPoint[] = [];
+
+  for (let month = 1; month <= holdYears * 12; month++) {
+    // Interest for this month
+    const interest = balance * r;
+    const principal = monthlyPI - interest;
+    balance = Math.max(0, balance - principal);
+
+    // Monthly buy cash-out
+    const piCost = includePrincipal ? monthlyPI : interest;
+    const taxSavings = interest * (marginalTaxRatePct / 100);
+    cumulativeBuy += piCost + fixedMonthly + oppCostMonthly - taxSavings;
+
+    // Monthly rent (with annual inflation — step up each January)
+    const yearIndex = Math.floor((month - 1) / 12);
+    const monthlyRent = baseMonthlyRent * Math.pow(1 + rentInflationPct / 100, yearIndex);
+    cumulativeRent += monthlyRent;
+
+    // Record at year boundaries
+    if (month % 12 === 0) {
+      const year = month / 12;
+      const homeValue = price * Math.pow(1 + appreciationRatePct / 100, year);
+      const saleProceeds = homeValue * (1 - sellerCostPct / 100) - balance;
+      const netBuyCost = cumulativeBuy - Math.max(0, saleProceeds);
+
+      points.push({ year, cumulativeBuyCashOut: cumulativeBuy, saleProceeds, netBuyCost, cumulativeRentCost: cumulativeRent, homeValue, remainingBalance: balance });
+    }
+  }
+
+  return points;
+}
+
 export function calcBuyVsRent(listing: Listing, params: MortgageParams, rentOverride?: number): BuyVsRentResult {
   const { downPaymentPct, annualRatePct, termYears, opportunityReturnPct, includePrincipal, marginalTaxRatePct, appreciationRatePct } = params;
   const { price, capRateBreakdown } = listing;
