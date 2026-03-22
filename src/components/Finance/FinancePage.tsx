@@ -388,6 +388,13 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
   });
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
 
+  // Sync selected listing to URL for deep linking
+  useEffect(() => {
+    if (selectedId) {
+      window.history.replaceState(null, "", `#finance?id=${encodeURIComponent(selectedId)}`);
+    }
+  }, [selectedId]);
+
   useEffect(() => { try { localStorage.setItem(LS_DOWN, String(downPct)); } catch {} }, [downPct]);
   useEffect(() => { try { localStorage.setItem(LS_RATE, String(ratePct)); } catch {} }, [ratePct]);
   useEffect(() => { try { localStorage.setItem(LS_OPP,  String(oppReturnPct)); } catch {} }, [oppReturnPct]);

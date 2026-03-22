@@ -612,6 +612,69 @@
 .dv-row-star  { color: #eab308; font-size: 13px; }
 .dv-row-heart { color: #22c55e; font-size: 13px; }
 
+/* ── Mobile bottom sheet ───────────────────── */
+.dv-filters-toggle { display: none; } /* hidden on desktop */
+
+.dv-sheet-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+.dv-sheet-overlay.open { display: block; }
+
+.dv-mobile-sheet {
+  display: none; /* hidden on desktop */
+}
+
+@media (max-width: 767px) {
+  .dv-mobile-sheet {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: #162032;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.6);
+    max-height: 85vh;
+    overflow-y: auto;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+  }
+  .dv-mobile-sheet.open {
+    transform: translateY(0);
+  }
+  .dv-sheet-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px 6px;
+    flex-shrink: 0;
+  }
+  .dv-sheet-handle {
+    width: 36px;
+    height: 4px;
+    background: #475569;
+    border-radius: 2px;
+    margin: 0 auto;
+    flex-shrink: 0;
+  }
+  .dv-sheet-close {
+    background: none;
+    border: 1px solid #475569;
+    border-radius: 6px;
+    color: #94a3b8;
+    font-size: 13px;
+    padding: 5px 10px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
 /* ── Mobile ───────────────────────────────── */
 @media (max-width: 767px) {
   .dv-detail-thumb-wrap {
@@ -662,4 +725,30 @@
 
   /* Notes side-by-side is too cramped on mobile */
   .dv-notes-grid { grid-template-columns: 1fr; }
+
+  /* Hide inline detail panel — bottom sheet used instead */
+  .dv-top { display: none; }
+
+  /* Table fills full height */
+  .dv-body { overflow: auto; }
+
+  /* Hide filter/sort rows by default; toggle button reveals them */
+  .dv-header-bottom { display: none; }
+  .dv-header-bottom.open { display: flex; }
+
+  /* Filters toggle button shown on mobile */
+  .dv-filters-toggle {
+    display: flex;
+    align-items: center;
+    background: none;
+    border: 1px solid #475569;
+    border-radius: 6px;
+    color: #94a3b8;
+    font-size: 13px;
+    padding: 5px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
 }

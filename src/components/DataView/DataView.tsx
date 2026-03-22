@@ -97,6 +97,7 @@ interface DataViewProps {
   onClearVisit: (id: string) => void;
   onOpenFinance: (id: string) => void;
   onImportCsv: (hiddenIds: string[], priorityIds: string[], visits: Record<string, VisitRecord>) => void;
+  initialSelectedId?: string | null;
 }
 
 function fmtDate(d: Date) {
@@ -407,6 +408,7 @@ export function DataView({
   onClearVisit,
   onOpenFinance,
   onImportCsv,
+  initialSelectedId,
 }: DataViewProps) {
   const cities = useMemo(() => getCities(allListings), [allListings]);
   const [selectedCity, setSelectedCity] = useState<string>("");
@@ -441,7 +443,9 @@ export function DataView({
   const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
   const [visitDateFilter, setVisitDateFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -615,6 +619,13 @@ export function DataView({
     return () => window.removeEventListener("keydown", handler);
   }, [sorted, selectedId]);
 
+  // Sync selected listing id to URL for deep linking
+  useEffect(() => {
+    if (selectedId) {
+      window.history.replaceState(null, "", `#data?id=${encodeURIComponent(selectedId)}`);
+    }
+  }, [selectedId]);
+
   const selectedListing = selectedId ? sorted.find((l) => l.id === selectedId) ?? null : null;
 
   const visitedCount = Object.keys(visits).length;
@@ -698,9 +709,15 @@ export function DataView({
             }}
           />
           {importStatus && <span className="dv-import-status">{importStatus}</span>}
+          <button
+            className="dv-filters-toggle"
+            onClick={() => setFiltersOpen((v) => !v)}
+          >
+            Filters{activeFilters.size > 0 ? ` (${activeFilters.size})` : ""} {filtersOpen ? "▲" : "▼"}
+          </button>
         </div>
 
-        <div className="dv-header-bottom">
+        <div className={`dv-header-bottom${filtersOpen ? " open" : ""}`}>
           {cities.length > 1 && (
             <div className="dv-control-row">
               <span className="dv-control-label">City</span>
@@ -877,7 +894,7 @@ export function DataView({
                   key={l.id}
                   ref={(el) => { if (el) rowRefs.current.set(l.id, el); else rowRefs.current.delete(l.id); }}
                   className={rowClass}
-                  onClick={() => setSelectedId(l.id)}
+                  onClick={() => { setSelectedId(l.id); setSheetOpen(true); }}
                 >
                   <div className="dv-tc dv-tc-badge">
                     {visit ? (
@@ -917,6 +934,36 @@ export function DataView({
             })}
           </div>
         </div>
+      </div>
+      {/* Mobile bottom sheet */}
+      <div
+        className={`dv-sheet-overlay${sheetOpen ? " open" : ""}`}
+        onClick={() => setSheetOpen(false)}
+      />
+      <div className={`dv-mobile-sheet${sheetOpen ? " open" : ""}`}>
+        <div className="dv-sheet-bar">
+          <div className="dv-sheet-handle" />
+          <button className="dv-sheet-close" onClick={() => setSheetOpen(false)}>✕ Close</button>
+        </div>
+        {selectedListing ? (
+          <DetailPanel
+            key={`m-${selectedId}`}
+            listing={selectedListing}
+            isHidden={hiddenIds.has(selectedListing.id)}
+            isPriority={priorityIds.has(selectedListing.id)}
+            visit={visits[selectedListing.id] ?? null}
+            onHide={() => onHide(selectedListing.id)}
+            onUnhide={() => onUnhide(selectedListing.id)}
+            onTogglePriority={() => onTogglePriority(selectedListing.id)}
+            onMarkVisited={() => onMarkVisited(selectedListing.id)}
+            onSetLiked={(liked) => onSetLiked(selectedListing.id, liked)}
+            onSetRating={(rating) => onSetRating(selectedListing.id, rating)}
+            onToggleWantOffer={() => onToggleWantOffer(selectedListing.id)}
+            onSetNoteField={(field, value) => onSetNoteField(selectedListing.id, field, value)}
+            onClearVisit={() => onClearVisit(selectedListing.id)}
+            onOpenFinance={() => onOpenFinance(selectedListing.id)}
+          />
+        ) : null}
       </div>
     </div>
   );

@@ -41,8 +41,15 @@ function ListIcon() {
 const VALID_PAGES: Page[] = ["home", "planner", "priority", "data", "finance", "analytics"];
 
 function pageFromHash(): Page {
-  const hash = window.location.hash.slice(1) as Page;
+  const hash = window.location.hash.slice(1).split("?")[0] as Page;
   return VALID_PAGES.includes(hash) ? hash : "home";
+}
+
+function idFromHash(): string | null {
+  const h = window.location.hash.slice(1);
+  const qi = h.indexOf("?");
+  if (qi === -1) return null;
+  return new URLSearchParams(h.slice(qi + 1)).get("id");
 }
 
 function App() {
@@ -50,7 +57,11 @@ function App() {
 
   // Keep hash in sync with page state and handle browser back/forward
   useEffect(() => {
-    window.location.hash = page === "home" ? "" : page;
+    const current = window.location.hash.slice(1).split("?")[0];
+    const target = page === "home" ? "" : page;
+    if (current !== target) {
+      window.location.hash = target;
+    }
   }, [page]);
 
   useEffect(() => {
@@ -302,7 +313,7 @@ function App() {
           visits={visits}
           priorityIds={priorityIds}
           hiddenIds={hiddenIds}
-          initialSelectedId={financeInitId}
+          initialSelectedId={financeInitId ?? idFromHash()}
         />
       )}
       {page === "data" && (
@@ -322,6 +333,7 @@ function App() {
           onClearVisit={clearVisit}
           onImportCsv={importData}
           onOpenFinance={(id) => { setFinanceInitId(id); setPage("finance"); }}
+          initialSelectedId={idFromHash()}
         />
       )}
       {page !== "analytics" && page !== "finance" && page !== "data" && (
