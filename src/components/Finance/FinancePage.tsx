@@ -23,6 +23,7 @@ const LS_RENT_OVERRIDES = "finance-rent-overrides";
 const LS_TAX_RATE = "finance-tax-rate";
 const LS_APPRECIATION = "finance-appreciation";
 const LS_SALT_HEADROOM = "finance-salt-headroom";
+const LS_INCLUDE_APPRECIATION = "finance-include-appreciation";
 const LS_HOLD_YEARS = "finance-hold-years";
 const LS_BUYER_CLOSING = "finance-buyer-closing";
 const LS_SELLER_COST = "finance-seller-cost";
@@ -674,6 +675,9 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
   const [includePrincipal, setIncludePrincipal] = useState(() => {
     try { return localStorage.getItem(LS_PRINCIPAL) !== "false"; } catch { return true; }
   });
+  const [includeAppreciation, setIncludeAppreciation] = useState(() => {
+    try { return localStorage.getItem(LS_INCLUDE_APPRECIATION) !== "false"; } catch { return true; }
+  });
   const [fetchingRate, setFetchingRate] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>("premium");
   const [searchQuery, setSearchQuery] = useState("");
@@ -706,6 +710,7 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
   useEffect(() => { try { localStorage.setItem(LS_APPRECIATION, String(appreciationPct)); } catch {} }, [appreciationPct]);
   useEffect(() => { try { localStorage.setItem(LS_SALT_HEADROOM, String(saltHeadroom)); } catch {} }, [saltHeadroom]);
   useEffect(() => { try { localStorage.setItem(LS_PRINCIPAL, String(includePrincipal)); } catch {} }, [includePrincipal]);
+  useEffect(() => { try { localStorage.setItem(LS_INCLUDE_APPRECIATION, String(includeAppreciation)); } catch {} }, [includeAppreciation]);
   useEffect(() => { try { localStorage.setItem(LS_RENT_OVERRIDES, JSON.stringify(rentOverrides)); } catch {} }, [rentOverrides]);
   useEffect(() => { try { localStorage.setItem(LS_HOLD_YEARS, String(holdYears)); } catch {} }, [holdYears]);
   useEffect(() => { try { localStorage.setItem(LS_BUYER_CLOSING, String(buyerClosingPct)); } catch {} }, [buyerClosingPct]);
@@ -733,8 +738,8 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
   }, []);
 
   const params = useMemo(
-    () => ({ downPaymentPct: downPct / 100, annualRatePct: ratePct, termYears, opportunityReturnPct: oppReturnPct, includePrincipal, marginalTaxRatePct: taxRatePct, appreciationRatePct: appreciationPct, saltHeadroomAnnual: saltHeadroom * 1000 }),
-    [downPct, ratePct, termYears, oppReturnPct, includePrincipal, taxRatePct, appreciationPct, saltHeadroom]
+    () => ({ downPaymentPct: downPct / 100, annualRatePct: ratePct, termYears, opportunityReturnPct: oppReturnPct, includePrincipal, marginalTaxRatePct: taxRatePct, appreciationRatePct: includeAppreciation ? appreciationPct : 0, saltHeadroomAnnual: saltHeadroom * 1000 }),
+    [downPct, ratePct, termYears, oppReturnPct, includePrincipal, taxRatePct, appreciationPct, includeAppreciation, saltHeadroom]
   );
 
   const listingsWithResults = useMemo(() => {
@@ -875,6 +880,15 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
                 title="Principal repays your loan balance (equity). Toggle to see true cash cost."
               >
                 {includePrincipal ? "Principal: on" : "Principal: off"}
+              </button>
+            </div>
+            <div className="fp-input-group">
+              <button
+                className={`fp-term-btn ${includeAppreciation ? "active" : ""}`}
+                onClick={() => setIncludeAppreciation((v) => !v)}
+                title="Toggle whether property appreciation reduces your effective monthly cost."
+              >
+                {includeAppreciation ? "Appreciation: on" : "Appreciation: off"}
               </button>
             </div>
           </div>
