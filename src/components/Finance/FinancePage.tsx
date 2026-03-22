@@ -22,6 +22,7 @@ const LS_PRINCIPAL = "finance-include-principal";
 const LS_RENT_OVERRIDES = "finance-rent-overrides";
 const LS_TAX_RATE = "finance-tax-rate";
 const LS_APPRECIATION = "finance-appreciation";
+const LS_SALT_HEADROOM = "finance-salt-headroom";
 const LS_HOLD_YEARS = "finance-hold-years";
 const LS_BUYER_CLOSING = "finance-buyer-closing";
 const LS_SELLER_COST = "finance-seller-cost";
@@ -259,6 +260,7 @@ interface DetailProps {
   oppReturnPct: number;
   taxRatePct: number;
   appreciationPct: number;
+  saltHeadroom: number;
   includePrincipal: boolean;
   rentOverride: number | null;
   onSetRentOverride: (rent: number | null) => void;
@@ -273,7 +275,7 @@ interface DetailProps {
   setRentInflationPct: (n: number) => void;
 }
 
-function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPct, taxRatePct, appreciationPct, includePrincipal, rentOverride, onSetRentOverride, holdYears, setHoldYears, buyerClosingPct, setBuyerClosingPct, sellerCostPct, setSellerCostPct, rentInflationPct, setRentInflationPct }: DetailProps) {
+function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPct, taxRatePct, appreciationPct, saltHeadroom, includePrincipal, rentOverride, onSetRentOverride, holdYears, setHoldYears, buyerClosingPct, setBuyerClosingPct, sellerCostPct, setSellerCostPct, rentInflationPct, setRentInflationPct }: DetailProps) {
   const [thumbError, setThumbError] = useState(false);
   const [timeOpen, setTimeOpen] = useState(true);
   const thumbSrc = `/api/thumbnail/${listing.id}`;
@@ -286,7 +288,8 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
     includePrincipal,
     marginalTaxRatePct: taxRatePct,
     appreciationRatePct: appreciationPct,
-  }), [downPct, ratePct, termYears, oppReturnPct, includePrincipal, taxRatePct, appreciationPct]);
+    saltHeadroomAnnual: saltHeadroom * 1000,
+  }), [downPct, ratePct, termYears, oppReturnPct, includePrincipal, taxRatePct, appreciationPct, saltHeadroom]);
 
   const timeSeries = useMemo(() => calcTimeSeries(
     listing,
@@ -379,6 +382,19 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
     `exceeds that — very likely here.`,
     ``,
     `Set tax rate to 0 to exclude entirely.`,
+  ].join("\n");
+
+  const deductiblePropTax = Math.min(b.propertyTax, saltHeadroom * 1000);
+  const tipPropTaxSavings = [
+    `Property tax SALT deduction.`,
+    ``,
+    `Annual property tax: ${fmtDollar(b.propertyTax)}`,
+    `SALT headroom remaining: ${fmtDollar(saltHeadroom * 1000)}`,
+    `Deductible: ${fmtDollar(deductiblePropTax)} × ${taxRatePct}% ÷ 12`,
+    `= ${fmtDollar(result.monthlyPropertyTaxSavings)}/mo savings`,
+    ``,
+    `Set SALT headroom to 0 if your state income tax`,
+    `already exhausts your full $40k cap.`,
   ].join("\n");
 
   const tipAppreciation = [
@@ -487,8 +503,14 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
         </div>
         {result.monthlyTaxSavings > 0 && (
           <div className="fp-bd-row benefit">
-            <span className="fp-bd-label">− Tax savings ({taxRatePct}%)</span>
+            <span className="fp-bd-label">− Mortgage interest deduction ({taxRatePct}%)</span>
             <Tip tip={tipTaxSavings}><span className="fp-bd-val benefit-val">{fmtMo(result.monthlyTaxSavings)}</span></Tip>
+          </div>
+        )}
+        {result.monthlyPropertyTaxSavings > 0 && (
+          <div className="fp-bd-row benefit">
+            <span className="fp-bd-label">− Prop. tax SALT deduction ({taxRatePct}%)</span>
+            <Tip tip={tipPropTaxSavings}><span className="fp-bd-val benefit-val">{fmtMo(result.monthlyPropertyTaxSavings)}</span></Tip>
           </div>
         )}
         {result.monthlyAppreciation > 0 && (
@@ -497,7 +519,7 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
             <Tip tip={tipAppreciation}><span className="fp-bd-val benefit-val">{fmtMo(result.monthlyAppreciation)}</span></Tip>
           </div>
         )}
-        {(result.monthlyTaxSavings > 0 || result.monthlyAppreciation > 0) && (
+        {(result.monthlyTaxSavings > 0 || result.monthlyPropertyTaxSavings > 0 || result.monthlyAppreciation > 0) && (
           <div className="fp-bd-row net-cost">
             <span className="fp-bd-label">Net cost</span>
             <span className="fp-bd-val">{fmtMo(result.netMonthlyOwnershipCost)}</span>
@@ -647,6 +669,7 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
   const [oppReturnPct, setOppReturnPct] = useState(() => readLs(LS_OPP, 7));
   const [taxRatePct, setTaxRatePct] = useState(() => readLs(LS_TAX_RATE, 28));
   const [appreciationPct, setAppreciationPct] = useState(() => readLs(LS_APPRECIATION, 3));
+  const [saltHeadroom, setSaltHeadroom] = useState(() => readLs(LS_SALT_HEADROOM, 10));
   const [termYears, setTermYears] = useState(30);
   const [includePrincipal, setIncludePrincipal] = useState(() => {
     try { return localStorage.getItem(LS_PRINCIPAL) !== "false"; } catch { return true; }
@@ -681,6 +704,7 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
   useEffect(() => { try { localStorage.setItem(LS_OPP,  String(oppReturnPct)); } catch {} }, [oppReturnPct]);
   useEffect(() => { try { localStorage.setItem(LS_TAX_RATE, String(taxRatePct)); } catch {} }, [taxRatePct]);
   useEffect(() => { try { localStorage.setItem(LS_APPRECIATION, String(appreciationPct)); } catch {} }, [appreciationPct]);
+  useEffect(() => { try { localStorage.setItem(LS_SALT_HEADROOM, String(saltHeadroom)); } catch {} }, [saltHeadroom]);
   useEffect(() => { try { localStorage.setItem(LS_PRINCIPAL, String(includePrincipal)); } catch {} }, [includePrincipal]);
   useEffect(() => { try { localStorage.setItem(LS_RENT_OVERRIDES, JSON.stringify(rentOverrides)); } catch {} }, [rentOverrides]);
   useEffect(() => { try { localStorage.setItem(LS_HOLD_YEARS, String(holdYears)); } catch {} }, [holdYears]);
@@ -709,8 +733,8 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
   }, []);
 
   const params = useMemo(
-    () => ({ downPaymentPct: downPct / 100, annualRatePct: ratePct, termYears, opportunityReturnPct: oppReturnPct, includePrincipal, marginalTaxRatePct: taxRatePct, appreciationRatePct: appreciationPct }),
-    [downPct, ratePct, termYears, oppReturnPct, includePrincipal, taxRatePct, appreciationPct]
+    () => ({ downPaymentPct: downPct / 100, annualRatePct: ratePct, termYears, opportunityReturnPct: oppReturnPct, includePrincipal, marginalTaxRatePct: taxRatePct, appreciationRatePct: appreciationPct, saltHeadroomAnnual: saltHeadroom * 1000 }),
+    [downPct, ratePct, termYears, oppReturnPct, includePrincipal, taxRatePct, appreciationPct, saltHeadroom]
   );
 
   const listingsWithResults = useMemo(() => {
@@ -828,6 +852,11 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
               <span>%/yr</span>
             </div>
             <div className="fp-input-group">
+              <label>SALT headroom</label>
+              <NumInput value={saltHeadroom} onChange={setSaltHeadroom} min={0} max={40} step={1} width={44} />
+              <span>k</span>
+            </div>
+            <div className="fp-input-group">
               <div className="fp-term-group">
                 <button
                   className={`fp-term-btn ${termYears === 15 ? "active" : ""}`}
@@ -920,6 +949,7 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
               oppReturnPct={oppReturnPct}
               taxRatePct={taxRatePct}
               appreciationPct={appreciationPct}
+              saltHeadroom={saltHeadroom}
               includePrincipal={includePrincipal}
               rentOverride={rentOverrides[selectedEntry.listing.id] ?? null}
               onSetRentOverride={(rent) => setRentOverride(selectedEntry.listing.id, rent)}

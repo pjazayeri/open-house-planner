@@ -8,6 +8,7 @@ export interface MortgageParams {
   includePrincipal: boolean;    // whether to count principal repayment as a "cost"
   marginalTaxRatePct: number;   // e.g. 28 — federal marginal rate for interest deduction
   appreciationRatePct: number;  // e.g. 3 — assumed annual property appreciation
+  saltHeadroomAnnual: number;   // remaining SALT cap after state income tax (e.g. 10000)
 }
 
 export interface BuyVsRentResult {
@@ -23,9 +24,10 @@ export interface BuyVsRentResult {
   totalMonthlyOwnershipCost: number;  // respects includePrincipal
   opportunityCostMonthly: number;
   effectiveMonthlyOwnershipCost: number;
-  monthlyTaxSavings: number;    // interest deduction benefit at marginalTaxRatePct
-  monthlyAppreciation: number;  // equity gain from property appreciation
-  netMonthlyOwnershipCost: number; // effective − taxSavings − appreciation
+  monthlyTaxSavings: number;        // mortgage interest deduction benefit
+  monthlyPropertyTaxSavings: number; // SALT property tax deduction benefit (capped at saltHeadroomAnnual)
+  monthlyAppreciation: number;       // equity gain from property appreciation
+  netMonthlyOwnershipCost: number;   // effective − taxSavings − propTaxSavings − appreciation
   estimatedMonthlyRent: number;
   monthlyBuyPremium: number;    // net cost − rent
 }
@@ -53,7 +55,7 @@ export function calcTimeSeries(
   tsParams: TimeSeriesParams,
   rentOverride?: number,
 ): TimeSeriesPoint[] {
-  const { downPaymentPct, annualRatePct, termYears, opportunityReturnPct, includePrincipal, marginalTaxRatePct, appreciationRatePct } = params;
+  const { downPaymentPct, annualRatePct, termYears, opportunityReturnPct, includePrincipal, marginalTaxRatePct, appreciationRatePct, saltHeadroomAnnual } = params;
   const { holdYears, buyerClosingCostPct, sellerCostPct, rentInflationPct } = tsParams;
   const { price } = listing;
 
@@ -96,7 +98,8 @@ export function calcTimeSeries(
     // Monthly buy cash-out
     const piCost = includePrincipal ? monthlyPI : interest;
     const taxSavings = interest * (marginalTaxRatePct / 100);
-    cumulativeBuy += piCost + fixedMonthly + oppCostMonthly - taxSavings;
+    const propTaxSavings = Math.min(listing.capRateBreakdown.propertyTax, saltHeadroomAnnual) * (marginalTaxRatePct / 100) / 12;
+    cumulativeBuy += piCost + fixedMonthly + oppCostMonthly - taxSavings - propTaxSavings;
 
     // Monthly rent (with annual inflation — step up each January)
     const yearIndex = Math.floor((month - 1) / 12);
@@ -118,7 +121,7 @@ export function calcTimeSeries(
 }
 
 export function calcBuyVsRent(listing: Listing, params: MortgageParams, rentOverride?: number): BuyVsRentResult {
-  const { downPaymentPct, annualRatePct, termYears, opportunityReturnPct, includePrincipal, marginalTaxRatePct, appreciationRatePct } = params;
+  const { downPaymentPct, annualRatePct, termYears, opportunityReturnPct, includePrincipal, marginalTaxRatePct, appreciationRatePct, saltHeadroomAnnual } = params;
   const { price, capRateBreakdown } = listing;
 
   const downPayment = price * downPaymentPct;
@@ -153,9 +156,12 @@ export function calcBuyVsRent(listing: Listing, params: MortgageParams, rentOver
 
   // Tax savings: mortgage interest is deductible if user itemizes
   const monthlyTaxSavings = monthlyInterest * (marginalTaxRatePct / 100);
+  // SALT property tax savings: deductible up to remaining SALT headroom
+  const deductiblePropertyTax = Math.min(capRateBreakdown.propertyTax, saltHeadroomAnnual);
+  const monthlyPropertyTaxSavings = deductiblePropertyTax * (marginalTaxRatePct / 100) / 12;
   // Appreciation: annual price growth builds equity (reduces net cost)
   const monthlyAppreciation = (price * appreciationRatePct) / 100 / 12;
-  const netMonthlyOwnershipCost = effectiveMonthlyOwnershipCost - monthlyTaxSavings - monthlyAppreciation;
+  const netMonthlyOwnershipCost = effectiveMonthlyOwnershipCost - monthlyTaxSavings - monthlyPropertyTaxSavings - monthlyAppreciation;
 
   const estimatedMonthlyRent = rentOverride ?? capRateBreakdown.monthlyRent;
   const monthlyBuyPremium = netMonthlyOwnershipCost - estimatedMonthlyRent;
@@ -174,6 +180,7 @@ export function calcBuyVsRent(listing: Listing, params: MortgageParams, rentOver
     opportunityCostMonthly,
     effectiveMonthlyOwnershipCost,
     monthlyTaxSavings,
+    monthlyPropertyTaxSavings,
     monthlyAppreciation,
     netMonthlyOwnershipCost,
     estimatedMonthlyRent,
