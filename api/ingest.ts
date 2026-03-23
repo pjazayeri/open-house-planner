@@ -97,7 +97,6 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const headerLine = lines[0];
   const headers2 = headerLine.split(",").map((h) => h.replace(/^"|"$/g, "").trim());
   const statusIdx = headers2.indexOf("STATUS");
-  const openHouseIdx = headers2.findIndex((h) => h === "NEXT OPEN HOUSE START TIME");
   const mlsIdx = headers2.indexOf("MLS#");
   const urlIdx = headers2.findIndex((h) => h.startsWith("URL (SEE"));
 
@@ -108,11 +107,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     const line = lines[i].trim();
     if (!line) continue;
     // Simple CSV split (values may be quoted)
-    const cols = line.match(/("(?:[^"]|"")*"|[^,]*)/g)?.map((v) =>
-      v.startsWith('"') ? v.slice(1, -1).replace(/""/g, '"') : v
-    ) ?? [];
+    const cols = line.split(",");
     const status = cols[statusIdx]?.trim() ?? "";
-    const openHouse = cols[openHouseIdx]?.trim() ?? "";
     const mlsId = cols[mlsIdx]?.trim() ?? "";
     const url = cols[urlIdx]?.trim() ?? "";
     if (status === "Active" && mlsId && url) {
