@@ -462,6 +462,13 @@
 }
 .fp-time-toggle:hover { background: #273549; }
 .fp-time-caret { color: #64748b; font-size: 11px; }
+.fp-time-info {
+  margin-left: 6px;
+  font-size: 12px;
+  color: #64748b;
+  cursor: default;
+}
+.fp-time-info:hover { color: #94a3b8; }
 
 .fp-time-body {
   padding: 14px;

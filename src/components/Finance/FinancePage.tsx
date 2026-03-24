@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import type { Listing, VisitRecord } from "../../types";
 import { calcBuyVsRent, calcTimeSeries, type BuyVsRentResult, type TimeSeriesPoint } from "../../utils/mortgageCalc";
 import { getNeighborhoods } from "../../utils/filterListings";
@@ -145,6 +145,9 @@ function fmtK(n: number): string {
 
 // ── Time series chart ─────────────────────────────────────────────
 function TimeChart({ points }: { points: TimeSeriesPoint[] }) {
+  const [hoverYear, setHoverYear] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
   if (points.length === 0) return null;
   const W = 460, H = 200, PAD_L = 52, PAD_R = 12, PAD_T = 12, PAD_B = 28;
   const chartW = W - PAD_L - PAD_R;
@@ -174,8 +177,30 @@ function TimeChart({ points }: { points: TimeSeriesPoint[] }) {
 
   const zeroY = yOf(0);
 
+  const hoverPoint = hoverYear !== null ? (points.find((p) => p.year === hoverYear) ?? null) : null;
+
+  function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const svgX = ((e.clientX - rect.left) / rect.width) * W;
+    const yearFrac = ((svgX - PAD_L) / chartW) * (points.length - 1) + 1;
+    const year = Math.round(Math.max(1, Math.min(points.length, yearFrac)));
+    setHoverYear(year);
+  }
+
+  const TT_W = 110, TT_H = 46, TT_PAD = 6;
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="fp-time-chart" aria-label="Buy vs Rent over time">
+    <svg
+      ref={svgRef}
+      viewBox={`0 0 ${W} ${H}`}
+      className="fp-time-chart"
+      aria-label="Buy vs Rent over time"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setHoverYear(null)}
+      style={{ cursor: "crosshair" }}
+    >
       {/* Zero line */}
       {minV < 0 && maxV > 0 && (
         <line x1={PAD_L} y1={zeroY} x2={W - PAD_R} y2={zeroY} stroke="#334155" strokeWidth={1} strokeDasharray="3 3" />
@@ -221,6 +246,23 @@ function TimeChart({ points }: { points: TimeSeriesPoint[] }) {
           </>
         )}
       </g>
+      {/* Hover crosshair + tooltip */}
+      {hoverPoint && (() => {
+        const cx = xOf(hoverPoint.year);
+        const ttX = cx + 8 + TT_W > W - PAD_R ? cx - 8 - TT_W : cx + 8;
+        const ttY = PAD_T + chartH / 2 - TT_H / 2;
+        return (
+          <g pointerEvents="none">
+            <line x1={cx} y1={PAD_T} x2={cx} y2={H - PAD_B} stroke="#94a3b8" strokeWidth={1} strokeDasharray="3 3" />
+            <circle cx={cx} cy={yOf(hoverPoint.netBuyCost)} r={3.5} fill="#a78bfa" />
+            <circle cx={cx} cy={yOf(hoverPoint.cumulativeRentCost)} r={3.5} fill="#f59e0b" />
+            <rect x={ttX} y={ttY} width={TT_W} height={TT_H} rx={4} fill="#1e293b" stroke="#334155" strokeWidth={1} />
+            <text x={ttX + TT_PAD} y={ttY + TT_PAD + 9} fontSize={9} fill="#94a3b8" fontWeight="600">yr {hoverPoint.year}</text>
+            <text x={ttX + TT_PAD} y={ttY + TT_PAD + 22} fontSize={9} fill="#a78bfa">Buy: {fmtK(hoverPoint.netBuyCost)}</text>
+            <text x={ttX + TT_PAD} y={ttY + TT_PAD + 35} fontSize={9} fill="#f59e0b">Rent: {fmtK(hoverPoint.cumulativeRentCost)}</text>
+          </g>
+        );
+      })()}
     </svg>
   );
 }
@@ -611,7 +653,32 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
       {/* ── Time Analysis ── */}
       <div className="fp-time-section">
         <button className="fp-time-toggle" onClick={() => setTimeOpen((v) => !v)}>
-          <span>📈 Time Analysis</span>
+          <span>
+            📈 Time Analysis
+            <Tip tip={[
+              `Chart shows cumulative costs over time.`,
+              ``,
+              `Purple line — "Buy net cost"`,
+              `  Total cash out (P&I + all expenses + opp cost`,
+              `  − tax savings) minus what you'd net from`,
+              `  selling that year (home value − balance`,
+              `  − seller costs).`,
+              ``,
+              `Amber line — "Rent"`,
+              `  Cumulative rent paid (with annual inflation).`,
+              ``,
+              `Green dot — break-even year`,
+              `  The year where buying-then-selling becomes`,
+              `  cheaper than having rented the whole time.`,
+              ``,
+              `Seller costs affect break-even because they`,
+              `reduce sale proceeds at every year on the`,
+              `chart — the purple line always assumes you`,
+              `sell at that point.`,
+            ].join("\n")}>
+              <span className="fp-time-info">ⓘ</span>
+            </Tip>
+          </span>
           <span className="fp-time-caret">{timeOpen ? "▲" : "▼"}</span>
         </button>
 
