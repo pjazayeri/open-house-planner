@@ -9,6 +9,7 @@ export interface MortgageParams {
   marginalTaxRatePct: number;   // e.g. 28 — federal marginal rate for interest deduction
   appreciationRatePct: number;  // e.g. 3 — assumed annual property appreciation
   saltHeadroomAnnual: number;   // remaining SALT cap after state income tax (e.g. 10000)
+  buyerClosingCostPct: number;  // e.g. 2.5 — upfront closing costs as % of price
 }
 
 export interface BuyVsRentResult {
@@ -30,6 +31,9 @@ export interface BuyVsRentResult {
   netMonthlyOwnershipCost: number;   // effective − taxSavings − propTaxSavings − appreciation
   estimatedMonthlyRent: number;
   monthlyBuyPremium: number;    // net cost − rent
+  cashOnCashReturnPct: number;  // annual pre-tax cash flow / total cash invested × 100
+  annualCashFlow: number;       // (rent − P&I − all opex) × 12
+  totalCashInvested: number;    // down payment + buyer closing costs
 }
 
 export interface TimeSeriesPoint {
@@ -168,6 +172,14 @@ export function calcBuyVsRent(listing: Listing, params: MortgageParams, rentOver
   const estimatedMonthlyRent = rentOverride ?? capRateBreakdown.monthlyRent;
   const monthlyBuyPremium = netMonthlyOwnershipCost - estimatedMonthlyRent;
 
+  // Cash-on-cash return: annual pre-tax cash flow / total cash invested
+  // Cash flow = rent − P&I − all operating expenses (ignores appreciation & tax savings — pure cash)
+  const { buyerClosingCostPct } = params;
+  const buyerClosing = price * (buyerClosingCostPct / 100);
+  const totalCashInvested = downPayment + buyerClosing;
+  const annualCashFlow = (estimatedMonthlyRent - monthlyPI - monthlyPropertyTax - monthlyInsurance - monthlyHOA - monthlyMaintenance) * 12;
+  const cashOnCashReturnPct = totalCashInvested > 0 ? (annualCashFlow / totalCashInvested) * 100 : 0;
+
   return {
     downPayment,
     loanAmount,
@@ -187,5 +199,8 @@ export function calcBuyVsRent(listing: Listing, params: MortgageParams, rentOver
     netMonthlyOwnershipCost,
     estimatedMonthlyRent,
     monthlyBuyPremium,
+    cashOnCashReturnPct,
+    annualCashFlow,
+    totalCashInvested,
   };
 }

@@ -13,7 +13,7 @@ interface FinancePageProps {
   initialSelectedId?: string | null;
 }
 
-type SortKey = "price" | "cost" | "premium" | "capRate" | "ppsf";
+type SortKey = "price" | "cost" | "premium" | "capRate" | "ppsf" | "coc";
 
 const LS_DOWN = "finance-down-pct";
 const LS_RATE = "finance-rate";
@@ -233,8 +233,15 @@ interface ListItemProps {
   onClick: () => void;
 }
 
+function cocClass(coc: number): string {
+  if (coc >= 4) return "coc-good";
+  if (coc >= 0) return "coc-ok";
+  return "coc-bad";
+}
+
 function ListItem({ listing, result, selected, onClick }: ListItemProps) {
   const accent = accentClass(result.monthlyBuyPremium, listing.capRate);
+  const coc = result.cashOnCashReturnPct;
   return (
     <button
       className={`fp-list-item ${accent} ${selected ? "selected" : ""}`}
@@ -244,8 +251,13 @@ function ListItem({ listing, result, selected, onClick }: ListItemProps) {
       <div className="fp-li-meta">
         {formatPrice(listing.price)} · {formatBedsBaths(listing.beds, listing.baths)}
       </div>
-      <div className={`fp-li-premium ${premiumClass(result.monthlyBuyPremium)}`}>
-        {premiumLabel(result.monthlyBuyPremium)}
+      <div className="fp-li-bottom">
+        <span className={`fp-li-premium ${premiumClass(result.monthlyBuyPremium)}`}>
+          {premiumLabel(result.monthlyBuyPremium)}
+        </span>
+        <span className={`fp-li-coc ${cocClass(coc)}`} title="Cash-on-cash return">
+          {coc >= 0 ? "+" : ""}{coc.toFixed(1)}% CoC
+        </span>
       </div>
     </button>
   );
@@ -290,7 +302,8 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
     marginalTaxRatePct: taxRatePct,
     appreciationRatePct: appreciationPct,
     saltHeadroomAnnual: saltHeadroom * 1000,
-  }), [downPct, ratePct, termYears, oppReturnPct, includePrincipal, taxRatePct, appreciationPct, saltHeadroom]);
+    buyerClosingCostPct: buyerClosingPct,
+  }), [downPct, ratePct, termYears, oppReturnPct, includePrincipal, taxRatePct, appreciationPct, saltHeadroom, buyerClosingPct]);
 
   const timeSeries = useMemo(() => calcTimeSeries(
     listing,
@@ -414,6 +427,26 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
     result.monthlyBuyPremium >= 0
       ? `Positive = buying costs more than renting`
       : `Negative = buying is cheaper than renting`,
+  ].join("\n");
+
+  const tipCoC = [
+    `Cash-on-cash return — annual pre-tax cash flow`,
+    `divided by total cash invested.`,
+    ``,
+    `Annual cash flow:`,
+    `  Rent − P&I − prop tax − insurance − HOA − maint`,
+    `  = ${fmtDollar(result.annualCashFlow / 12)}/mo × 12 = ${fmtDollar(result.annualCashFlow)}/yr`,
+    ``,
+    `Total cash invested:`,
+    `  Down payment: ${fmtDollar(result.downPayment)}`,
+    `  Buyer closing (${buyerClosingPct}%): ${fmtDollar(result.totalCashInvested - result.downPayment)}`,
+    `  Total: ${fmtDollar(result.totalCashInvested)}`,
+    ``,
+    `CoC = ${fmtDollar(result.annualCashFlow)} / ${fmtDollar(result.totalCashInvested)}`,
+    `    = ${result.cashOnCashReturnPct.toFixed(2)}%`,
+    ``,
+    `Note: pure cash metric — excludes appreciation,`,
+    `tax savings, and opportunity cost.`,
   ].join("\n");
 
   return (
@@ -562,6 +595,12 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
           <span className="fp-bd-label">Buy premium</span>
           <Tip tip={tipBuyPremium}>
             <span className="fp-bd-val--lg">{premiumLabel(result.monthlyBuyPremium)}</span>
+          </Tip>
+        </div>
+        <div className={`fp-bd-row ${cocClass(result.cashOnCashReturnPct)}`}>
+          <span className="fp-bd-label">Cash-on-cash return</span>
+          <Tip tip={tipCoC}>
+            <span className="fp-bd-val--lg">{result.cashOnCashReturnPct >= 0 ? "+" : ""}{result.cashOnCashReturnPct.toFixed(2)}%</span>
           </Tip>
         </div>
       </div>
@@ -738,8 +777,8 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
   }, []);
 
   const params = useMemo(
-    () => ({ downPaymentPct: downPct / 100, annualRatePct: ratePct, termYears, opportunityReturnPct: oppReturnPct, includePrincipal, marginalTaxRatePct: taxRatePct, appreciationRatePct: includeAppreciation ? appreciationPct : 0, saltHeadroomAnnual: saltHeadroom * 1000 }),
-    [downPct, ratePct, termYears, oppReturnPct, includePrincipal, taxRatePct, appreciationPct, includeAppreciation, saltHeadroom]
+    () => ({ downPaymentPct: downPct / 100, annualRatePct: ratePct, termYears, opportunityReturnPct: oppReturnPct, includePrincipal, marginalTaxRatePct: taxRatePct, appreciationRatePct: includeAppreciation ? appreciationPct : 0, saltHeadroomAnnual: saltHeadroom * 1000, buyerClosingCostPct: buyerClosingPct }),
+    [downPct, ratePct, termYears, oppReturnPct, includePrincipal, taxRatePct, appreciationPct, includeAppreciation, saltHeadroom, buyerClosingPct]
   );
 
   const listingsWithResults = useMemo(() => {
@@ -766,6 +805,7 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
           return pa - pb;
         }
         case "cost":    return a.result.effectiveMonthlyOwnershipCost - b.result.effectiveMonthlyOwnershipCost;
+        case "coc":     return b.result.cashOnCashReturnPct - a.result.cashOnCashReturnPct;
         case "premium":
         default:        return a.result.monthlyBuyPremium - b.result.monthlyBuyPremium;
       }
@@ -924,6 +964,7 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
             [
               ["premium", "Buy Premium"],
               ["cost", "Monthly Cost"],
+              ["coc", "CoC Return"],
               ["price", "Price"],
               ["capRate", "Cap Rate"],
               ["ppsf", "$/sqft"],
