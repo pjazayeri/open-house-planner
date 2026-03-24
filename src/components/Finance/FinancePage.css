@@ -443,7 +443,6 @@
 .fp-time-section {
   border: 1px solid #334155;
   border-radius: 8px;
-  overflow: hidden;
 }
 
 .fp-time-header {
@@ -455,6 +454,9 @@
   font-weight: 600;
   padding: 10px 14px;
   border-bottom: 1px solid #334155;
+  border-radius: 8px 8px 0 0;
+  position: relative; /* establish stacking context so tooltip renders above */
+  overflow: visible;
 }
 .fp-time-info {
   margin-left: 6px;
@@ -470,6 +472,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  border-radius: 0 0 8px 8px;
 }
 
 .fp-time-inputs {
