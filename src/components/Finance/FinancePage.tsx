@@ -802,22 +802,12 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
 
     if (k === 0) return; // can't compute
 
-    // Fixed costs independent of D
-    const propTaxSavings = Math.min(b.propertyTax, saltHeadroom * 1000) * (taxRatePct / 100) / 12;
-    const appreciation = includeAppreciation ? price * (appreciationPct / 100) / 12 : 0;
     const rent = rentOverrides[listing.id] ?? b.monthlyRent;
-
-    // Solve net(D) = rent. D-dependent terms:
-    //   PI cost:   price*(1-D)*k
-    //   Opp cost:  price*D * oppRate/12
-    //   Tax saves: price*(1-D)*r * taxRate/100
-    // Rearranged: price*D*(oppRate/12 - k + r*taxRate/100) = rent - price*(k - r*taxRate/100) - fixedCosts + propTaxSavings + appreciation
-    const oppRate = oppReturnPct / 100;
-    const netPiRate = k - r * (taxRatePct / 100);
-    const coeff = oppRate / 12 - netPiRate;
-    if (Math.abs(coeff) < 1e-10) return; // opp cost = net PI cost, no unique solution
-    const D = (rent - price * netPiRate - fixedCosts + propTaxSavings + appreciation) / (price * coeff);
-    setDownPct(Math.round(Math.min(100, Math.max(0, D * 100)) * 10) / 10);
+    // Solve for cash-flow breakeven: rent = PI + fixed costs
+    // i.e. rental income exactly covers all monthly ownership expenses
+    // D = 1 - (rent - fixedCosts) / (price * k)
+    const D = (1 - (rent - fixedCosts) / (price * k)) * 100;
+    setDownPct(Math.round(Math.min(100, Math.max(0, D)) * 10) / 10);
   }
 
   function setRentOverride(id: string, rent: number | null) {
@@ -844,7 +834,7 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
               <button
                 className="fp-term-btn fp-breakeven-btn"
                 onClick={calcBreakevenDown}
-                title="Set down payment so total ownership cost equals estimated rent"
+                title="Set down payment so rental income covers all monthly costs: P&amp;I + property tax + insurance + HOA + maintenance (cash-flow breakeven)"
               >= rent</button>
             </div>
             <div className="fp-input-group">
