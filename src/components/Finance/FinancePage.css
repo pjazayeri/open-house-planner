@@ -446,22 +446,16 @@
   overflow: hidden;
 }
 
-.fp-time-toggle {
+.fp-time-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
   background: #1e293b;
-  border: none;
   color: #cbd5e1;
   font-size: 13px;
   font-weight: 600;
   padding: 10px 14px;
-  cursor: pointer;
-  text-align: left;
+  border-bottom: 1px solid #334155;
 }
-.fp-time-toggle:hover { background: #273549; }
-.fp-time-caret { color: #64748b; font-size: 11px; }
 .fp-time-info {
   margin-left: 6px;
   font-size: 12px;
@@ -502,14 +496,43 @@
 
 /* ── Mobile ──────────────────────────────────────── */
 @media (max-width: 767px) {
-  .fp-body {
-    flex-direction: column;
+  /* Header: allow scrolling the inputs row horizontally */
+  .fp-header { padding: 8px 12px; gap: 6px; }
+  .fp-header-top { flex-wrap: nowrap; align-items: flex-start; gap: 8px; }
+  .fp-header-center h2 { font-size: 13px; }
+  .fp-inputs {
+    margin-left: 0;
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    gap: 10px;
+    /* hide scrollbar but keep scrollable */
+    scrollbar-width: none;
   }
+  .fp-inputs::-webkit-scrollbar { display: none; }
+
+  /* Prevent iOS zoom on numeric inputs */
+  .fp-num-input  { font-size: 16px; width: 60px; }
+  .fp-rent-input { font-size: 16px; }
+  .fp-search     { font-size: 16px; }
+
+  /* Sort row scrolls horizontally */
+  .fp-sort-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 6px;
+    scrollbar-width: none;
+  }
+  .fp-sort-row::-webkit-scrollbar { display: none; }
+
+  /* Body stacks list above detail */
+  .fp-body { flex-direction: column; }
 
   /* Horizontal card scroller */
   .fp-list-panel {
     width: 100%;
-    height: 180px;
+    height: 160px;
     flex-direction: row;
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -517,9 +540,10 @@
     border-right: none;
     border-bottom: 1px solid #1e293b;
     gap: 0;
+    flex-shrink: 0;
   }
   .fp-list-item {
-    min-width: 200px;
+    min-width: 190px;
     border-left: none;
     border-bottom: 3px solid transparent;
     flex-shrink: 0;
@@ -528,25 +552,7 @@
   .fp-list-item.accent-yellow { border-bottom-color: #eab308; }
   .fp-list-item.accent-red    { border-bottom-color: #ef4444; }
 
-  .fp-detail-panel { padding: 14px; }
-
-  /* Inputs: allow wrapping into a 2-column-ish grid */
-  .fp-inputs {
-    margin-left: 0;
-    width: 100%;
-    gap: 10px;
-  }
-  .fp-input-group {
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-  /* Prevent iOS zoom on numeric inputs */
-  .fp-num-input  { font-size: 16px; width: 68px; }
-  .fp-rent-input { font-size: 16px; }
-  .fp-search     { font-size: 16px; }
-
-  /* Sort row wraps on narrow screens */
-  .fp-sort-row { flex-wrap: wrap; gap: 6px; }
+  .fp-detail-panel { padding: 12px; overflow-y: auto; }
 
   /* Tooltip stays within viewport */
   .fp-tip {
@@ -561,9 +567,19 @@
   .fp-detail-thumb { width: 80px; }
 
   /* Detail card fills full width */
-  .fp-detail { max-width: none; }
+  .fp-detail { max-width: none; padding: 14px; }
 
   /* Stack columns vertically on mobile */
   .fp-detail-columns { flex-direction: column; }
   .fp-detail-left { flex: none; width: 100%; }
+
+  /* Time chart scales to container */
+  .fp-time-chart { width: 100%; }
+
+  /* Time inputs wrap on mobile */
+  .fp-time-inputs { flex-wrap: wrap; }
+
+  /* Sell table font size */
+  .fp-sell-table .fp-bd-label,
+  .fp-sell-table .fp-bd-val { font-size: 12px; }
 }

@@ -332,7 +332,6 @@ interface DetailProps {
 
 function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPct, taxRatePct, appreciationPct, saltHeadroom, includePrincipal, rentOverride, onSetRentOverride, holdYears, setHoldYears, buyerClosingPct, setBuyerClosingPct, sellerCostPct, setSellerCostPct, rentInflationPct, setRentInflationPct }: DetailProps) {
   const [thumbError, setThumbError] = useState(false);
-  const [timeOpen, setTimeOpen] = useState(true);
   const thumbSrc = `/api/thumbnail/${listing.id}`;
 
   const params = useMemo(() => ({
@@ -652,7 +651,7 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
       <div className="fp-detail-right">
       {/* ── Time Analysis ── */}
       <div className="fp-time-section">
-        <button className="fp-time-toggle" onClick={() => setTimeOpen((v) => !v)}>
+        <div className="fp-time-header">
           <span>
             📈 Time Analysis
             <Tip tip={[
@@ -679,11 +678,9 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
               <span className="fp-time-info">ⓘ</span>
             </Tip>
           </span>
-          <span className="fp-time-caret">{timeOpen ? "▲" : "▼"}</span>
-        </button>
+        </div>
 
-        {timeOpen && (
-          <div className="fp-time-body">
+        <div className="fp-time-body">
             <div className="fp-time-inputs">
               <div className="fp-input-group">
                 <label>Hold</label>
@@ -761,7 +758,6 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
               );
             })()}
           </div>
-        )}
       </div>{/* end fp-time-section */}
       </div>{/* end fp-detail-right */}
       </div>{/* end fp-detail-columns */}
