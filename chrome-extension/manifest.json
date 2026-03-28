@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Open House Planner",
+  "version": "1.0",
+  "description": "View and edit your visit notes on Redfin listings",
+  "permissions": [],
+  "host_permissions": [
+    "*://*.redfin.com/*",
+    "https://open-house-planner.vercel.app/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.redfin.com/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
