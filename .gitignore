@@ -28,3 +28,4 @@ scripts/setup-vercel-env.sh
 public/thumbnails/
 public/redfin-favorites_*.csv
 data/redfin-favorites_*.csv
+tmp/
