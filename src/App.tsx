@@ -372,7 +372,7 @@ function App() {
       )}
       {page === "finance" && (
         <FinancePage
-          allListings={[...allListings, ...archivedListings]}
+          allListings={[...allListings, ...archivedListings.filter(a => !allListings.some(l => l.id === a.id))]}
           visits={visits}
           priorityIds={priorityIds}
           hiddenIds={hiddenIds}
@@ -381,7 +381,7 @@ function App() {
       )}
       {page === "data" && (
         <DataView
-          allListings={[...allListings, ...archivedListings]}
+          allListings={[...allListings, ...archivedListings.filter(a => !allListings.some(l => l.id === a.id))]}
           hiddenIds={hiddenIds}
           visits={visits}
           priorityIds={priorityIds}
