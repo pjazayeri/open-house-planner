@@ -101,6 +101,7 @@ function PrioritySection({
   timeSlotGroups,
   sortByTime,
   onSortByTimeChange,
+  initialCollapsed,
   onSelect,
   onTogglePriority,
   onReorderPriority,
@@ -109,11 +110,12 @@ function PrioritySection({
   timeSlotGroups: TimeSlotGroupType[];
   sortByTime: boolean;
   onSortByTimeChange: (v: boolean) => void;
+  initialCollapsed: boolean;
   onSelect: (id: string) => void;
   onTogglePriority: (id: string) => void;
   onReorderPriority: (newOrder: string[]) => void;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
@@ -433,6 +435,7 @@ export function Sidebar({
             timeSlotGroups={timeSlotGroups}
             sortByTime={prioritySortByTime}
             onSortByTimeChange={onPrioritySortByTimeChange}
+            initialCollapsed={showOnlyPriority}
             onSelect={onSelect}
             onTogglePriority={onTogglePriority}
             onReorderPriority={onReorderPriority}
