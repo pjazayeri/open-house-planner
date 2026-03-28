@@ -108,6 +108,7 @@ function PrioritySection({
   onReorderPriority: (newOrder: string[]) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [sortByTime, setSortByTime] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
@@ -121,8 +122,8 @@ function PrioritySection({
     return map;
   }, [timeSlotGroups]);
 
-  const priorityListings = useMemo(() =>
-    priorityOrder
+  const priorityListings = useMemo(() => {
+    const items = priorityOrder
       .filter((id) => listingMap.has(id))
       .map((id) => {
         const listing = listingMap.get(id)!;
@@ -130,9 +131,12 @@ function PrioritySection({
           weekday: "short", month: "short", day: "numeric",
         });
         return { listing, dayLabel };
-      }),
-    [priorityOrder, listingMap]
-  );
+      });
+    if (sortByTime) {
+      items.sort((a, b) => a.listing.openHouseStart.getTime() - b.listing.openHouseStart.getTime());
+    }
+    return items;
+  }, [priorityOrder, listingMap, sortByTime]);
 
   if (priorityListings.length === 0) return null;
 
@@ -169,24 +173,31 @@ function PrioritySection({
 
   return (
     <div className="priority-section">
-      <button className="priority-header" onClick={() => setCollapsed(!collapsed)}>
-        <span className="priority-star">★</span>
-        <span className="priority-title">Planning to Attend ({priorityListings.length})</span>
-        <span className="slot-chevron">{collapsed ? "+" : "\u2212"}</span>
-      </button>
+      <div className="priority-header-row">
+        <button className="priority-header" onClick={() => setCollapsed(!collapsed)}>
+          <span className="priority-star">★</span>
+          <span className="priority-title">Planning to Attend ({priorityListings.length})</span>
+          <span className="slot-chevron">{collapsed ? "+" : "\u2212"}</span>
+        </button>
+        <button
+          className={`priority-sort-btn${sortByTime ? " priority-sort-btn--active" : ""}`}
+          onClick={() => setSortByTime(!sortByTime)}
+          title={sortByTime ? "Switch to custom order" : "Sort by time"}
+        >⏱ By time</button>
+      </div>
       {!collapsed && (
         <div className="priority-list">
           {priorityListings.map(({ listing, dayLabel }, idx) => (
             <div
               key={listing.id}
               className={`priority-item${dragIdx === idx ? " priority-item--dragging" : ""}${dragOverIdx === idx && dragIdx !== idx ? " priority-item--drag-over" : ""}`}
-              draggable
-              onDragStart={(e) => handleDragStart(e, idx)}
-              onDragOver={(e) => handleDragOver(e, idx)}
-              onDrop={(e) => handleDrop(e, idx)}
-              onDragEnd={handleDragEnd}
+              draggable={!sortByTime}
+              onDragStart={sortByTime ? undefined : (e) => handleDragStart(e, idx)}
+              onDragOver={sortByTime ? undefined : (e) => handleDragOver(e, idx)}
+              onDrop={sortByTime ? undefined : (e) => handleDrop(e, idx)}
+              onDragEnd={sortByTime ? undefined : handleDragEnd}
             >
-              <span className="priority-item-drag" title="Drag to reorder">⠿</span>
+              {!sortByTime && <span className="priority-item-drag" title="Drag to reorder">⠿</span>}
               <span className="priority-item-num">{idx + 1}</span>
               <button
                 className="priority-item-main"
