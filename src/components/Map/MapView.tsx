@@ -379,7 +379,7 @@ export function MapView({
               const markerColor = priorityIdx >= 0 ? "#f59e0b" : color;
               return (
                 <Marker
-                  key={listing.id}
+                  key={`${listing.id}-${markerNum}`}
                   position={pos}
                   icon={createNumberedIcon(markerNum, markerColor, isActive, visitStatus)}
                   eventHandlers={{
