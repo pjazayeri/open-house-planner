@@ -15,6 +15,8 @@ interface SidebarProps {
   onHide: (id: string) => void;
   priorityIds: Set<string>;
   priorityOrder: string[];
+  prioritySortByTime: boolean;
+  onPrioritySortByTimeChange: (v: boolean) => void;
   onTogglePriority: (id: string) => void;
   onReorderPriority: (newOrder: string[]) => void;
   showOnlyPriority: boolean;
@@ -97,18 +99,21 @@ export function matchesFilter(id: string, key: FilterKey, visits: Record<string,
 function PrioritySection({
   priorityOrder,
   timeSlotGroups,
+  sortByTime,
+  onSortByTimeChange,
   onSelect,
   onTogglePriority,
   onReorderPriority,
 }: {
   priorityOrder: string[];
   timeSlotGroups: TimeSlotGroupType[];
+  sortByTime: boolean;
+  onSortByTimeChange: (v: boolean) => void;
   onSelect: (id: string) => void;
   onTogglePriority: (id: string) => void;
   onReorderPriority: (newOrder: string[]) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
-  const [sortByTime, setSortByTime] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
@@ -181,7 +186,7 @@ function PrioritySection({
         </button>
         <button
           className={`priority-sort-btn${sortByTime ? " priority-sort-btn--active" : ""}`}
-          onClick={() => setSortByTime(!sortByTime)}
+          onClick={() => onSortByTimeChange(!sortByTime)}
           title={sortByTime ? "Switch to custom order" : "Sort by time"}
         >⏱ By time</button>
       </div>
@@ -232,6 +237,8 @@ export function Sidebar({
   onHide,
   priorityIds,
   priorityOrder,
+  prioritySortByTime,
+  onPrioritySortByTimeChange,
   onTogglePriority,
   onReorderPriority,
   visits,
@@ -424,6 +431,8 @@ export function Sidebar({
           <PrioritySection
             priorityOrder={priorityOrder}
             timeSlotGroups={timeSlotGroups}
+            sortByTime={prioritySortByTime}
+            onSortByTimeChange={onPrioritySortByTimeChange}
             onSelect={onSelect}
             onTogglePriority={onTogglePriority}
             onReorderPriority={onReorderPriority}
