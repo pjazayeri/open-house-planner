@@ -7,6 +7,7 @@ import { useHiddenIds } from "./useHiddenIds";
 import { useVisits } from "./useVisits";
 import { useGeolocation } from "./useGeolocation";
 import type { SyncStatus } from "../utils/cloudSync";
+import { getCachedListings, updateListingCache } from "../utils/listingCache";
 
 /** Haversine distance in miles */
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -27,6 +28,7 @@ interface UseListingsResult {
   loading: boolean;
   error: string | null;
   allListings: Listing[];
+  archivedListings: Listing[];
   cities: string[];
   selectedCity: string;
   setSelectedCity: (city: string) => void;
@@ -119,6 +121,19 @@ export function useListings(): UseListingsResult {
     [cityListings]
   );
 
+  // Cache visited listings so they survive future CSV updates
+  useEffect(() => {
+    const visited = allListings.filter((l) => visits[l.id]);
+    if (visited.length > 0) updateListingCache(visited);
+  }, [allListings, visits]);
+
+  const archivedListings = useMemo(() => {
+    const currentIds = new Set(allListings.map((l) => l.id));
+    return Object.values(getCachedListings())
+      .filter((l) => visits[l.id] && !currentIds.has(l.id))
+      .map((l) => ({ ...l, archived: true as const }));
+  }, [allListings, visits]);
+
   // Find listing within NEARBY_MILES of user's position
   const nearbyId = useMemo(() => {
     if (!geoPosition) return null;
@@ -137,6 +152,7 @@ export function useListings(): UseListingsResult {
     loading,
     error,
     allListings,
+    archivedListings,
     cities,
     selectedCity,
     setSelectedCity,

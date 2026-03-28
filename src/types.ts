@@ -55,6 +55,7 @@ export interface Listing {
   capRateBreakdown: import("./utils/capRate").CapRateBreakdown;
   visitOrder?: number;
   timeSlot?: string;
+  archived?: boolean;
 }
 
 export interface TimeSlotGroup {

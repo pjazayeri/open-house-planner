@@ -154,6 +154,7 @@ function App() {
     loading,
     error,
     allListings,
+    archivedListings,
     cities,
     selectedCity,
     setSelectedCity,
@@ -371,7 +372,7 @@ function App() {
       )}
       {page === "finance" && (
         <FinancePage
-          allListings={allListings}
+          allListings={[...allListings, ...archivedListings]}
           visits={visits}
           priorityIds={priorityIds}
           hiddenIds={hiddenIds}
@@ -380,7 +381,7 @@ function App() {
       )}
       {page === "data" && (
         <DataView
-          allListings={allListings}
+          allListings={[...allListings, ...archivedListings]}
           hiddenIds={hiddenIds}
           visits={visits}
           priorityIds={priorityIds}

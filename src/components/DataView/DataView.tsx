@@ -138,6 +138,7 @@ interface DetailPanelProps {
   visit: VisitRecord | null;
   onHide: () => void;
   onUnhide: () => void;
+  isArchived?: boolean;
   onTogglePriority: () => void;
   onMarkVisited: () => void;
   onSetLiked: (liked: boolean | null) => void;
@@ -155,6 +156,7 @@ function DetailPanel({
   visit,
   onHide,
   onUnhide,
+  isArchived,
   onTogglePriority,
   onMarkVisited,
   onSetLiked,
@@ -314,13 +316,15 @@ function DetailPanel({
 
             <button className="dv-btn dv-finance" title="View finance breakdown" onClick={onOpenFinance}>$</button>
 
-            <button
-              className={`dv-btn dv-hide ${isHidden ? "is-hidden" : ""}`}
-              title={isHidden ? "Restore listing" : "Hide listing"}
-              onClick={isHidden ? onUnhide : onHide}
-            >
-              {isHidden ? "Restore" : "Hide"}
-            </button>
+            {!isArchived && (
+              <button
+                className={`dv-btn dv-hide ${isHidden ? "is-hidden" : ""}`}
+                title={isHidden ? "Restore listing" : "Hide listing"}
+                onClick={isHidden ? onUnhide : onHide}
+              >
+                {isHidden ? "Restore" : "Hide"}
+              </button>
+            )}
 
             <a className="dv-btn dv-see-listing" href={l.url} target="_blank" rel="noopener noreferrer">
               See listing ↗
@@ -799,6 +803,7 @@ export function DataView({
               isHidden={hiddenIds.has(selectedListing.id)}
               isPriority={priorityIds.has(selectedListing.id)}
               visit={visits[selectedListing.id] ?? null}
+              isArchived={selectedListing.archived}
               onHide={() => onHide(selectedListing.id)}
               onUnhide={() => onUnhide(selectedListing.id)}
               onTogglePriority={() => onTogglePriority(selectedListing.id)}
@@ -883,6 +888,7 @@ export function DataView({
               const rowClass = [
                 "dv-tr",
                 isSelected ? "dv-tr--selected" : "",
+                l.archived ? "dv-tr--archived" : "",
                 hiddenIds.has(l.id) ? "dv-tr--hidden" : "",
                 visit?.liked === true ? "dv-tr--liked" : "",
                 visit?.liked === false ? "dv-tr--disliked" : "",
@@ -899,6 +905,8 @@ export function DataView({
                   <div className="dv-tc dv-tc-badge">
                     {visit ? (
                       <span className="dv-badge dv-badge-visited">✓</span>
+                    ) : l.archived ? (
+                      <span className="dv-badge dv-badge-inactive">Gone</span>
                     ) : (
                       <span className="dv-badge dv-badge-open">OPEN</span>
                     )}
@@ -952,6 +960,7 @@ export function DataView({
             isHidden={hiddenIds.has(selectedListing.id)}
             isPriority={priorityIds.has(selectedListing.id)}
             visit={visits[selectedListing.id] ?? null}
+            isArchived={selectedListing.archived}
             onHide={() => onHide(selectedListing.id)}
             onUnhide={() => onUnhide(selectedListing.id)}
             onTogglePriority={() => onTogglePriority(selectedListing.id)}
