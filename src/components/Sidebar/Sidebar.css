@@ -145,14 +145,6 @@
   background: #fde68a;
 }
 
-.priority-sort-btn--active {
-  background: #f59e0b;
-  color: #fff;
-}
-
-.priority-sort-btn--active:hover {
-  background: #d97706;
-}
 
 .priority-star {
   color: #f59e0b;

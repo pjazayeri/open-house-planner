@@ -87,7 +87,6 @@ function App() {
   const [timeTo, setTimeTo] = useState<number | null>(null);
   const [showSummary, setShowSummary] = useState(false);
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
-  const [prioritySortByTime, setPrioritySortByTime] = useState(false);
 
   const {
     loading,
@@ -140,14 +139,6 @@ function App() {
     });
     return () => cancelAnimationFrame(frame);
   }, [scrollTarget, mobileTab]);
-
-  const routePriorityOrder = useMemo(() => {
-    if (!prioritySortByTime) return priorityOrder;
-    const byId = new Map(allListings.map((l) => [l.id, l]));
-    return [...priorityOrder]
-      .filter((id) => byId.has(id))
-      .sort((a, b) => byId.get(a)!.openHouseStart.getTime() - byId.get(b)!.openHouseStart.getTime());
-  }, [prioritySortByTime, priorityOrder, allListings]);
 
   const navigateToListing = (id: string) => {
     setSelectedId(id);
@@ -359,8 +350,6 @@ function App() {
           onHide={hideListing}
           priorityIds={priorityIds}
           priorityOrder={priorityOrder}
-          prioritySortByTime={prioritySortByTime}
-          onPrioritySortByTimeChange={setPrioritySortByTime}
           onTogglePriority={togglePriority}
           onReorderPriority={reorderPriority}
           showOnlyPriority={showOnlyPriority}
@@ -399,7 +388,7 @@ function App() {
           selectedId={selectedId}
           hoveredId={hoveredId}
           visits={visits}
-          priorityOrder={routePriorityOrder}
+          priorityOrder={priorityOrder}
           showRoute={page !== "home"}
           onSelect={setSelectedId}
           onDeselect={() => setSelectedId(null)}

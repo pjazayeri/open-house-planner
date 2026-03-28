@@ -15,8 +15,6 @@ interface SidebarProps {
   onHide: (id: string) => void;
   priorityIds: Set<string>;
   priorityOrder: string[];
-  prioritySortByTime: boolean;
-  onPrioritySortByTimeChange: (v: boolean) => void;
   onTogglePriority: (id: string) => void;
   onReorderPriority: (newOrder: string[]) => void;
   showOnlyPriority: boolean;
@@ -99,8 +97,6 @@ export function matchesFilter(id: string, key: FilterKey, visits: Record<string,
 function PrioritySection({
   priorityOrder,
   timeSlotGroups,
-  sortByTime,
-  onSortByTimeChange,
   initialCollapsed,
   onSelect,
   onTogglePriority,
@@ -108,8 +104,6 @@ function PrioritySection({
 }: {
   priorityOrder: string[];
   timeSlotGroups: TimeSlotGroupType[];
-  sortByTime: boolean;
-  onSortByTimeChange: (v: boolean) => void;
   initialCollapsed: boolean;
   onSelect: (id: string) => void;
   onTogglePriority: (id: string) => void;
@@ -129,8 +123,8 @@ function PrioritySection({
     return map;
   }, [timeSlotGroups]);
 
-  const priorityListings = useMemo(() => {
-    const items = priorityOrder
+  const priorityListings = useMemo(() =>
+    priorityOrder
       .filter((id) => listingMap.has(id))
       .map((id) => {
         const listing = listingMap.get(id)!;
@@ -138,12 +132,17 @@ function PrioritySection({
           weekday: "short", month: "short", day: "numeric",
         });
         return { listing, dayLabel };
-      });
-    if (sortByTime) {
-      items.sort((a, b) => a.listing.openHouseStart.getTime() - b.listing.openHouseStart.getTime());
-    }
-    return items;
-  }, [priorityOrder, listingMap, sortByTime]);
+      }),
+    [priorityOrder, listingMap]
+  );
+
+  function sortByTime() {
+    const sorted = [...priorityListings]
+      .sort((a, b) => a.listing.openHouseStart.getTime() - b.listing.openHouseStart.getTime())
+      .map(({ listing }) => listing.id);
+    const extras = priorityOrder.filter((id) => !listingMap.has(id));
+    onReorderPriority([...sorted, ...extras]);
+  }
 
   if (priorityListings.length === 0) return null;
 
@@ -187,9 +186,9 @@ function PrioritySection({
           <span className="slot-chevron">{collapsed ? "+" : "\u2212"}</span>
         </button>
         <button
-          className={`priority-sort-btn${sortByTime ? " priority-sort-btn--active" : ""}`}
-          onClick={() => onSortByTimeChange(!sortByTime)}
-          title={sortByTime ? "Switch to custom order" : "Sort by time"}
+          className="priority-sort-btn"
+          onClick={sortByTime}
+          title="Sort by open house time"
         >⏱ By time</button>
       </div>
       {!collapsed && (
@@ -239,8 +238,6 @@ export function Sidebar({
   onHide,
   priorityIds,
   priorityOrder,
-  prioritySortByTime,
-  onPrioritySortByTimeChange,
   onTogglePriority,
   onReorderPriority,
   visits,
@@ -433,8 +430,6 @@ export function Sidebar({
           <PrioritySection
             priorityOrder={priorityOrder}
             timeSlotGroups={timeSlotGroups}
-            sortByTime={prioritySortByTime}
-            onSortByTimeChange={onPrioritySortByTimeChange}
             initialCollapsed={showOnlyPriority}
             onSelect={onSelect}
             onTogglePriority={onTogglePriority}
