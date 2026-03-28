@@ -191,13 +191,13 @@ function PrioritySection({
             <div
               key={listing.id}
               className={`priority-item${dragIdx === idx ? " priority-item--dragging" : ""}${dragOverIdx === idx && dragIdx !== idx ? " priority-item--drag-over" : ""}`}
-              draggable={!sortByTime}
-              onDragStart={sortByTime ? undefined : (e) => handleDragStart(e, idx)}
-              onDragOver={sortByTime ? undefined : (e) => handleDragOver(e, idx)}
-              onDrop={sortByTime ? undefined : (e) => handleDrop(e, idx)}
-              onDragEnd={sortByTime ? undefined : handleDragEnd}
+              draggable
+              onDragStart={(e) => handleDragStart(e, idx)}
+              onDragOver={(e) => handleDragOver(e, idx)}
+              onDrop={(e) => handleDrop(e, idx)}
+              onDragEnd={handleDragEnd}
             >
-              {!sortByTime && <span className="priority-item-drag" title="Drag to reorder">⠿</span>}
+              <span className="priority-item-drag" title="Drag to reorder">⠿</span>
               <span className="priority-item-num">{idx + 1}</span>
               <button
                 className="priority-item-main"
