@@ -21,6 +21,7 @@ export interface CloudState {
   hiddenIds: string[];
   priorityIds: string[];
   visits: Record<string, VisitRecord>;
+  listingSnapshots: Record<string, unknown>;
 }
 
 function parseVisitRecord(v: unknown): VisitRecord {
@@ -48,10 +49,15 @@ function parseCloudState(record: unknown): CloudState {
   for (const [id, v] of Object.entries(rawVisits)) {
     visits[id] = parseVisitRecord(v);
   }
+  const listingSnapshots =
+    r.listingSnapshots && typeof r.listingSnapshots === "object" && !Array.isArray(r.listingSnapshots)
+      ? (r.listingSnapshots as Record<string, unknown>)
+      : {};
   return {
     hiddenIds: Array.isArray(r.hiddenIds) ? (r.hiddenIds as string[]) : [],
     priorityIds: Array.isArray(r.priorityIds) ? (r.priorityIds as string[]) : [],
     visits,
+    listingSnapshots,
   };
 }
 

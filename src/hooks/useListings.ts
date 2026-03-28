@@ -7,7 +7,7 @@ import { useHiddenIds } from "./useHiddenIds";
 import { useVisits } from "./useVisits";
 import { useGeolocation } from "./useGeolocation";
 import type { SyncStatus } from "../utils/cloudSync";
-import { getCachedListings, updateListingCache } from "../utils/listingCache";
+import { useListingSnapshots } from "./useListingSnapshots";
 
 /** Haversine distance in miles */
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -76,6 +76,7 @@ export function useListings(): UseListingsResult {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const { hiddenIds, hide, unhide, clearHidden, priorityIds, priorityOrder, togglePriority, reorderPriority, importHiddenAndPriority, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds();
+  const { saveSnapshots, archivedListings } = useListingSnapshots();
   const { visits, markVisited, setLiked, setRating, setNoteField, toggleWantOffer, clearVisit, importVisits, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits();
 
   const syncStatus: SyncStatus =
@@ -121,18 +122,11 @@ export function useListings(): UseListingsResult {
     [cityListings]
   );
 
-  // Cache visited listings so they survive future CSV updates
+  // Snapshot visited listings to cloud so they survive future CSV updates
   useEffect(() => {
     const visited = allListings.filter((l) => visits[l.id]);
-    if (visited.length > 0) updateListingCache(visited);
-  }, [allListings, visits]);
-
-  const archivedListings = useMemo(() => {
-    const currentIds = new Set(allListings.map((l) => l.id));
-    return Object.values(getCachedListings())
-      .filter((l) => visits[l.id] && !currentIds.has(l.id))
-      .map((l) => ({ ...l, archived: true as const }));
-  }, [allListings, visits]);
+    if (visited.length > 0) saveSnapshots(visited);
+  }, [allListings, visits]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Find listing within NEARBY_MILES of user's position
   const nearbyId = useMemo(() => {
