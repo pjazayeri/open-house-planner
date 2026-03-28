@@ -4,6 +4,8 @@ import { Header } from "./components/Header/Header";
 import { Sidebar, sortListings, matchesFilter } from "./components/Sidebar/Sidebar";
 import { getNeighborhoods } from "./utils/filterListings";
 import type { SortKey, FilterKey } from "./components/Sidebar/Sidebar";
+const VALID_SORT_KEYS: SortKey[] = ["time", "price", "capRate", "ppsf"];
+const VALID_FILTER_KEYS: FilterKey[] = ["liked", "disliked", "visited", "unvisited", "priority", "rated"];
 import { MapView } from "./components/Map/MapView";
 import { SummaryModal } from "./components/Summary/SummaryModal";
 import { DataView } from "./components/DataView/DataView";
@@ -52,21 +54,91 @@ function idFromHash(): string | null {
   return new URLSearchParams(h.slice(qi + 1)).get("id");
 }
 
+function hashParams(): URLSearchParams {
+  const h = window.location.hash.slice(1);
+  const qi = h.indexOf("?");
+  return new URLSearchParams(qi === -1 ? "" : h.slice(qi + 1));
+}
+
+function filtersFromHash() {
+  const p = hashParams();
+  const sort = p.get("sort") as SortKey;
+  const raw = p.get("f")?.split(",").filter((k): k is FilterKey => VALID_FILTER_KEYS.includes(k as FilterKey)) ?? [];
+  return {
+    sortKey: VALID_SORT_KEYS.includes(sort) ? sort : "time" as SortKey,
+    activeFilters: new Set<FilterKey>(raw),
+    searchQuery: p.get("q") ?? "",
+    selectedNeighborhood: p.get("hood") ?? "",
+    selectedDate: p.get("date") ?? "",
+    timeFrom: p.has("from") ? Number(p.get("from")) : null,
+    timeTo: p.has("to") ? Number(p.get("to")) : null,
+  };
+}
+
+function buildFilterParams(
+  sortKey: SortKey,
+  activeFilters: Set<FilterKey>,
+  searchQuery: string,
+  selectedNeighborhood: string,
+  selectedDate: string,
+  timeFrom: number | null,
+  timeTo: number | null,
+): string {
+  const p = new URLSearchParams();
+  if (sortKey !== "time") p.set("sort", sortKey);
+  if (activeFilters.size > 0) p.set("f", [...activeFilters].join(","));
+  if (searchQuery) p.set("q", searchQuery);
+  if (selectedNeighborhood) p.set("hood", selectedNeighborhood);
+  if (selectedDate) p.set("date", selectedDate);
+  if (timeFrom !== null) p.set("from", String(timeFrom));
+  if (timeTo !== null) p.set("to", String(timeTo));
+  return p.toString();
+}
+
 function App() {
   const [page, setPageState] = useState<Page>(pageFromHash);
+  const [financeInitId, setFinanceInitId] = useState<string | null>(null);
+  const [mobileTab, setMobileTab] = useState<MobileTab>("map");
+  const showOnlyPriority = page === "priority";
 
-  // Keep hash in sync with page state and handle browser back/forward
+  // Initialize filter state from URL
+  const _init = filtersFromHash();
+  const [sortKey, setSortKey] = useState<SortKey>(_init.sortKey);
+  const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(_init.activeFilters);
+  const [searchQuery, setSearchQuery] = useState(_init.searchQuery);
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState(_init.selectedNeighborhood);
+  const [selectedDate, setSelectedDate] = useState(_init.selectedDate);
+  const [timeFrom, setTimeFrom] = useState<number | null>(_init.timeFrom);
+  const [timeTo, setTimeTo] = useState<number | null>(_init.timeTo);
+
+  // Keep hash in sync with page + filter state
   useEffect(() => {
+    const params = buildFilterParams(sortKey, activeFilters, searchQuery, selectedNeighborhood, selectedDate, timeFrom, timeTo);
+    const pageSlug = page === "home" ? "" : page;
+    const full = pageSlug + (params ? "?" + params : "");
     const current = window.location.hash.slice(1).split("?")[0];
-    const target = page === "home" ? "" : page;
-    if (current !== target) {
-      window.location.hash = target;
+    const currentPage = page === "home" ? "" : page;
+    if (current !== currentPage) {
+      // Page changed → push a history entry
+      window.location.hash = full;
+    } else {
+      // Filter-only change → replace so back button still works for page nav
+      history.replaceState(null, "", "#" + full);
     }
-  }, [page]);
+  }, [page, sortKey, activeFilters, searchQuery, selectedNeighborhood, selectedDate, timeFrom, timeTo]);
 
+  // Restore page + filters on browser back/forward
   useEffect(() => {
     function onHashChange() {
       setPageState(pageFromHash());
+      const f = filtersFromHash();
+      setSortKey(f.sortKey);
+      setActiveFilters(f.activeFilters);
+      setSearchQuery(f.searchQuery);
+      setSelectedNeighborhood(f.selectedNeighborhood);
+      setSelectedDate(f.selectedDate);
+      setTimeFrom(f.timeFrom);
+      setTimeTo(f.timeTo);
     }
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
@@ -75,16 +147,6 @@ function App() {
   function setPage(p: Page) {
     setPageState(p);
   }
-  const [financeInitId, setFinanceInitId] = useState<string | null>(null);
-  const [mobileTab, setMobileTab] = useState<MobileTab>("map");
-  const showOnlyPriority = page === "priority";
-  const [sortKey, setSortKey] = useState<SortKey>("time");
-  const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedNeighborhood, setSelectedNeighborhood] = useState("");
-  const [selectedDate, setSelectedDate] = useState("");
-  const [timeFrom, setTimeFrom] = useState<number | null>(null);
-  const [timeTo, setTimeTo] = useState<number | null>(null);
   const [showSummary, setShowSummary] = useState(false);
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
 
