@@ -12,6 +12,9 @@ interface UseHiddenIdsResult {
   togglePriority: (id: string) => void;
   reorderPriority: (newOrder: string[]) => void;
   importHiddenAndPriority: (hiddenIds: string[], priorityIds: string[]) => void;
+  skippedForDay: Record<string, string[]>;
+  skipForDay: (id: string, date: string) => void;
+  restoreSkippedForDay: (date: string) => void;
   syncStatus: SyncStatus;
   saveFailed: boolean;
 }
@@ -19,6 +22,7 @@ interface UseHiddenIdsResult {
 export function useHiddenIds(): UseHiddenIdsResult {
   const [hiddenIds, setHiddenIds] = useState<Set<string> | null>(null);
   const [priorityOrder, setPriorityOrder] = useState<string[]>([]);
+  const [skippedForDay, setSkippedForDay] = useState<Record<string, string[]>>({});
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(
     USE_CLOUD ? "loading" : "unconfigured"
   );
@@ -32,7 +36,8 @@ export function useHiddenIds(): UseHiddenIdsResult {
     cloudFetch()
       .then((state) => {
         setHiddenIds(new Set(state.hiddenIds));
-        setPriorityOrder(state.priorityIds); // array order preserved
+        setPriorityOrder(state.priorityIds);
+        setSkippedForDay(state.skippedForDay ?? {});
         setSyncStatus("ok");
       })
       .catch((err: unknown) => {
@@ -102,6 +107,29 @@ export function useHiddenIds(): UseHiddenIdsResult {
     persistPriority(newOrder);
   }, [persistPriority]);
 
+  const skipForDay = useCallback((id: string, date: string) => {
+    setSkippedForDay((prev) => {
+      const next = { ...prev, [date]: [...(prev[date] ?? []), id] };
+      if (USE_CLOUD) {
+        setSaveFailed(false);
+        cloudPatch({ skippedForDay: next }).catch(() => setSaveFailed(true));
+      }
+      return next;
+    });
+  }, []);
+
+  const restoreSkippedForDay = useCallback((date: string) => {
+    setSkippedForDay((prev) => {
+      const next = { ...prev };
+      delete next[date];
+      if (USE_CLOUD) {
+        setSaveFailed(false);
+        cloudPatch({ skippedForDay: next }).catch(() => setSaveFailed(true));
+      }
+      return next;
+    });
+  }, []);
+
   const importHiddenAndPriority = useCallback((h: string[], p: string[]) => {
     const hSet = new Set(h);
     setHiddenIds(hSet);
@@ -122,6 +150,9 @@ export function useHiddenIds(): UseHiddenIdsResult {
     togglePriority,
     reorderPriority,
     importHiddenAndPriority,
+    skippedForDay,
+    skipForDay,
+    restoreSkippedForDay,
     syncStatus,
     saveFailed,
   };

@@ -22,6 +22,7 @@ export interface CloudState {
   priorityIds: string[];
   visits: Record<string, VisitRecord>;
   listingSnapshots: Record<string, unknown>;
+  skippedForDay: Record<string, string[]>;  // date → listing IDs hidden for that day only
 }
 
 function parseVisitRecord(v: unknown): VisitRecord {
@@ -53,11 +54,20 @@ function parseCloudState(record: unknown): CloudState {
     r.listingSnapshots && typeof r.listingSnapshots === "object" && !Array.isArray(r.listingSnapshots)
       ? (r.listingSnapshots as Record<string, unknown>)
       : {};
+  const rawSkipped =
+    r.skippedForDay && typeof r.skippedForDay === "object" && !Array.isArray(r.skippedForDay)
+      ? (r.skippedForDay as Record<string, unknown>)
+      : {};
+  const skippedForDay: Record<string, string[]> = {};
+  for (const [date, ids] of Object.entries(rawSkipped)) {
+    if (Array.isArray(ids)) skippedForDay[date] = ids as string[];
+  }
   return {
     hiddenIds: Array.isArray(r.hiddenIds) ? (r.hiddenIds as string[]) : [],
     priorityIds: Array.isArray(r.priorityIds) ? (r.priorityIds as string[]) : [],
     visits,
     listingSnapshots,
+    skippedForDay,
   };
 }
 

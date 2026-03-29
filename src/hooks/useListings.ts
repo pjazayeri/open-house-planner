@@ -46,6 +46,9 @@ interface UseListingsResult {
   priorityOrder: string[];
   togglePriority: (id: string) => void;
   reorderPriority: (newOrder: string[]) => void;
+  skippedForDay: Record<string, string[]>;
+  skipForDay: (id: string, date: string) => void;
+  restoreSkippedForDay: (date: string) => void;
   // Visit state
   visits: Record<string, VisitRecord>;
   markVisited: (id: string) => void;
@@ -75,7 +78,7 @@ export function useListings(): UseListingsResult {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  const { hiddenIds, hide, unhide, clearHidden, priorityIds, priorityOrder, togglePriority, reorderPriority, importHiddenAndPriority, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds();
+  const { hiddenIds, hide, unhide, clearHidden, priorityIds, priorityOrder, togglePriority, reorderPriority, importHiddenAndPriority, skippedForDay, skipForDay, restoreSkippedForDay, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds();
   const { saveSnapshots, archivedListings } = useListingSnapshots();
   const { visits, markVisited, setLiked, setRating, setNoteField, toggleWantOffer, clearVisit, importVisits, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits();
 
@@ -164,6 +167,9 @@ export function useListings(): UseListingsResult {
     priorityOrder,
     togglePriority,
     reorderPriority,
+    skippedForDay,
+    skipForDay,
+    restoreSkippedForDay,
     visits,
     markVisited,
     setLiked,

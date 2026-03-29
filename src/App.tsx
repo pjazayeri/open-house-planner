@@ -150,29 +150,6 @@ function App() {
   const [showSummary, setShowSummary] = useState(false);
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
 
-  // Per-day skip: hides a listing only for a specific date (ephemeral, localStorage-only)
-  const [skippedForDay, setSkippedForDay] = useState<Record<string, string[]>>(() => {
-    try { return JSON.parse(localStorage.getItem("skipped-for-day") ?? "{}"); } catch { return {}; }
-  });
-  function skipForDay(id: string) {
-    if (!selectedDate) return;
-    setSkippedForDay((prev) => {
-      const next = { ...prev, [selectedDate]: [...(prev[selectedDate] ?? []), id] };
-      try { localStorage.setItem("skipped-for-day", JSON.stringify(next)); } catch {}
-      return next;
-    });
-  }
-  function restoreSkippedForDay() {
-    if (!selectedDate) return;
-    setSkippedForDay((prev) => {
-      const next = { ...prev };
-      delete next[selectedDate];
-      try { localStorage.setItem("skipped-for-day", JSON.stringify(next)); } catch {}
-      return next;
-    });
-  }
-  const skippedTodayCount = selectedDate ? (skippedForDay[selectedDate]?.length ?? 0) : 0;
-
   const {
     loading,
     error,
@@ -195,6 +172,9 @@ function App() {
     priorityOrder,
     togglePriority,
     reorderPriority,
+    skippedForDay,
+    skipForDay,
+    restoreSkippedForDay,
     visits,
     markVisited,
     setLiked,
@@ -441,9 +421,9 @@ function App() {
           onSelect={setSelectedId}
           onHover={setHoveredId}
           onHide={hideListing}
-          onSkipForDay={skipForDay}
-          skippedTodayCount={skippedTodayCount}
-          onRestoreSkipped={restoreSkippedForDay}
+          onSkipForDay={(id) => selectedDate && skipForDay(id, selectedDate)}
+          skippedTodayCount={selectedDate ? (skippedForDay[selectedDate]?.length ?? 0) : 0}
+          onRestoreSkipped={() => selectedDate && restoreSkippedForDay(selectedDate)}
           priorityIds={priorityIds}
           priorityOrder={priorityOrder}
           onTogglePriority={togglePriority}
