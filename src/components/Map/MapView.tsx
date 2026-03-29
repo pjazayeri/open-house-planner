@@ -10,9 +10,13 @@ import L from "leaflet";
 import type { Listing, TimeSlotGroup, VisitRecord, MapZone } from "../../types";
 import { SLOT_COLORS } from "../Sidebar/TimeSlotGroup";
 import { formatPrice, formatBedsBaths, formatTimeRange } from "../../utils/formatters";
+import { pointInPolygon } from "../../utils/geometry";
 import "./MapView.css";
 
 const ZONE_COLORS = ["#ef4444", "#f97316", "#22c55e", "#3b82f6", "#a855f7", "#ec4899", "#06b6d4"];
+
+// Tolerance for coincident vertex detection (~30m)
+const SHARED_VERTEX_TOLERANCE = 0.0003;
 
 interface MapViewProps {
   timeSlotGroups: TimeSlotGroup[];
@@ -36,6 +40,7 @@ interface MapViewProps {
   onZoneUpdate: (id: string, polygon: [number, number][]) => void;
   onZoneRemove: (id: string) => void;
   onZoneRename: (id: string, name: string) => void;
+  allListings: Listing[];
 }
 
 /** "You are here" pulsing blue dot icon */
@@ -160,6 +165,7 @@ interface ZoneLayerProps {
   editingZoneId: string | null;
   drawingMode: boolean;
   drawingPoints: [number, number][];
+  allListings: Listing[];
   onZoneSelect: (id: string) => void;
   onVertexDragEnd: (zoneId: string, newPolygon: [number, number][]) => void;
   onDrawVertex: (lat: number, lng: number) => void;
@@ -172,6 +178,7 @@ function ZoneLayer({
   editingZoneId,
   drawingMode,
   drawingPoints,
+  allListings,
   onZoneSelect,
   onVertexDragEnd,
   onDrawVertex,
@@ -179,7 +186,7 @@ function ZoneLayer({
 }: ZoneLayerProps) {
   const map = useMap();
 
-  // Stable refs for callbacks (avoids re-creating Leaflet layers on callback identity changes)
+  // Stable refs for callbacks
   const onZoneSelectRef = useRef(onZoneSelect);
   onZoneSelectRef.current = onZoneSelect;
   const onVertexDragEndRef = useRef(onVertexDragEnd);
@@ -189,7 +196,7 @@ function ZoneLayer({
   const onDrawFinishRef = useRef(onDrawFinish);
   onDrawFinishRef.current = onDrawFinish;
 
-  // Zone polygon overlays (excluding the one being edited)
+  // ── Zone polygon overlays (excluding zone being edited) ──────
   useEffect(() => {
     const layers: L.Layer[] = [];
 
@@ -234,15 +241,16 @@ function ZoneLayer({
     return () => layers.forEach((l) => map.removeLayer(l));
   }, [zones, selectedZoneId, editingZoneId, map]);
 
-  // Vertex drag handles for the zone being edited
+  // ── Vertex + edge-midpoint handles for the zone being edited ─
   useEffect(() => {
     if (!editingZoneId) return;
     const zone = zones.find((z) => z.id === editingZoneId);
     if (!zone || zone.polygon.length < 3) return;
 
-    // Mutable copy for live drag updates
+    const n = zone.polygon.length;
     const livePts = zone.polygon.map((pt) => [...pt] as [number, number]);
 
+    // Edit polygon (dashed outline)
     const editPoly = L.polygon(livePts as L.LatLngExpression[], {
       color: zone.color,
       fillColor: zone.color,
@@ -252,6 +260,7 @@ function ZoneLayer({
       opacity: 0.9,
     }).addTo(map);
 
+    // Corner vertex handles
     const handles = zone.polygon.map(([lat, lng], idx) => {
       const h = L.marker([lat, lng] as L.LatLngExpression, {
         icon: L.divIcon({
@@ -265,7 +274,7 @@ function ZoneLayer({
       });
 
       h.on("drag", (e) => {
-        const ll = (e as L.LeafletMouseEvent).latlng;
+        const ll = (e as unknown as { latlng: L.LatLng }).latlng;
         livePts[idx] = [ll.lat, ll.lng];
         editPoly.setLatLngs(livePts as L.LatLngExpression[]);
       });
@@ -277,13 +286,64 @@ function ZoneLayer({
       return h.addTo(map);
     });
 
+    // Edge midpoint handles — drag moves the whole edge (both endpoints)
+    const midHandles = livePts.map((_, i) => {
+      const j = (i + 1) % n;
+
+      // Captured at dragstart so cumulative delta is always relative to
+      // the positions when the drag began (not from the previous drag frame).
+      let startLat0 = 0, startLng0 = 0;
+      let startLat1 = 0, startLng1 = 0;
+      let startMidLat = 0, startMidLng = 0;
+
+      const mh = L.marker(
+        [(livePts[i][0] + livePts[j][0]) / 2, (livePts[i][1] + livePts[j][1]) / 2] as L.LatLngExpression,
+        {
+          icon: L.divIcon({
+            className: "",
+            html: `<div class="zone-edge-handle" style="border-color:${zone.color}"></div>`,
+            iconSize: [10, 10] as L.PointTuple,
+            iconAnchor: [5, 5] as L.PointTuple,
+          }),
+          draggable: true,
+          zIndexOffset: 450,
+        }
+      );
+
+      mh.on("dragstart", () => {
+        startLat0 = livePts[i][0]; startLng0 = livePts[i][1];
+        startLat1 = livePts[j][0]; startLng1 = livePts[j][1];
+        startMidLat = (startLat0 + startLat1) / 2;
+        startMidLng = (startLng0 + startLng1) / 2;
+      });
+
+      mh.on("drag", (e) => {
+        const ll = (e as unknown as { latlng: L.LatLng }).latlng;
+        const dLat = ll.lat - startMidLat;
+        const dLng = ll.lng - startMidLng;
+        livePts[i] = [startLat0 + dLat, startLng0 + dLng];
+        livePts[j] = [startLat1 + dLat, startLng1 + dLng];
+        editPoly.setLatLngs(livePts as L.LatLngExpression[]);
+        // Keep corner handles in sync so they're not floating
+        handles[i].setLatLng(livePts[i] as L.LatLngExpression);
+        handles[j].setLatLng(livePts[j] as L.LatLngExpression);
+      });
+
+      mh.on("dragend", () => {
+        onVertexDragEndRef.current(editingZoneId, [...livePts]);
+      });
+
+      return mh.addTo(map);
+    });
+
     return () => {
       map.removeLayer(editPoly);
       handles.forEach((h) => map.removeLayer(h));
+      midHandles.forEach((h) => map.removeLayer(h));
     };
   }, [editingZoneId, zones, map]);
 
-  // In-progress drawing polyline + vertex dots
+  // ── In-progress drawing polyline + vertex dots ───────────────
   useEffect(() => {
     if (!drawingMode || drawingPoints.length === 0) return;
     const layers: L.Layer[] = [];
@@ -316,7 +376,7 @@ function ZoneLayer({
     return () => layers.forEach((l) => map.removeLayer(l));
   }, [drawingMode, drawingPoints, map]);
 
-  // Drawing mode: cursor + click/dblclick handlers
+  // ── Drawing mode cursor + click handlers ─────────────────────
   useEffect(() => {
     if (!drawingMode) return;
 
@@ -344,12 +404,36 @@ function ZoneLayer({
     };
   }, [drawingMode, map]);
 
+  // ── Property preview circles during edit / draw ──────────────
+  // Shows all city listings as small colored circles:
+  //   green = inside current polygon  |  gray = outside
+  useEffect(() => {
+    const active = editingZoneId || drawingMode;
+    if (!active || allListings.length === 0) return;
+
+    const zone = editingZoneId ? zones.find((z) => z.id === editingZoneId) : null;
+    const previewPoly = zone?.polygon ?? (drawingPoints.length >= 3 ? drawingPoints : null);
+
+    const circles: L.CircleMarker[] = allListings.map((listing) => {
+      const inside = previewPoly ? pointInPolygon(listing.lat, listing.lng, previewPoly) : false;
+      return L.circleMarker([listing.lat, listing.lng] as L.LatLngExpression, {
+        radius: 5,
+        color: inside ? "#22c55e" : "#94a3b8",
+        fillColor: inside ? "#22c55e" : "#e2e8f0",
+        fillOpacity: inside ? 0.85 : 0.4,
+        weight: inside ? 2 : 1,
+        interactive: false,
+      }).addTo(map);
+    });
+
+    return () => circles.forEach((c) => map.removeLayer(c));
+  }, [editingZoneId, drawingMode, drawingPoints, allListings, zones, map]);
+
   return null;
 }
 
 /**
  * Preview card shown at the bottom of the map when a marker is selected.
- * Lives in React's DOM (outside Leaflet), so no touch-event ghost-click issues.
  */
 function SelectedPreview({
   listing,
@@ -360,8 +444,6 @@ function SelectedPreview({
   onNavigate: (id: string) => void;
   onDismiss: () => void;
 }) {
-  // Block pointer events for 350ms after mount to absorb the browser's
-  // 300ms ghost-click that follows a touch tap on a map marker.
   const [interactive, setInteractive] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setInteractive(true), 350);
@@ -417,6 +499,7 @@ export function MapView({
   onZoneUpdate,
   onZoneRemove,
   onZoneRename,
+  allListings,
 }: MapViewProps) {
   const mapRef = useRef<L.Map | null>(null);
 
@@ -477,23 +560,56 @@ export function MapView({
     setRenamingZoneId(null);
   }
 
-  const allListings = useMemo(
+  /**
+   * Vertex dragend handler that also moves coincident vertices in adjacent zones.
+   * Two vertices are "shared" if they're within SHARED_VERTEX_TOLERANCE degrees.
+   */
+  function handleVertexDragEnd(id: string, newPolygon: [number, number][]) {
+    const originalZone = zones.find((z) => z.id === id);
+    onZoneUpdate(id, newPolygon);
+
+    if (!originalZone) return;
+
+    for (let vi = 0; vi < newPolygon.length; vi++) {
+      const [newLat, newLng] = newPolygon[vi];
+      const [oldLat, oldLng] = originalZone.polygon[vi] ?? [newLat, newLng];
+      const dLat = newLat - oldLat;
+      const dLng = newLng - oldLng;
+      if (Math.abs(dLat) + Math.abs(dLng) < 1e-8) continue; // didn't move
+
+      for (const other of zones) {
+        if (other.id === id) continue;
+        let changed = false;
+        const updated = other.polygon.map(([lat, lng]) => {
+          if (
+            Math.abs(lat - oldLat) < SHARED_VERTEX_TOLERANCE &&
+            Math.abs(lng - oldLng) < SHARED_VERTEX_TOLERANCE
+          ) {
+            changed = true;
+            return [lat + dLat, lng + dLng] as [number, number];
+          }
+          return [lat, lng] as [number, number];
+        });
+        if (changed) onZoneUpdate(other.id, updated);
+      }
+    }
+  }
+
+  const allCoords = useMemo(
+    () => timeSlotGroups.flatMap((g) => g.listings.map((l) => [l.lat, l.lng] as [number, number])),
+    [timeSlotGroups]
+  );
+
+  const allMapListings = useMemo(
     () => timeSlotGroups.flatMap((g) => g.listings),
     [timeSlotGroups]
   );
 
   const selectedListing = useMemo(
-    () => (selectedId ? allListings.find((l) => l.id === selectedId) ?? null : null),
-    [selectedId, allListings]
+    () => (selectedId ? allMapListings.find((l) => l.id === selectedId) ?? null : null),
+    [selectedId, allMapListings]
   );
 
-  // Collect all coordinates for overlap detection
-  const allCoords = useMemo(
-    () => allListings.map((l) => [l.lat, l.lng] as [number, number]),
-    [allListings]
-  );
-
-  // Build straight-line fallback coords (used while OSRM loads or if it fails)
   const fallbackRouteCoords = useMemo(() => {
     let coordIdx = 0;
     return timeSlotGroups.flatMap((g) =>
@@ -505,24 +621,19 @@ export function MapView({
     );
   }, [timeSlotGroups, allCoords]);
 
-  // OSRM street-following route
   const [osrmRoute, setOsrmRoute] = useState<[number, number][] | null>(null);
 
   useEffect(() => {
-    if (allListings.length < 2) { setOsrmRoute(null); return; }
-
+    if (allMapListings.length < 2) { setOsrmRoute(null); return; }
     const controller = new AbortController();
-
-    // Route priority listings in priority order, then the rest in display order
-    const byId = new Map(allListings.map((l) => [l.id, l]));
+    const byId = new Map(allMapListings.map((l) => [l.id, l]));
     const priorityListings = priorityOrder
       .map((id) => byId.get(id))
-      .filter((l): l is typeof allListings[0] => l !== undefined);
+      .filter((l): l is typeof allMapListings[0] => l !== undefined);
     const prioritySet = new Set(priorityOrder);
-    const others = allListings.filter((l) => !prioritySet.has(l.id));
-    const ordered = priorityListings.length > 0 ? [...priorityListings, ...others] : allListings;
-    const waypoints = ordered.slice(0, 25); // OSRM demo server cap
-
+    const others = allMapListings.filter((l) => !prioritySet.has(l.id));
+    const ordered = priorityListings.length > 0 ? [...priorityListings, ...others] : allMapListings;
+    const waypoints = ordered.slice(0, 25);
     const coordStr = waypoints.map((l) => `${l.lng},${l.lat}`).join(";");
     fetch(
       `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson`,
@@ -535,9 +646,8 @@ export function MapView({
         else setOsrmRoute(null);
       })
       .catch((err) => { if (err.name !== "AbortError") setOsrmRoute(null); });
-
     return () => controller.abort();
-  }, [allListings, priorityOrder]);
+  }, [allMapListings, priorityOrder]);
 
   const routeCoords = osrmRoute ?? fallbackRouteCoords;
 
@@ -554,10 +664,7 @@ export function MapView({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <FitBounds timeSlotGroups={timeSlotGroups} />
-        <PanToSelected
-          timeSlotGroups={timeSlotGroups}
-          selectedId={selectedId}
-        />
+        <PanToSelected timeSlotGroups={timeSlotGroups} selectedId={selectedId} />
         <PanToUserPosition userPosition={userPosition} />
 
         <ZoneLayer
@@ -566,13 +673,14 @@ export function MapView({
           editingZoneId={editingZoneId}
           drawingMode={drawingMode}
           drawingPoints={drawingPoints}
+          allListings={allListings}
           onZoneSelect={onZoneSelect}
-          onVertexDragEnd={onZoneUpdate}
+          onVertexDragEnd={handleVertexDragEnd}
           onDrawVertex={handleDrawVertex}
           onDrawFinish={handleDrawFinish}
         />
 
-        {/* Route polyline — white halo + blue line so it reads against any tile */}
+        {/* Route polyline */}
         {showRoute && routeCoords.length > 1 && (
           <>
             <Polyline
@@ -591,13 +699,11 @@ export function MapView({
             />
           </>
         )}
-        {/* Directional arrows along the route */}
         {showRoute && routeCoords.length > 1 && (() => {
           const N = Math.min(8, Math.max(2, Math.floor(routeCoords.length / 12)));
           const step = Math.floor(routeCoords.length / (N + 1));
           return Array.from({ length: N }, (_, a) => {
             const i = step * (a + 1);
-            // look slightly ahead for a stable bearing even on curved roads
             const j = Math.min(i + Math.max(2, Math.floor(step / 4)), routeCoords.length - 1);
             const [lat1, lng1] = routeCoords[i];
             const [lat2, lng2] = routeCoords[j];
@@ -619,7 +725,6 @@ export function MapView({
           });
         })()}
 
-        {/* User location dot */}
         {userPosition && (
           <Marker
             position={[userPosition.lat, userPosition.lng]}
@@ -628,25 +733,16 @@ export function MapView({
           />
         )}
 
-        {/* Markers — click selects only; navigation is via the preview card below */}
         {(() => {
-          // Mirror the sidebar: only count priority IDs that are actually visible
           const visibleIds = new Set(timeSlotGroups.flatMap((g) => g.listings.map((l) => l.id)));
           const filteredPriorityOrder = priorityOrder.filter((id) => visibleIds.has(id));
-
           let coordIdx = 0;
           return timeSlotGroups.flatMap((group, groupIdx) => {
             const color = SLOT_COLORS[groupIdx % SLOT_COLORS.length];
             return group.listings.map((listing) => {
-              const pos = offsetCoords(
-                listing.lat,
-                listing.lng,
-                coordIdx,
-                allCoords
-              );
+              const pos = offsetCoords(listing.lat, listing.lng, coordIdx, allCoords);
               coordIdx++;
-              const isActive =
-                listing.id === selectedId || listing.id === hoveredId;
+              const isActive = listing.id === selectedId || listing.id === hoveredId;
               const visit = visits[listing.id];
               const visitStatus: VisitStatus =
                 !visit ? "unvisited" :
@@ -717,7 +813,6 @@ export function MapView({
       {showZonePanel && (
         <div className="zone-panel">
           {pendingPolygon ? (
-            /* Name new zone */
             <div className="zone-panel-section">
               <div className="zone-panel-title">Name this zone</div>
               <div className="zone-name-row">
@@ -734,7 +829,6 @@ export function MapView({
               </div>
             </div>
           ) : drawingMode ? (
-            /* Drawing in progress */
             <div className="zone-panel-section">
               <div className="zone-panel-title">
                 {drawingPoints.length === 0
@@ -751,7 +845,6 @@ export function MapView({
               </div>
             </div>
           ) : (
-            /* Zone list */
             <div className="zone-panel-section">
               {zones.length > 0 && (
                 <div className="zone-list">
@@ -780,7 +873,7 @@ export function MapView({
                       <div className="zone-row-actions">
                         <button
                           className={`zone-icon-btn${editingZoneId === zone.id ? " active" : ""}`}
-                          title="Edit vertices"
+                          title={editingZoneId === zone.id ? "Done editing" : "Edit vertices & edges"}
                           onClick={() => setEditingZoneId(editingZoneId === zone.id ? null : zone.id)}
                         >
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -820,12 +913,12 @@ export function MapView({
                 </div>
               )}
               {editingZoneId && (
-                <div className="zone-edit-hint">Drag vertex handles to reshape · <button className="zone-link-btn" onClick={() => setEditingZoneId(null)}>Done</button></div>
+                <div className="zone-edit-hint">
+                  Drag <strong>●</strong> corners or <strong>◆</strong> edge midpoints · shared boundaries move together ·{" "}
+                  <button className="zone-link-btn" onClick={() => setEditingZoneId(null)}>Done</button>
+                </div>
               )}
-              <button
-                className="zone-draw-btn"
-                onClick={() => setDrawingMode(true)}
-              >
+              <button className="zone-draw-btn" onClick={() => setDrawingMode(true)}>
                 + Draw Zone
               </button>
             </div>
@@ -833,7 +926,6 @@ export function MapView({
         </div>
       )}
 
-      {/* Selected listing preview — rendered in React DOM, not Leaflet, so no ghost-click issues */}
       {selectedListing && (
         <SelectedPreview
           key={selectedListing.id}

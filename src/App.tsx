@@ -96,18 +96,7 @@ function buildFilterParams(
   return p.toString();
 }
 
-/** Ray-casting point-in-polygon */
-function pointInPolygon(lat: number, lng: number, polygon: [number, number][]): boolean {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const [yi, xi] = polygon[i];
-    const [yj, xj] = polygon[j];
-    if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
-      inside = !inside;
-    }
-  }
-  return inside;
-}
+import { pointInPolygon } from "./utils/geometry";
 
 function App() {
   const [page, setPageState] = useState<Page>(pageFromHash);
@@ -512,6 +501,7 @@ function App() {
           onZoneUpdate={updateZone}
           onZoneRemove={(id) => { removeZone(id); if (selectedZoneId === id) setSelectedZoneId(null); }}
           onZoneRename={renameZone}
+          allListings={allListings.filter(l => !hiddenIds.has(l.id) && l.city === selectedCity)}
         />
       </div>
       <nav className="mobile-tab-bar">

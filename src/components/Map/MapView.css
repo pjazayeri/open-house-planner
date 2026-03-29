@@ -489,6 +489,22 @@
   cursor: grabbing;
 }
 
+/* Diamond-shaped midpoint handle for edge dragging */
+.zone-edge-handle {
+  width: 100%;
+  height: 100%;
+  border-radius: 2px;
+  border: 2px solid;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  transform: rotate(45deg);
+  cursor: move;
+}
+
+.zone-edge-handle:active {
+  cursor: grabbing;
+}
+
 @media (max-width: 767px) {
   .zone-panel {
     top: 10px;
