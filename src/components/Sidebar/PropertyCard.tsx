@@ -11,6 +11,7 @@ interface PropertyCardProps {
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
   onHide: (id: string) => void;
+  onSkipForDay?: () => void;
   isPriority: boolean;
   onTogglePriority: (id: string) => void;
   visit: VisitRecord | null;
@@ -84,6 +85,7 @@ export function PropertyCard({
   onSelect,
   onHover,
   onHide,
+  onSkipForDay,
   isPriority,
   onTogglePriority,
   visit,
@@ -148,9 +150,18 @@ export function PropertyCard({
         >
           {isPriority ? "★" : "☆"}
         </button>
+        {onSkipForDay && (
+          <button
+            className="skip-day-btn"
+            title="Hide for today only"
+            onClick={(e) => { e.stopPropagation(); onSkipForDay(); }}
+          >
+            −day
+          </button>
+        )}
         <button
           className="hide-btn"
-          title="Hide this property"
+          title="Hide this property permanently"
           onClick={(e) => { e.stopPropagation(); onHide(listing.id); }}
         >
           ✕

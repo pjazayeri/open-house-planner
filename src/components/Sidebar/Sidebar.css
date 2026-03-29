@@ -258,6 +258,70 @@
   color: #78350f;
 }
 
+/* ── Day planning banner ────────────────────── */
+.sb-day-banner {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.sb-day-selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sb-day-label {
+  font-size: 13px;
+  color: #334155;
+}
+
+.sb-day-label strong {
+  color: #1d4ed8;
+}
+
+.sb-day-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sb-day-restore {
+  background: none;
+  border: 1px solid #f59e0b;
+  border-radius: 5px;
+  color: #d97706;
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.sb-day-restore:hover { background: rgba(245,158,11,0.1); }
+
+.sb-day-clear {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+.sb-day-clear:hover { color: #ef4444; }
+
+.sb-day-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sb-day-pick-label {
+  font-size: 12px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
 /* ── Geo bar ──────────────────────────────────── */
 .sidebar-geo-bar {
   display: flex;

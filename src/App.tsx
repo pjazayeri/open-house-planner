@@ -150,6 +150,29 @@ function App() {
   const [showSummary, setShowSummary] = useState(false);
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
 
+  // Per-day skip: hides a listing only for a specific date (ephemeral, localStorage-only)
+  const [skippedForDay, setSkippedForDay] = useState<Record<string, string[]>>(() => {
+    try { return JSON.parse(localStorage.getItem("skipped-for-day") ?? "{}"); } catch { return {}; }
+  });
+  function skipForDay(id: string) {
+    if (!selectedDate) return;
+    setSkippedForDay((prev) => {
+      const next = { ...prev, [selectedDate]: [...(prev[selectedDate] ?? []), id] };
+      try { localStorage.setItem("skipped-for-day", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+  function restoreSkippedForDay() {
+    if (!selectedDate) return;
+    setSkippedForDay((prev) => {
+      const next = { ...prev };
+      delete next[selectedDate];
+      try { localStorage.setItem("skipped-for-day", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+  const skippedTodayCount = selectedDate ? (skippedForDay[selectedDate]?.length ?? 0) : 0;
+
   const {
     loading,
     error,
@@ -272,6 +295,13 @@ function App() {
         groups = groups.filter(
           (g) => g.startTime.toISOString().slice(0, 10) === selectedDate
         );
+        // Hide listings skipped for this specific day
+        const skipped = new Set(skippedForDay[selectedDate] ?? []);
+        if (skipped.size > 0) {
+          groups = groups
+            .map((g) => ({ ...g, listings: g.listings.filter((l) => !skipped.has(l.id)) }))
+            .filter((g) => g.listings.length > 0);
+        }
       }
       if (timeFrom !== null || timeTo !== null) {
         groups = groups
@@ -411,6 +441,9 @@ function App() {
           onSelect={setSelectedId}
           onHover={setHoveredId}
           onHide={hideListing}
+          onSkipForDay={skipForDay}
+          skippedTodayCount={skippedTodayCount}
+          onRestoreSkipped={restoreSkippedForDay}
           priorityIds={priorityIds}
           priorityOrder={priorityOrder}
           onTogglePriority={togglePriority}

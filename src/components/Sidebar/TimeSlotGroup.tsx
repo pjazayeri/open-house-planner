@@ -11,6 +11,7 @@ interface TimeSlotGroupProps {
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
   onHide: (id: string) => void;
+  onSkipForDay?: (id: string) => void;
   priorityIds: Set<string>;
   onTogglePriority: (id: string) => void;
   visits: Record<string, VisitRecord>;
@@ -41,6 +42,7 @@ export function TimeSlotGroup({
   onSelect,
   onHover,
   onHide,
+  onSkipForDay,
   priorityIds,
   onTogglePriority,
   visits,
@@ -77,6 +79,7 @@ export function TimeSlotGroup({
               onSelect={onSelect}
               onHover={onHover}
               onHide={onHide}
+              onSkipForDay={onSkipForDay ? () => onSkipForDay(listing.id) : undefined}
               isPriority={priorityIds.has(listing.id)}
               onTogglePriority={onTogglePriority}
               visit={visits[listing.id] ?? null}

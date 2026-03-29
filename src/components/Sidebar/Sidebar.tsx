@@ -13,6 +13,9 @@ interface SidebarProps {
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
   onHide: (id: string) => void;
+  onSkipForDay: (id: string) => void;
+  skippedTodayCount: number;
+  onRestoreSkipped: () => void;
   priorityIds: Set<string>;
   priorityOrder: string[];
   onTogglePriority: (id: string) => void;
@@ -236,6 +239,9 @@ export function Sidebar({
   onSelect,
   onHover,
   onHide,
+  onSkipForDay,
+  skippedTodayCount,
+  onRestoreSkipped,
   priorityIds,
   priorityOrder,
   onTogglePriority,
@@ -287,6 +293,35 @@ export function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sidebar-content">
+        {mode === "planner" && availableDates.length > 0 && (
+          <div className="sb-day-banner">
+            {selectedDate ? (
+              <div className="sb-day-selected">
+                <span className="sb-day-label">
+                  📅 Planning: <strong>{availableDates.find(d => d.key === selectedDate)?.label ?? selectedDate}</strong>
+                </span>
+                <div className="sb-day-actions">
+                  {skippedTodayCount > 0 && (
+                    <button className="sb-day-restore" onClick={onRestoreSkipped} title="Restore listings hidden for today">
+                      +{skippedTodayCount} hidden · restore
+                    </button>
+                  )}
+                  <button className="sb-day-clear" onClick={() => onDateChange("")} title="Clear day filter">✕</button>
+                </div>
+              </div>
+            ) : (
+              <div className="sb-day-pick">
+                <span className="sb-day-pick-label">Plan a day:</span>
+                <div className="sb-chips">
+                  {availableDates.map((d) => (
+                    <button key={d.key} className="sb-chip" onClick={() => onDateChange(d.key)}>{d.label}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {mode === "planner" && (
           <div className="sidebar-geo-bar">
             {!geoWatching ? (
@@ -331,22 +366,7 @@ export function Sidebar({
               </select>
             </div>
           )}
-          {mode === "planner" && availableDates.length > 1 && (
-            <div className="sb-control-row">
-              <span className="sb-control-label">Date</span>
-              <div className="sb-chips">
-                {availableDates.map((d) => (
-                  <button
-                    key={d.key}
-                    className={`sb-chip ${selectedDate === d.key ? "active" : ""}`}
-                    onClick={() => onDateChange(selectedDate === d.key ? "" : d.key)}
-                  >
-                    {d.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* date filter moved to top banner */}
           {mode === "planner" && (
             <div className="sb-control-row">
               <span className="sb-control-label">Time</span>
@@ -446,6 +466,7 @@ export function Sidebar({
             onSelect={onSelect}
             onHover={onHover}
             onHide={onHide}
+            onSkipForDay={selectedDate ? onSkipForDay : undefined}
             priorityIds={priorityIds}
             onTogglePriority={onTogglePriority}
             visits={visits}
