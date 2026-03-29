@@ -330,7 +330,7 @@ function App() {
     }
 
     return groups;
-  }, [baseGroups, page, selectedNeighborhood, selectedDate, timeFrom, timeTo, activeFilters, sortKey, visits, priorityIds, searchQuery]);
+  }, [baseGroups, page, selectedNeighborhood, selectedDate, skippedForDay, timeFrom, timeTo, activeFilters, sortKey, visits, priorityIds, searchQuery]);
 
   const totalListings = useMemo(
     () => baseGroups.reduce((s, g) => s + g.listings.length, 0),
