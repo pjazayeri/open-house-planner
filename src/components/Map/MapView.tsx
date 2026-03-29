@@ -7,10 +7,12 @@ import {
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
-import type { Listing, TimeSlotGroup, VisitRecord } from "../../types";
+import type { Listing, TimeSlotGroup, VisitRecord, MapZone } from "../../types";
 import { SLOT_COLORS } from "../Sidebar/TimeSlotGroup";
 import { formatPrice, formatBedsBaths, formatTimeRange } from "../../utils/formatters";
 import "./MapView.css";
+
+const ZONE_COLORS = ["#ef4444", "#f97316", "#22c55e", "#3b82f6", "#a855f7", "#ec4899", "#06b6d4"];
 
 interface MapViewProps {
   timeSlotGroups: TimeSlotGroup[];
@@ -26,6 +28,14 @@ interface MapViewProps {
   userPosition: { lat: number; lng: number } | null;
   geoWatching: boolean;
   onLocate: () => void;
+  // Zone management
+  zones: MapZone[];
+  selectedZoneId: string | null;
+  onZoneSelect: (id: string) => void;
+  onZoneCreate: (zone: MapZone) => void;
+  onZoneUpdate: (id: string, polygon: [number, number][]) => void;
+  onZoneRemove: (id: string) => void;
+  onZoneRename: (id: string, name: string) => void;
 }
 
 /** "You are here" pulsing blue dot icon */
@@ -144,6 +154,199 @@ function PanToSelected({
   return null;
 }
 
+interface ZoneLayerProps {
+  zones: MapZone[];
+  selectedZoneId: string | null;
+  editingZoneId: string | null;
+  drawingMode: boolean;
+  drawingPoints: [number, number][];
+  onZoneSelect: (id: string) => void;
+  onVertexDragEnd: (zoneId: string, newPolygon: [number, number][]) => void;
+  onDrawVertex: (lat: number, lng: number) => void;
+  onDrawFinish: () => void;
+}
+
+function ZoneLayer({
+  zones,
+  selectedZoneId,
+  editingZoneId,
+  drawingMode,
+  drawingPoints,
+  onZoneSelect,
+  onVertexDragEnd,
+  onDrawVertex,
+  onDrawFinish,
+}: ZoneLayerProps) {
+  const map = useMap();
+
+  // Stable refs for callbacks (avoids re-creating Leaflet layers on callback identity changes)
+  const onZoneSelectRef = useRef(onZoneSelect);
+  onZoneSelectRef.current = onZoneSelect;
+  const onVertexDragEndRef = useRef(onVertexDragEnd);
+  onVertexDragEndRef.current = onVertexDragEnd;
+  const onDrawVertexRef = useRef(onDrawVertex);
+  onDrawVertexRef.current = onDrawVertex;
+  const onDrawFinishRef = useRef(onDrawFinish);
+  onDrawFinishRef.current = onDrawFinish;
+
+  // Zone polygon overlays (excluding the one being edited)
+  useEffect(() => {
+    const layers: L.Layer[] = [];
+
+    for (const zone of zones) {
+      if (zone.polygon.length < 3) continue;
+      if (zone.id === editingZoneId) continue;
+
+      const isSelected = zone.id === selectedZoneId;
+      const poly = L.polygon(zone.polygon as L.LatLngExpression[], {
+        color: zone.color,
+        fillColor: zone.color,
+        fillOpacity: isSelected ? 0.28 : 0.1,
+        weight: isSelected ? 3 : 2,
+        opacity: isSelected ? 1 : 0.65,
+      });
+
+      const capturedId = zone.id;
+      poly.on("click", (e) => {
+        L.DomEvent.stopPropagation(e);
+        onZoneSelectRef.current(capturedId);
+      });
+
+      poly.addTo(map);
+      layers.push(poly);
+
+      // Label at polygon centroid
+      const center = poly.getBounds().getCenter();
+      const label = L.marker(center, {
+        icon: L.divIcon({
+          className: "",
+          html: `<div class="zone-label" style="border-color:${zone.color};color:${zone.color}">${zone.name}</div>`,
+          iconSize: [0, 0] as L.PointTuple,
+          iconAnchor: [0, 0] as L.PointTuple,
+        }),
+        interactive: false,
+        zIndexOffset: -50,
+      });
+      label.addTo(map);
+      layers.push(label);
+    }
+
+    return () => layers.forEach((l) => map.removeLayer(l));
+  }, [zones, selectedZoneId, editingZoneId, map]);
+
+  // Vertex drag handles for the zone being edited
+  useEffect(() => {
+    if (!editingZoneId) return;
+    const zone = zones.find((z) => z.id === editingZoneId);
+    if (!zone || zone.polygon.length < 3) return;
+
+    // Mutable copy for live drag updates
+    const livePts = zone.polygon.map((pt) => [...pt] as [number, number]);
+
+    const editPoly = L.polygon(livePts as L.LatLngExpression[], {
+      color: zone.color,
+      fillColor: zone.color,
+      fillOpacity: 0.15,
+      weight: 2.5,
+      dashArray: "6 4",
+      opacity: 0.9,
+    }).addTo(map);
+
+    const handles = zone.polygon.map(([lat, lng], idx) => {
+      const h = L.marker([lat, lng] as L.LatLngExpression, {
+        icon: L.divIcon({
+          className: "",
+          html: `<div class="zone-vertex-dot" style="background:${zone.color};border-color:${zone.color}"></div>`,
+          iconSize: [14, 14] as L.PointTuple,
+          iconAnchor: [7, 7] as L.PointTuple,
+        }),
+        draggable: true,
+        zIndexOffset: 500,
+      });
+
+      h.on("drag", (e) => {
+        const ll = (e as L.LeafletMouseEvent).latlng;
+        livePts[idx] = [ll.lat, ll.lng];
+        editPoly.setLatLngs(livePts as L.LatLngExpression[]);
+      });
+
+      h.on("dragend", () => {
+        onVertexDragEndRef.current(editingZoneId, [...livePts]);
+      });
+
+      return h.addTo(map);
+    });
+
+    return () => {
+      map.removeLayer(editPoly);
+      handles.forEach((h) => map.removeLayer(h));
+    };
+  }, [editingZoneId, zones, map]);
+
+  // In-progress drawing polyline + vertex dots
+  useEffect(() => {
+    if (!drawingMode || drawingPoints.length === 0) return;
+    const layers: L.Layer[] = [];
+
+    if (drawingPoints.length >= 2) {
+      layers.push(
+        L.polyline(drawingPoints as L.LatLngExpression[], {
+          color: "#7c3aed",
+          weight: 2.5,
+          dashArray: "6 4",
+          opacity: 0.9,
+        }).addTo(map)
+      );
+    }
+
+    for (const [lat, lng] of drawingPoints) {
+      layers.push(
+        L.marker([lat, lng] as L.LatLngExpression, {
+          icon: L.divIcon({
+            className: "",
+            html: `<div class="zone-vertex-dot" style="background:#7c3aed;border-color:#7c3aed"></div>`,
+            iconSize: [10, 10] as L.PointTuple,
+            iconAnchor: [5, 5] as L.PointTuple,
+          }),
+          interactive: false,
+        }).addTo(map)
+      );
+    }
+
+    return () => layers.forEach((l) => map.removeLayer(l));
+  }, [drawingMode, drawingPoints, map]);
+
+  // Drawing mode: cursor + click/dblclick handlers
+  useEffect(() => {
+    if (!drawingMode) return;
+
+    const container = map.getContainer();
+    container.style.cursor = "crosshair";
+    map.doubleClickZoom.disable();
+
+    const handleClick = (e: L.LeafletMouseEvent) => {
+      onDrawVertexRef.current(e.latlng.lat, e.latlng.lng);
+    };
+
+    const handleDblClick = (e: L.LeafletMouseEvent) => {
+      L.DomEvent.stop(e);
+      onDrawFinishRef.current();
+    };
+
+    map.on("click", handleClick);
+    map.on("dblclick", handleDblClick);
+
+    return () => {
+      container.style.cursor = "";
+      map.doubleClickZoom.enable();
+      map.off("click", handleClick);
+      map.off("dblclick", handleDblClick);
+    };
+  }, [drawingMode, map]);
+
+  return null;
+}
+
 /**
  * Preview card shown at the bottom of the map when a marker is selected.
  * Lives in React's DOM (outside Leaflet), so no touch-event ghost-click issues.
@@ -207,8 +410,72 @@ export function MapView({
   userPosition,
   geoWatching,
   onLocate,
+  zones,
+  selectedZoneId,
+  onZoneSelect,
+  onZoneCreate,
+  onZoneUpdate,
+  onZoneRemove,
+  onZoneRename,
 }: MapViewProps) {
   const mapRef = useRef<L.Map | null>(null);
+
+  // Zone management local state
+  const [showZonePanel, setShowZonePanel] = useState(false);
+  const [editingZoneId, setEditingZoneId] = useState<string | null>(null);
+  const [drawingMode, setDrawingMode] = useState(false);
+  const [drawingPoints, setDrawingPoints] = useState<[number, number][]>([]);
+  const [pendingPolygon, setPendingPolygon] = useState<[number, number][] | null>(null);
+  const [pendingName, setPendingName] = useState("");
+  const [renamingZoneId, setRenamingZoneId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
+  function handleDrawVertex(lat: number, lng: number) {
+    setDrawingPoints((prev) => [...prev, [lat, lng]]);
+  }
+
+  function handleDrawFinish() {
+    if (drawingPoints.length < 3) return;
+    setPendingPolygon([...drawingPoints]);
+    setPendingName(`Zone ${zones.length + 1}`);
+    setDrawingPoints([]);
+    setDrawingMode(false);
+  }
+
+  function handleCancelDrawing() {
+    setDrawingMode(false);
+    setDrawingPoints([]);
+  }
+
+  function handleSaveZone() {
+    if (!pendingPolygon || pendingName.trim() === "") return;
+    const colorIdx = zones.length % ZONE_COLORS.length;
+    onZoneCreate({
+      id: `zone-${Date.now()}`,
+      name: pendingName.trim(),
+      color: ZONE_COLORS[colorIdx],
+      polygon: pendingPolygon,
+    });
+    setPendingPolygon(null);
+    setPendingName("");
+  }
+
+  function handleCancelPending() {
+    setPendingPolygon(null);
+    setPendingName("");
+  }
+
+  function handleStartRename(zone: MapZone) {
+    setRenamingZoneId(zone.id);
+    setRenameValue(zone.name);
+  }
+
+  function handleSaveRename() {
+    if (renamingZoneId && renameValue.trim()) {
+      onZoneRename(renamingZoneId, renameValue.trim());
+    }
+    setRenamingZoneId(null);
+  }
 
   const allListings = useMemo(
     () => timeSlotGroups.flatMap((g) => g.listings),
@@ -292,6 +559,18 @@ export function MapView({
           selectedId={selectedId}
         />
         <PanToUserPosition userPosition={userPosition} />
+
+        <ZoneLayer
+          zones={zones}
+          selectedZoneId={selectedZoneId}
+          editingZoneId={editingZoneId}
+          drawingMode={drawingMode}
+          drawingPoints={drawingPoints}
+          onZoneSelect={onZoneSelect}
+          onVertexDragEnd={onZoneUpdate}
+          onDrawVertex={handleDrawVertex}
+          onDrawFinish={handleDrawFinish}
+        />
 
         {/* Route polyline — white halo + blue line so it reads against any tile */}
         {showRoute && routeCoords.length > 1 && (
@@ -394,6 +673,27 @@ export function MapView({
         })()}
       </MapContainer>
 
+      {/* Zones button */}
+      <button
+        className={`zone-btn${showZonePanel ? " zone-btn--active" : ""}${selectedZoneId ? " zone-btn--filtered" : ""}`}
+        onClick={() => {
+          setShowZonePanel((v) => !v);
+          if (showZonePanel) {
+            setDrawingMode(false);
+            setDrawingPoints([]);
+            setPendingPolygon(null);
+            setEditingZoneId(null);
+          }
+        }}
+        aria-label="Manage zones"
+        title="Zones"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="3 11 22 2 13 21 11 13 3 11" />
+        </svg>
+        {selectedZoneId && <span className="zone-btn-dot" />}
+      </button>
+
       {/* Locate me button */}
       <button
         className={`locate-btn${geoWatching && userPosition ? " locate-btn--active" : ""}`}
@@ -412,6 +712,126 @@ export function MapView({
           <circle cx="12" cy="12" r="8" />
         </svg>
       </button>
+
+      {/* Zone panel */}
+      {showZonePanel && (
+        <div className="zone-panel">
+          {pendingPolygon ? (
+            /* Name new zone */
+            <div className="zone-panel-section">
+              <div className="zone-panel-title">Name this zone</div>
+              <div className="zone-name-row">
+                <input
+                  className="zone-name-input"
+                  value={pendingName}
+                  onChange={(e) => setPendingName(e.target.value)}
+                  placeholder="Zone name…"
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === "Enter") handleSaveZone(); if (e.key === "Escape") handleCancelPending(); }}
+                />
+                <button className="zone-action-btn zone-action-btn--save" onClick={handleSaveZone}>Save</button>
+                <button className="zone-action-btn zone-action-btn--cancel" onClick={handleCancelPending}>✕</button>
+              </div>
+            </div>
+          ) : drawingMode ? (
+            /* Drawing in progress */
+            <div className="zone-panel-section">
+              <div className="zone-panel-title">
+                {drawingPoints.length === 0
+                  ? "Click map to add vertices"
+                  : drawingPoints.length < 3
+                  ? `${drawingPoints.length} point${drawingPoints.length > 1 ? "s" : ""} — need ${3 - drawingPoints.length} more`
+                  : `${drawingPoints.length} points — double-click to finish`}
+              </div>
+              <div className="zone-draw-actions">
+                {drawingPoints.length >= 3 && (
+                  <button className="zone-action-btn zone-action-btn--save" onClick={handleDrawFinish}>✓ Finish</button>
+                )}
+                <button className="zone-action-btn zone-action-btn--cancel" onClick={handleCancelDrawing}>✕ Cancel</button>
+              </div>
+            </div>
+          ) : (
+            /* Zone list */
+            <div className="zone-panel-section">
+              {zones.length > 0 && (
+                <div className="zone-list">
+                  {zones.map((zone) => (
+                    <div key={zone.id} className="zone-row">
+                      {renamingZoneId === zone.id ? (
+                        <input
+                          className="zone-name-input zone-name-input--inline"
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          autoFocus
+                          onKeyDown={(e) => { if (e.key === "Enter") handleSaveRename(); if (e.key === "Escape") setRenamingZoneId(null); }}
+                          onBlur={handleSaveRename}
+                        />
+                      ) : (
+                        <button
+                          className={`zone-chip${selectedZoneId === zone.id ? " zone-chip--active" : ""}`}
+                          style={{ "--zone-color": zone.color } as React.CSSProperties}
+                          onClick={() => onZoneSelect(zone.id)}
+                          title="Click to filter by this zone"
+                        >
+                          <span className="zone-chip-dot" style={{ background: zone.color }} />
+                          {zone.name}
+                        </button>
+                      )}
+                      <div className="zone-row-actions">
+                        <button
+                          className={`zone-icon-btn${editingZoneId === zone.id ? " active" : ""}`}
+                          title="Edit vertices"
+                          onClick={() => setEditingZoneId(editingZoneId === zone.id ? null : zone.id)}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
+                        </button>
+                        <button
+                          className="zone-icon-btn"
+                          title="Rename"
+                          onClick={() => handleStartRename(zone)}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="4 7 4 4 20 4 20 7" />
+                            <line x1="9" y1="20" x2="15" y2="20" />
+                            <line x1="12" y1="4" x2="12" y2="20" />
+                          </svg>
+                        </button>
+                        <button
+                          className="zone-icon-btn zone-icon-btn--danger"
+                          title="Delete zone"
+                          onClick={() => {
+                            onZoneRemove(zone.id);
+                            if (editingZoneId === zone.id) setEditingZoneId(null);
+                          }}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6l-1 14H6L5 6" />
+                            <path d="M10 11v6M14 11v6" />
+                            <path d="M9 6V4h6v2" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {editingZoneId && (
+                <div className="zone-edit-hint">Drag vertex handles to reshape · <button className="zone-link-btn" onClick={() => setEditingZoneId(null)}>Done</button></div>
+              )}
+              <button
+                className="zone-draw-btn"
+                onClick={() => setDrawingMode(true)}
+              >
+                + Draw Zone
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Selected listing preview — rendered in React DOM, not Leaflet, so no ghost-click issues */}
       {selectedListing && (

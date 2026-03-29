@@ -73,3 +73,10 @@ export interface VisitRecord {
   cons: string;
   wantOffer: boolean;
 }
+
+export interface MapZone {
+  id: string;
+  name: string;
+  color: string;
+  polygon: [number, number][]; // [lat, lng] pairs
+}

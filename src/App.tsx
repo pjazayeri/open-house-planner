@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useListings } from "./hooks/useListings";
+import { useMapZones } from "./hooks/useMapZones";
 import { Header } from "./components/Header/Header";
 import { Sidebar, sortListings, matchesFilter } from "./components/Sidebar/Sidebar";
 import { getNeighborhoods } from "./utils/filterListings";
@@ -95,6 +96,19 @@ function buildFilterParams(
   return p.toString();
 }
 
+/** Ray-casting point-in-polygon */
+function pointInPolygon(lat: number, lng: number, polygon: [number, number][]): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [yi, xi] = polygon[i];
+    const [yj, xj] = polygon[j];
+    if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 function App() {
   const [page, setPageState] = useState<Page>(pageFromHash);
   const [financeInitId, setFinanceInitId] = useState<string | null>(null);
@@ -149,6 +163,9 @@ function App() {
   }
   const [showSummary, setShowSummary] = useState(false);
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+
+  const { zones, addZone, updateZone, removeZone, renameZone } = useMapZones();
 
   const {
     loading,
@@ -260,6 +277,18 @@ function App() {
   const visibleGroups = useMemo(() => {
     let groups = baseGroups;
 
+    if (selectedZoneId) {
+      const zone = zones.find((z) => z.id === selectedZoneId);
+      if (zone && zone.polygon.length >= 3) {
+        groups = groups
+          .map((g) => ({
+            ...g,
+            listings: g.listings.filter((l) => pointInPolygon(l.lat, l.lng, zone.polygon)),
+          }))
+          .filter((g) => g.listings.length > 0);
+      }
+    }
+
     if (selectedNeighborhood) {
       groups = groups
         .map((g) => ({
@@ -330,7 +359,7 @@ function App() {
     }
 
     return groups;
-  }, [baseGroups, page, selectedNeighborhood, selectedDate, skippedForDay, timeFrom, timeTo, activeFilters, sortKey, visits, priorityIds, searchQuery]);
+  }, [baseGroups, page, selectedZoneId, zones, selectedNeighborhood, selectedDate, skippedForDay, timeFrom, timeTo, activeFilters, sortKey, visits, priorityIds, searchQuery]);
 
   const totalListings = useMemo(
     () => baseGroups.reduce((s, g) => s + g.listings.length, 0),
@@ -458,6 +487,9 @@ function App() {
           onSetNoteField={setNoteField}
           onClearVisit={clearVisit}
           onOpenFinance={(id) => { setFinanceInitId(id); setPage("finance"); }}
+          zones={zones}
+          selectedZoneId={selectedZoneId}
+          onZoneSelect={(id) => setSelectedZoneId(selectedZoneId === id ? null : id)}
         />
         <MapView
           timeSlotGroups={visibleGroups}
@@ -473,6 +505,13 @@ function App() {
           userPosition={geoPosition}
           geoWatching={geoWatching}
           onLocate={startGeo}
+          zones={zones}
+          selectedZoneId={selectedZoneId}
+          onZoneSelect={(id) => setSelectedZoneId(selectedZoneId === id ? null : id)}
+          onZoneCreate={addZone}
+          onZoneUpdate={updateZone}
+          onZoneRemove={(id) => { removeZone(id); if (selectedZoneId === id) setSelectedZoneId(null); }}
+          onZoneRename={renameZone}
         />
       </div>
       <nav className="mobile-tab-bar">

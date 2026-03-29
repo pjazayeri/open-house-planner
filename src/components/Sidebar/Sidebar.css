@@ -456,6 +456,26 @@
 .sb-chip-clear { border-color: #94a3b8; color: #94a3b8; }
 .sb-chip-clear:hover { border-color: #ef4444 !important; color: #ef4444 !important; }
 
+/* ── Zone chips in sidebar ─────────────────────────── */
+.sb-zone-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.sb-zone-chip.active {
+  border-color: var(--zone-color, #7c3aed);
+  color: var(--zone-color, #7c3aed);
+  background: color-mix(in srgb, var(--zone-color, #7c3aed) 10%, transparent);
+}
+
+.sb-zone-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .sb-count {
   font-size: 11px;
   color: #94a3b8;

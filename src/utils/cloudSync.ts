@@ -7,7 +7,7 @@
  * Every write does a GET-then-PUT so that two hooks writing different
  * fields never clobber each other's data.
  */
-import type { VisitRecord } from "../types";
+import type { VisitRecord, MapZone } from "../types";
 
 // Sync is always enabled — secrets live on the server, never in the bundle.
 // Set VITE_SYNC_DISABLED=true in .env.local to run offline without errors.
@@ -23,6 +23,7 @@ export interface CloudState {
   visits: Record<string, VisitRecord>;
   listingSnapshots: Record<string, unknown>;
   skippedForDay: Record<string, string[]>;  // date → listing IDs hidden for that day only
+  mapZones: MapZone[];
 }
 
 function parseVisitRecord(v: unknown): VisitRecord {
@@ -62,12 +63,34 @@ function parseCloudState(record: unknown): CloudState {
   for (const [date, ids] of Object.entries(rawSkipped)) {
     if (Array.isArray(ids)) skippedForDay[date] = ids as string[];
   }
+  const mapZones: MapZone[] = [];
+  if (Array.isArray(r.mapZones)) {
+    for (const z of r.mapZones) {
+      if (z && typeof z === "object" && typeof (z as Record<string, unknown>).id === "string") {
+        const zr = z as Record<string, unknown>;
+        const polygon: [number, number][] = Array.isArray(zr.polygon)
+          ? (zr.polygon as unknown[]).filter(
+              (pt): pt is [number, number] =>
+                Array.isArray(pt) && pt.length === 2 && typeof pt[0] === "number" && typeof pt[1] === "number"
+            )
+          : [];
+        mapZones.push({
+          id: zr.id as string,
+          name: typeof zr.name === "string" ? zr.name : "Zone",
+          color: typeof zr.color === "string" ? zr.color : "#3b82f6",
+          polygon,
+        });
+      }
+    }
+  }
+
   return {
     hiddenIds: Array.isArray(r.hiddenIds) ? (r.hiddenIds as string[]) : [],
     priorityIds: Array.isArray(r.priorityIds) ? (r.priorityIds as string[]) : [],
     visits,
     listingSnapshots,
     skippedForDay,
+    mapZones,
   };
 }
 

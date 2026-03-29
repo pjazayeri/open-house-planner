@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import type { TimeSlotGroup as TimeSlotGroupType, Listing, VisitRecord } from "../../types";
+import type { TimeSlotGroup as TimeSlotGroupType, Listing, VisitRecord, MapZone } from "../../types";
 import { TimeSlotGroup } from "./TimeSlotGroup";
 import { formatTimeRange } from "../../utils/formatters";
 import "./Sidebar.css";
@@ -50,6 +50,10 @@ interface SidebarProps {
   onSetNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   onClearVisit: (id: string) => void;
   onOpenFinance: (id: string) => void;
+  // Zone filter
+  zones: MapZone[];
+  selectedZoneId: string | null;
+  onZoneSelect: (id: string) => void;
 }
 
 export type SortKey = "time" | "price" | "capRate" | "ppsf";
@@ -276,6 +280,9 @@ export function Sidebar({
   timeTo,
   onTimeFromChange,
   onTimeToChange,
+  zones,
+  selectedZoneId,
+  onZoneSelect,
 }: SidebarProps) {
   function fmtHour(h: number): string {
     if (h === 12) return "12pm";
@@ -351,6 +358,32 @@ export function Sidebar({
               <button className="sb-search-clear" onClick={() => onSearchChange("")}>✕</button>
             )}
           </div>
+          {zones.length > 0 && (
+            <div className="sb-control-row">
+              <span className="sb-control-label">Zone</span>
+              <div className="sb-chips">
+                {selectedZoneId && (
+                  <button
+                    className="sb-chip sb-chip-clear"
+                    onClick={() => onZoneSelect(selectedZoneId)}
+                  >
+                    Clear
+                  </button>
+                )}
+                {zones.map((z) => (
+                  <button
+                    key={z.id}
+                    className={`sb-chip sb-zone-chip${selectedZoneId === z.id ? " active" : ""}`}
+                    style={{ "--zone-color": z.color } as React.CSSProperties}
+                    onClick={() => onZoneSelect(z.id)}
+                  >
+                    <span className="sb-zone-dot" style={{ background: z.color }} />
+                    {z.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {neighborhoods.length > 1 && (
             <div className="sb-control-row">
               <span className="sb-control-label">Hood</span>
@@ -431,7 +464,7 @@ export function Sidebar({
               ))}
             </div>
           </div>
-          {(activeFilters.size > 0 || sortKey !== "time" || searchQuery.trim() || selectedNeighborhood || selectedDate || timeFrom !== null || timeTo !== null) && (
+          {(activeFilters.size > 0 || sortKey !== "time" || searchQuery.trim() || selectedNeighborhood || selectedZoneId || selectedDate || timeFrom !== null || timeTo !== null) && (
             <div className="sb-count">
               {totalVisible} of {totalListings} shown
             </div>
