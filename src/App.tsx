@@ -197,6 +197,8 @@ function App() {
     startGeo,
     syncStatus,
     saveFailed,
+    finFavoriteIds,
+    toggleFinFavorite,
   } = useListings();
 
   useEffect(() => {
@@ -405,6 +407,8 @@ function App() {
           priorityIds={priorityIds}
           hiddenIds={hiddenIds}
           initialSelectedId={financeInitId ?? idFromHash()}
+          finFavoriteIds={finFavoriteIds}
+          toggleFinFavorite={toggleFinFavorite}
         />
       )}
       {page === "data" && (

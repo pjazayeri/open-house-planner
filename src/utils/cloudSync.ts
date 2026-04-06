@@ -24,6 +24,7 @@ export interface CloudState {
   listingSnapshots: Record<string, unknown>;
   skippedForDay: Record<string, string[]>;  // date → listing IDs hidden for that day only
   mapZones: MapZone[];
+  finFavoriteIds: string[];
 }
 
 function parseVisitRecord(v: unknown): VisitRecord {
@@ -91,6 +92,7 @@ function parseCloudState(record: unknown): CloudState {
     listingSnapshots,
     skippedForDay,
     mapZones,
+    finFavoriteIds: Array.isArray(r.finFavoriteIds) ? (r.finFavoriteIds as string[]) : [],
   };
 }
 

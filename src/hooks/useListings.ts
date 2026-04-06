@@ -8,6 +8,7 @@ import { useVisits } from "./useVisits";
 import { useGeolocation } from "./useGeolocation";
 import type { SyncStatus } from "../utils/cloudSync";
 import { useListingSnapshots } from "./useListingSnapshots";
+import { useFinFavorites } from "./useFinFavorites";
 
 /** Haversine distance in miles */
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -58,6 +59,9 @@ interface UseListingsResult {
   toggleWantOffer: (id: string) => void;
   clearVisit: (id: string) => void;
   importData: (hiddenIds: string[], priorityIds: string[], visits: Record<string, VisitRecord>) => void;
+  // Finance favorites
+  finFavoriteIds: Set<string>;
+  toggleFinFavorite: (id: string) => void;
   uploadListings: (csvText: string) => Promise<number>;
   // Geolocation
   geoPosition: { lat: number; lng: number } | null;
@@ -81,6 +85,7 @@ export function useListings(): UseListingsResult {
   const { hiddenIds, hide, unhide, clearHidden, priorityIds, priorityOrder, togglePriority, reorderPriority, importHiddenAndPriority, skippedForDay, skipForDay, restoreSkippedForDay, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds();
   const { saveSnapshots, archivedListings } = useListingSnapshots();
   const { visits, markVisited, setLiked, setRating, setNoteField, toggleWantOffer, clearVisit, importVisits, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits();
+  const { finFavoriteIds, toggleFinFavorite } = useFinFavorites();
 
   const syncStatus: SyncStatus =
     hiddenStatus === "loading"  || visitsStatus === "loading"  ? "loading" :
@@ -185,6 +190,8 @@ export function useListings(): UseListingsResult {
     toggleWantOffer,
     setNoteField,
     clearVisit,
+    finFavoriteIds,
+    toggleFinFavorite,
     importData: (h: string[], p: string[], v: Record<string, VisitRecord>) => {
       importHiddenAndPriority(h, p);
       importVisits(v);

@@ -11,6 +11,8 @@ interface FinancePageProps {
   priorityIds: Set<string>;
   hiddenIds: Set<string>;
   initialSelectedId?: string | null;
+  finFavoriteIds: Set<string>;
+  toggleFinFavorite: (id: string) => void;
 }
 
 type SortKey = "price" | "cost" | "premium" | "capRate" | "ppsf" | "coc";
@@ -272,6 +274,8 @@ interface ListItemProps {
   listing: Listing;
   result: BuyVsRentResult;
   selected: boolean;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
   onClick: () => void;
 }
 
@@ -281,27 +285,33 @@ function cocClass(coc: number): string {
   return "coc-bad";
 }
 
-function ListItem({ listing, result, selected, onClick }: ListItemProps) {
+function ListItem({ listing, result, selected, isFavorite, onToggleFavorite, onClick }: ListItemProps) {
   const accent = accentClass(result.monthlyBuyPremium, listing.capRate);
   const coc = result.cashOnCashReturnPct;
   return (
-    <button
-      className={`fp-list-item ${accent} ${selected ? "selected" : ""}`}
-      onClick={onClick}
-    >
-      <div className="fp-li-address">{listing.address}</div>
-      <div className="fp-li-meta">
-        {formatPrice(listing.price)} · {formatBedsBaths(listing.beds, listing.baths)}
+    <div className={`fp-list-item ${accent} ${selected ? "selected" : ""}`} onClick={onClick}>
+      <div className="fp-li-main">
+        <div className="fp-li-address">{listing.address}</div>
+        <div className="fp-li-meta">
+          {formatPrice(listing.price)} · {formatBedsBaths(listing.beds, listing.baths)}
+        </div>
+        <div className="fp-li-bottom">
+          <span className={`fp-li-premium ${premiumClass(result.monthlyBuyPremium)}`}>
+            {premiumLabel(result.monthlyBuyPremium)}
+          </span>
+          <span className={`fp-li-coc ${cocClass(coc)}`} title="Cash-on-cash return">
+            {coc >= 0 ? "+" : ""}{coc.toFixed(1)}% CoC
+          </span>
+        </div>
       </div>
-      <div className="fp-li-bottom">
-        <span className={`fp-li-premium ${premiumClass(result.monthlyBuyPremium)}`}>
-          {premiumLabel(result.monthlyBuyPremium)}
-        </span>
-        <span className={`fp-li-coc ${cocClass(coc)}`} title="Cash-on-cash return">
-          {coc >= 0 ? "+" : ""}{coc.toFixed(1)}% CoC
-        </span>
-      </div>
-    </button>
+      <button
+        className={`fp-star-btn${isFavorite ? " fp-star-btn--active" : ""}`}
+        title={isFavorite ? "Remove from finance favorites" : "Add to finance favorites"}
+        onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+      >
+        {isFavorite ? "★" : "☆"}
+      </button>
+    </div>
   );
 }
 
@@ -766,7 +776,7 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
 }
 
 // ── Page ─────────────────────────────────────────────────────────
-export function FinancePage({ allListings, initialSelectedId }: FinancePageProps) {
+export function FinancePage({ allListings, initialSelectedId, finFavoriteIds, toggleFinFavorite }: FinancePageProps) {
   const [downPct, setDownPct] = useState(() => readLs(LS_DOWN, 20));
   const [ratePct, setRatePct] = useState(() => readLs(LS_RATE, 6.75));
   const [oppReturnPct, setOppReturnPct] = useState(() => readLs(LS_OPP, 7));
@@ -784,6 +794,7 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
   const [sortKey, setSortKey] = useState<SortKey>("premium");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedNeighborhood, setSelectedNeighborhood] = useState("");
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const neighborhoods = useMemo(() => getNeighborhoods(allListings), [allListings]);
   const [rentOverrides, setRentOverrides] = useState<Record<string, number>>(() => {
@@ -854,6 +865,7 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
   const sorted = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const filtered = listingsWithResults.filter(({ listing: l }) => {
+      if (showFavoritesOnly && !finFavoriteIds.has(l.id)) return false;
       if (selectedNeighborhood && l.location !== selectedNeighborhood) return false;
       if (q && !l.address.toLowerCase().includes(q) && !l.city.toLowerCase().includes(q) && !l.location.toLowerCase().includes(q)) return false;
       return true;
@@ -873,7 +885,7 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
         default:        return a.result.monthlyBuyPremium - b.result.monthlyBuyPremium;
       }
     });
-  }, [listingsWithResults, sortKey, searchQuery, selectedNeighborhood]);
+  }, [listingsWithResults, sortKey, searchQuery, selectedNeighborhood, showFavoritesOnly, finFavoriteIds]);
 
   // Keep selection valid; fall back to first item only if current selection is gone
   useEffect(() => {
@@ -1022,6 +1034,13 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
+          <button
+            className={`fp-sort-chip fp-favorites-toggle${showFavoritesOnly ? " active" : ""}`}
+            onClick={() => setShowFavoritesOnly((v) => !v)}
+            title="Show only favorited listings"
+          >
+            {showFavoritesOnly ? "★" : "☆"} Favorites{finFavoriteIds.size > 0 ? ` (${finFavoriteIds.size})` : ""}
+          </button>
           <span className="fp-sort-label">Sort:</span>
           {(
             [
@@ -1053,6 +1072,8 @@ export function FinancePage({ allListings, initialSelectedId }: FinancePageProps
               listing={listing}
               result={result}
               selected={listing.id === selectedId}
+              isFavorite={finFavoriteIds.has(listing.id)}
+              onToggleFavorite={() => toggleFinFavorite(listing.id)}
               onClick={() => setSelectedId(listing.id)}
             />
           ))}

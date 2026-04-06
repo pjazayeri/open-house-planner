@@ -145,6 +145,8 @@
 }
 .fp-sort-chip.active { background: #1e40af; border-color: #3b82f6; color: #bfdbfe; }
 .fp-sort-chip:hover:not(.active) { border-color: #475569; color: #e2e8f0; }
+.fp-favorites-toggle.active { background: #451a03; border-color: #f59e0b; color: #fde68a; }
+.fp-favorites-toggle:hover:not(.active) { border-color: #92400e; color: #fcd34d; }
 
 /* ── Body: master-detail ─────────────────────────── */
 .fp-body {
@@ -166,18 +168,43 @@
 }
 
 .fp-list-item {
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
   text-align: left;
   background: #111827;
-  border: none;
   border-left: 3px solid transparent;
-  padding: 10px 12px;
   cursor: pointer;
   transition: background 0.1s;
 }
 .fp-list-item:hover { background: #1e293b; }
 .fp-list-item.selected { background: #1e293b; }
+
+.fp-li-main {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 4px 10px 12px;
+}
+
+.fp-star-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 100%;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: #475569;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 8px;
+  transition: color 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.fp-star-btn:hover { color: #f59e0b; }
+.fp-star-btn--active { color: #f59e0b; }
 
 .fp-list-item.accent-green { border-left-color: #22c55e; }
 .fp-list-item.accent-yellow { border-left-color: #eab308; }
