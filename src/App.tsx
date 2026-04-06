@@ -222,21 +222,32 @@ function App() {
 
   // Base groups differ by page:
   // - home: all non-hidden listings sorted by open house time, in one flat group
+  //         + a "Past Visits" group for visited listings no longer in the active CSV
   // - planner: time-slot groups (optionally filtered to priority)
   const baseGroups = useMemo((): TimeSlotGroup[] => {
     if (page === "home") {
+      const activeIds = new Set(allListings.map((l) => l.id));
       const listings = allListings
         .filter((l) => !hiddenIds.has(l.id) && l.city === selectedCity)
         .sort((a, b) => a.openHouseStart.getTime() - b.openHouseStart.getTime());
-      if (listings.length === 0) return [];
-      return [{ label: "All Properties", startTime: new Date(0), endTime: new Date(0), listings }];
+      const pastVisits = archivedListings
+        .filter((l) => !activeIds.has(l.id) && !hiddenIds.has(l.id) && l.city === selectedCity && visits[l.id])
+        .sort((a, b) => {
+          const va = visits[a.id]?.visitedAt ?? "";
+          const vb = visits[b.id]?.visitedAt ?? "";
+          return vb.localeCompare(va); // most recently visited first
+        });
+      const groups: TimeSlotGroup[] = [];
+      if (listings.length > 0) groups.push({ label: "All Properties", startTime: new Date(0), endTime: new Date(0), listings });
+      if (pastVisits.length > 0) groups.push({ label: "Past Visits", startTime: new Date(0), endTime: new Date(0), listings: pastVisits });
+      return groups;
     }
     return showOnlyPriority
       ? timeSlotGroups
           .map((g) => ({ ...g, listings: g.listings.filter((l) => priorityIds.has(l.id)) }))
           .filter((g) => g.listings.length > 0)
       : timeSlotGroups;
-  }, [page, allListings, hiddenIds, selectedCity, timeSlotGroups, priorityIds]);
+  }, [page, allListings, archivedListings, hiddenIds, selectedCity, timeSlotGroups, priorityIds, visits]);
 
   // Neighborhoods for the current city (derived from base listings before filtering)
   const neighborhoods = useMemo(
