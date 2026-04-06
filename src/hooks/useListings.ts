@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import type { Listing, TimeSlotGroup, VisitRecord } from "../types";
 import { loadCsv, uploadCsvText } from "../utils/parseCsv";
 import { filterAndTransform, getCities } from "../utils/filterListings";
@@ -131,6 +131,14 @@ export function useListings(): UseListingsResult {
     if (visited.length > 0) saveSnapshots(visited);
   }, [allListings, visits]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Wrap markVisited to immediately snapshot the listing — avoids data loss
+  // if the CSV is later updated to exclude this listing before the effect fires.
+  const markVisitedWithSnapshot = useCallback((id: string) => {
+    markVisited(id);
+    const listing = allListings.find((l) => l.id === id);
+    if (listing) saveSnapshots([listing]);
+  }, [markVisited, allListings, saveSnapshots]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Find listing within NEARBY_MILES of user's position
   const nearbyId = useMemo(() => {
     if (!geoPosition) return null;
@@ -171,7 +179,7 @@ export function useListings(): UseListingsResult {
     skipForDay,
     restoreSkippedForDay,
     visits,
-    markVisited,
+    markVisited: markVisitedWithSnapshot,
     setLiked,
     setRating,
     toggleWantOffer,
