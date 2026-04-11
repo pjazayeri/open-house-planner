@@ -112,12 +112,12 @@ function localApis(): Plugin {
         res.end(JSON.stringify({ csvUrl: `/public/${filename}`, thumbnails: { fetched: 0, skipped: 0, failed: 0 } }));
       });
 
-      // /api/share — save HTML to public/plans/ and return a local URL
+      // /api/share — save plan JSON to public/plans/ and return a short ID
       server.middlewares.use('/api/share', async (req: IncomingMessage, res: ServerResponse) => {
         if (req.method !== 'POST') {
           res.writeHead(405); res.end('Method not allowed'); return;
         }
-        const html = await new Promise<string>((resolve, reject) => {
+        const body = await new Promise<string>((resolve, reject) => {
           let data = '';
           req.on('data', (chunk: Buffer) => { data += chunk.toString(); });
           req.on('end', () => resolve(data));
@@ -126,11 +126,27 @@ function localApis(): Plugin {
         const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
         const dir = resolve(process.cwd(), 'public', 'plans');
         mkdirSync(dir, { recursive: true });
-        const filename = `${id}.html`;
-        writeFileSync(resolve(dir, filename), html, 'utf8');
-        console.log(`[local-share] saved plans/${filename}`);
+        writeFileSync(resolve(dir, `${id}.json`), body, 'utf8');
+        console.log(`[local-share] saved plans/${id}.json`);
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ url: `/plans/${filename}` }));
+        res.end(JSON.stringify({ id }));
+      });
+
+      // /api/plan — serve saved plan JSON by ID
+      server.middlewares.use('/api/plan', (req: IncomingMessage, res: ServerResponse) => {
+        if (req.method !== 'GET') {
+          res.writeHead(405); res.end('Method not allowed'); return;
+        }
+        const qs = req.url?.split('?')[1] ?? '';
+        const id = new URLSearchParams(qs).get('id') ?? '';
+        const file = resolve(process.cwd(), 'public', 'plans', `${id}.json`);
+        if (!id || !existsSync(file)) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Plan not found' }));
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(readFileSync(file, 'utf8'));
       });
 
       // /api/csv — serve latest public/redfin-favorites_*.csv

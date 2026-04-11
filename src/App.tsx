@@ -12,7 +12,8 @@ import { SummaryModal } from "./components/Summary/SummaryModal";
 import { DataView } from "./components/DataView/DataView";
 import { FinancePage } from "./components/Finance/FinancePage";
 import { AnalyticsPage } from "./components/Analytics/AnalyticsPage";
-import { encodePlan, decodePlan } from "./utils/serializePlan";
+import { serializePlan, decodePlan, deserializePlan } from "./utils/serializePlan";
+import type { SerializedPlan } from "./utils/serializePlan";
 import { PlanView } from "./components/PlanView/PlanView";
 import type { TimeSlotGroup, Listing } from "./types";
 import "./App.css";
@@ -102,11 +103,30 @@ import { pointInPolygon } from "./utils/geometry";
 
 function App() {
   // Shared plan view — decode from URL hash before anything else
-  const sharedPlan = useMemo(() => {
+  const [sharedPlan, setSharedPlan] = useState<TimeSlotGroup[] | null>(null);
+  const [sharedPlanLoading, setSharedPlanLoading] = useState(() => {
+    const h = window.location.hash;
+    return h.startsWith("#share?d=") || h.startsWith("#share?bin=");
+  });
+
+  useEffect(() => {
     const hash = window.location.hash;
-    const prefix = "#share?d=";
-    if (!hash.startsWith(prefix)) return null;
-    return decodePlan(hash.slice(prefix.length));
+    const legacyPrefix = "#share?d=";
+    const binPrefix = "#share?bin=";
+    if (hash.startsWith(legacyPrefix)) {
+      const plan = decodePlan(hash.slice(legacyPrefix.length));
+      setSharedPlan(plan);
+      setSharedPlanLoading(false);
+    } else if (hash.startsWith(binPrefix)) {
+      const id = hash.slice(binPrefix.length);
+      fetch(`/api/plan?id=${id}`)
+        .then((r) => r.ok ? r.json() : Promise.reject(r.status))
+        .then((data: SerializedPlan) => setSharedPlan(deserializePlan(data)))
+        .catch(() => setSharedPlan(null))
+        .finally(() => setSharedPlanLoading(false));
+    } else {
+      setSharedPlanLoading(false);
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [page, setPageState] = useState<Page>(pageFromHash);
@@ -399,6 +419,12 @@ function App() {
   );
 
   // Render shared plan view (no auth / cloud state needed)
+  if (sharedPlanLoading) return (
+    <div className="loading-screen">
+      <div className="loading-spinner" />
+      <p>Loading plan\u2026</p>
+    </div>
+  );
   if (sharedPlan) return <PlanView groups={sharedPlan} />;
 
   if (syncStatus === "loading" || loading) {
@@ -436,8 +462,14 @@ function App() {
         onShowSummary={() => setShowSummary(true)}
         onUploadCsv={uploadListings}
         onSharePlan={async () => {
-          const encoded = encodePlan(visibleGroups);
-          const url = `${window.location.origin}/#share?d=${encoded}`;
+          const r = await fetch("/api/share", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(serializePlan(visibleGroups)),
+          });
+          if (!r.ok) throw new Error("Failed");
+          const { id } = await r.json() as { id: string };
+          const url = `${window.location.origin}/#share?bin=${id}`;
           window.open(url, "_blank");
         }}
       />
