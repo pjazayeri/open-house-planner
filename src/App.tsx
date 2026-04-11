@@ -12,7 +12,8 @@ import { SummaryModal } from "./components/Summary/SummaryModal";
 import { DataView } from "./components/DataView/DataView";
 import { FinancePage } from "./components/Finance/FinancePage";
 import { AnalyticsPage } from "./components/Analytics/AnalyticsPage";
-import { generatePlanHtml } from "./utils/generatePlanHtml";
+import { encodePlan, decodePlan } from "./utils/serializePlan";
+import { PlanView } from "./components/PlanView/PlanView";
 import type { TimeSlotGroup } from "./types";
 import "./App.css";
 
@@ -100,6 +101,14 @@ function buildFilterParams(
 import { pointInPolygon } from "./utils/geometry";
 
 function App() {
+  // Shared plan view — decode from URL hash before anything else
+  const sharedPlan = useMemo(() => {
+    const hash = window.location.hash;
+    const prefix = "#share?d=";
+    if (!hash.startsWith(prefix)) return null;
+    return decodePlan(hash.slice(prefix.length));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [page, setPageState] = useState<Page>(pageFromHash);
   const [financeInitId, setFinanceInitId] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>("map");
@@ -369,6 +378,9 @@ function App() {
     [baseGroups]
   );
 
+  // Render shared plan view (no auth / cloud state needed)
+  if (sharedPlan) return <PlanView groups={sharedPlan} />;
+
   if (syncStatus === "loading" || loading) {
     return (
       <div className="loading-screen">
@@ -404,14 +416,8 @@ function App() {
         onShowSummary={() => setShowSummary(true)}
         onUploadCsv={uploadListings}
         onSharePlan={async () => {
-          const html = generatePlanHtml(visibleGroups, window.location.origin);
-          const res = await fetch("/api/share", {
-            method: "POST",
-            headers: { "Content-Type": "text/html" },
-            body: html,
-          });
-          if (!res.ok) throw new Error(`share failed: ${res.status}`);
-          const { url } = await res.json() as { url: string };
+          const encoded = encodePlan(visibleGroups);
+          const url = `${window.location.origin}/#share?d=${encoded}`;
           window.open(url, "_blank");
         }}
       />
