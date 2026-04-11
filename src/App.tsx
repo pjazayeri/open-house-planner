@@ -251,7 +251,9 @@ function App() {
   );
 
   useEffect(() => {
-    if (!scrollTarget || mobileTab !== "list") return;
+    if (!scrollTarget) return;
+    const isDesktop = window.innerWidth > 767;
+    if (!isDesktop && mobileTab !== "list") return;
     const id = scrollTarget;
     const frame = requestAnimationFrame(() => {
       document.getElementById(`card-${id}`)?.scrollIntoView({
@@ -572,7 +574,10 @@ function App() {
           visits={visits}
           priorityOrder={priorityOrder}
           showRoute={page !== "home"}
-          onSelect={setSelectedId}
+          onSelect={(id) => {
+            setSelectedId(id);
+            if (window.innerWidth > 767) setScrollTarget(id);
+          }}
           onDeselect={() => setSelectedId(null)}
           onNavigate={navigateToListing}
           onHover={setHoveredId}
