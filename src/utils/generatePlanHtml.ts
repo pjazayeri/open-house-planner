@@ -22,7 +22,6 @@ function capBadgeStyle(capRate: number): string {
 }
 
 function cardHtml(listing: Listing, globalIndex: number, thumbOrigin: string): string {
-  const hasCoords = listing.lat !== 0 && listing.lng !== 0;
   const thumbSrc = `${thumbOrigin}/api/thumbnail/${listing.id}`;
   const timeLabel = listing.openHouseStart.getTime() > 0
     ? fmtTimeRange(listing.openHouseStart, listing.openHouseEnd)
@@ -60,7 +59,6 @@ function cardHtml(listing: Listing, globalIndex: number, thumbOrigin: string): s
       View on Redfin ↗
     </a>
   </div>
-  ${hasCoords ? `<div class="card-map" id="map-${globalIndex}"></div>` : ""}
 </div>`;
 }
 
@@ -107,8 +105,6 @@ export function generatePlanHtml(groups: TimeSlotGroup[], origin: string): strin
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Open House Tour · ${dateLabel}</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -308,15 +304,6 @@ export function generatePlanHtml(groups: TimeSlotGroup[], origin: string): strin
     .redfin-btn:hover { background: #a81b21; }
     .redfin-btn:active { background: #8b1219; }
 
-    /* ── Mini map ───────────────────────────────────── */
-    .card-map {
-      height: 150px;
-      border-top: 1px solid #e2e8f0;
-    }
-    .card-map .leaflet-container {
-      border-radius: 0 0 20px 20px;
-    }
-
     /* ── Footer ─────────────────────────────────────── */
     .page-footer {
       text-align: center;
@@ -352,41 +339,6 @@ export function generatePlanHtml(groups: TimeSlotGroup[], origin: string): strin
   <footer class="page-footer">
     Generated ${generatedAt} · <a href="${origin}" target="_blank">Open House Planner</a>
   </footer>
-
-  <script>
-    var PLAN_MAPS = ${JSON.stringify(
-      allListings.map((l, i) => ({ idx: i + 1, lat: l.lat, lng: l.lng }))
-        .filter((m) => m.lat !== 0 && m.lng !== 0)
-    )};
-    window.addEventListener('load', function () {
-      PLAN_MAPS.forEach(function (m) {
-        var el = document.getElementById('map-' + m.idx);
-        if (!el) return;
-        var map = L.map(el, {
-          center: [m.lat, m.lng],
-          zoom: 15,
-          zoomControl: false,
-          attributionControl: false,
-          scrollWheelZoom: false,
-          dragging: false,
-          touchZoom: false,
-          doubleClickZoom: false,
-          boxZoom: false,
-          keyboard: false,
-        });
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          maxZoom: 19,
-        }).addTo(map);
-        L.circleMarker([m.lat, m.lng], {
-          radius: 9,
-          fillColor: '#2563eb',
-          color: 'white',
-          weight: 2.5,
-          fillOpacity: 1,
-        }).addTo(map);
-      });
-    });
-  </script>
 </body>
 </html>`;
 }
