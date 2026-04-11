@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useListings } from "./hooks/useListings";
 import { useMapZones } from "./hooks/useMapZones";
 import { Header } from "./components/Header/Header";
@@ -14,7 +14,7 @@ import { FinancePage } from "./components/Finance/FinancePage";
 import { AnalyticsPage } from "./components/Analytics/AnalyticsPage";
 import { encodePlan, decodePlan } from "./utils/serializePlan";
 import { PlanView } from "./components/PlanView/PlanView";
-import type { TimeSlotGroup } from "./types";
+import type { TimeSlotGroup, Listing } from "./types";
 import "./App.css";
 
 type MobileTab = "map" | "list";
@@ -126,6 +126,7 @@ function App() {
 
   // Keep hash in sync with page + filter state
   useEffect(() => {
+    if (window.location.hash.startsWith("#share")) return;
     const params = buildFilterParams(sortKey, activeFilters, searchQuery, selectedNeighborhood, selectedDate, timeFrom, timeTo);
     const pageSlug = page === "home" ? "" : page;
     const full = pageSlug + (params ? "?" + params : "");
@@ -143,6 +144,7 @@ function App() {
   // Restore page + filters on browser back/forward
   useEffect(() => {
     function onHashChange() {
+      if (window.location.hash.startsWith("#share")) return;
       setPageState(pageFromHash());
       const f = filtersFromHash();
       setSortKey(f.sortKey);
@@ -211,6 +213,23 @@ function App() {
     toggleFinFavorite,
   } = useListings();
 
+  // Augment listings with zone names (replaces stripped SF District labels)
+  const augmentWithZone = useCallback((l: Listing): Listing => {
+    if (l.location || zones.length === 0) return l;
+    const zone = zones.find((z) => z.polygon.length >= 3 && pointInPolygon(l.lat, l.lng, z.polygon));
+    return zone ? { ...l, location: zone.name } : l;
+  }, [zones]);
+
+  const augmentedAllListings = useMemo(
+    () => allListings.map(augmentWithZone),
+    [allListings, augmentWithZone]
+  );
+
+  const augmentedArchivedListings = useMemo(
+    () => archivedListings.map(augmentWithZone),
+    [archivedListings, augmentWithZone]
+  );
+
   useEffect(() => {
     if (!scrollTarget || mobileTab !== "list") return;
     const id = scrollTarget;
@@ -236,11 +255,11 @@ function App() {
   // - planner: time-slot groups (optionally filtered to priority)
   const baseGroups = useMemo((): TimeSlotGroup[] => {
     if (page === "home") {
-      const activeIds = new Set(allListings.map((l) => l.id));
-      const listings = allListings
+      const activeIds = new Set(augmentedAllListings.map((l) => l.id));
+      const listings = augmentedAllListings
         .filter((l) => !hiddenIds.has(l.id) && l.city === selectedCity)
         .sort((a, b) => a.openHouseStart.getTime() - b.openHouseStart.getTime());
-      const pastVisits = archivedListings
+      const pastVisits = augmentedArchivedListings
         .filter((l) => !activeIds.has(l.id) && !hiddenIds.has(l.id) && l.city === selectedCity && visits[l.id])
         .sort((a, b) => {
           const va = visits[a.id]?.visitedAt ?? "";
@@ -252,12 +271,13 @@ function App() {
       if (pastVisits.length > 0) groups.push({ label: "Past Visits", startTime: new Date(0), endTime: new Date(0), listings: pastVisits });
       return groups;
     }
-    return showOnlyPriority
+    const slotGroups = showOnlyPriority
       ? timeSlotGroups
           .map((g) => ({ ...g, listings: g.listings.filter((l) => priorityIds.has(l.id)) }))
           .filter((g) => g.listings.length > 0)
       : timeSlotGroups;
-  }, [page, allListings, archivedListings, hiddenIds, selectedCity, timeSlotGroups, priorityIds, visits]);
+    return slotGroups.map((g) => ({ ...g, listings: g.listings.map(augmentWithZone) }));
+  }, [page, augmentedAllListings, augmentedArchivedListings, hiddenIds, selectedCity, timeSlotGroups, priorityIds, visits, showOnlyPriority, augmentWithZone]);
 
   // Neighborhoods for the current city (derived from base listings before filtering)
   const neighborhoods = useMemo(
@@ -423,7 +443,7 @@ function App() {
       />
       {page === "analytics" && (
         <AnalyticsPage
-          allListings={allListings}
+          allListings={augmentedAllListings}
           visits={visits}
           hiddenIds={hiddenIds}
           priorityIds={priorityIds}
@@ -431,7 +451,7 @@ function App() {
       )}
       {page === "finance" && (
         <FinancePage
-          allListings={[...allListings, ...archivedListings.filter(a => !allListings.some(l => l.id === a.id))]}
+          allListings={[...augmentedAllListings, ...augmentedArchivedListings.filter(a => !augmentedAllListings.some(l => l.id === a.id))]}
           visits={visits}
           priorityIds={priorityIds}
           hiddenIds={hiddenIds}
@@ -442,7 +462,7 @@ function App() {
       )}
       {page === "data" && (
         <DataView
-          allListings={[...allListings, ...archivedListings.filter(a => !allListings.some(l => l.id === a.id))]}
+          allListings={[...augmentedAllListings, ...augmentedArchivedListings.filter(a => !augmentedAllListings.some(l => l.id === a.id))]}
           hiddenIds={hiddenIds}
           visits={visits}
           priorityIds={priorityIds}
@@ -534,7 +554,7 @@ function App() {
           onZoneUpdate={updateZone}
           onZoneRemove={(id) => { removeZone(id); if (selectedZoneId === id) setSelectedZoneId(null); }}
           onZoneRename={renameZone}
-          allListings={allListings.filter(l => !hiddenIds.has(l.id) && l.city === selectedCity)}
+          allListings={augmentedAllListings.filter(l => !hiddenIds.has(l.id) && l.city === selectedCity)}
         />
       </div>
       <nav className="mobile-tab-bar">

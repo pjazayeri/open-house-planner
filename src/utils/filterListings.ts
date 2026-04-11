@@ -17,6 +17,8 @@ function normalizeLocation(location: string, city: string): string {
   if (city === "San Francisco" && location in SF_DISTRICT_MAP) {
     return SF_DISTRICT_MAP[location];
   }
+  // Strip raw SF district codes — not meaningful enough to display
+  if (/^SF District \d+$/i.test(location.trim())) return "";
   return location;
 }
 
