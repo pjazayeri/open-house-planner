@@ -403,21 +403,16 @@ function App() {
         saveFailed={saveFailed}
         onShowSummary={() => setShowSummary(true)}
         onUploadCsv={uploadListings}
-        onSharePlan={() => {
+        onSharePlan={async () => {
           const html = generatePlanHtml(visibleGroups, window.location.origin);
-          const date = visibleGroups.find((g) => g.startTime.getTime() > 0)?.startTime;
-          const datePart = date
-            ? date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).replace(/[, ]/g, "-").toLowerCase()
-            : "plan";
-          const filename = `open-house-${datePart}.html`;
-          const blob = new Blob([html], { type: "text/html" });
-          const file = new File([blob], filename, { type: "text/html" });
-          if (typeof navigator.share === "function" && navigator.canShare?.({ files: [file] })) {
-            navigator.share({ files: [file], title: "Open House Plan" }).catch(() => {});
-          } else {
-            const url = URL.createObjectURL(blob);
-            window.open(url, "_blank");
-          }
+          const res = await fetch("/api/share", {
+            method: "POST",
+            headers: { "Content-Type": "text/html" },
+            body: html,
+          });
+          if (!res.ok) throw new Error(`share failed: ${res.status}`);
+          const { url } = await res.json() as { url: string };
+          window.open(url, "_blank");
         }}
       />
       {page === "analytics" && (

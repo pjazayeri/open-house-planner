@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import type { Plugin } from 'vite'
 import type { IncomingMessage, ServerResponse } from 'http'
-import { readFileSync, readdirSync, writeFileSync, existsSync } from 'fs'
+import { readFileSync, readdirSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { resolve } from 'path'
 
 function readEnvLocal(): Record<string, string> {
@@ -110,6 +110,27 @@ function localApis(): Plugin {
         console.log(`[local-ingest] saved ${filename}`);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ csvUrl: `/public/${filename}`, thumbnails: { fetched: 0, skipped: 0, failed: 0 } }));
+      });
+
+      // /api/share — save HTML to public/plans/ and return a local URL
+      server.middlewares.use('/api/share', async (req: IncomingMessage, res: ServerResponse) => {
+        if (req.method !== 'POST') {
+          res.writeHead(405); res.end('Method not allowed'); return;
+        }
+        const html = await new Promise<string>((resolve, reject) => {
+          let data = '';
+          req.on('data', (chunk: Buffer) => { data += chunk.toString(); });
+          req.on('end', () => resolve(data));
+          req.on('error', reject);
+        });
+        const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        const dir = resolve(process.cwd(), 'public', 'plans');
+        mkdirSync(dir, { recursive: true });
+        const filename = `${id}.html`;
+        writeFileSync(resolve(dir, filename), html, 'utf8');
+        console.log(`[local-share] saved plans/${filename}`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ url: `/plans/${filename}` }));
       });
 
       // /api/csv — serve latest public/redfin-favorites_*.csv

@@ -18,7 +18,7 @@ interface HeaderProps {
   saveFailed: boolean;
   onShowSummary: () => void;
   onUploadCsv: (text: string) => Promise<number>;
-  onSharePlan: () => void;
+  onSharePlan: () => Promise<void>;
 }
 
 
@@ -157,7 +157,19 @@ export function Header({
           Summary
         </button>
         {(page === "planner" || page === "priority") && (
-          <button className="nav-tab nav-tab--share" onClick={onSharePlan} title="Share your open house plan as an HTML page">
+          <button
+            className="nav-tab nav-tab--share"
+            title="Generate a shareable link for your open house plan"
+            onClick={async () => {
+              showToast("Generating plan…", "loading");
+              try {
+                await onSharePlan();
+                showToast("Plan opened in new tab", "ok", true);
+              } catch {
+                showToast("Failed to create plan link", "error", true);
+              }
+            }}
+          >
             Share Plan ↗
           </button>
         )}
