@@ -18,6 +18,7 @@ interface HeaderProps {
   saveFailed: boolean;
   onShowSummary: () => void;
   onUploadCsv: (text: string) => Promise<number>;
+  onSharePlan: () => void;
 }
 
 
@@ -59,6 +60,7 @@ export function Header({
   saveFailed,
   onShowSummary,
   onUploadCsv,
+  onSharePlan,
 }: HeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [toast, setToast] = useState<{ msg: string; kind: "loading" | "ok" | "error" } | null>(null);
@@ -154,6 +156,11 @@ export function Header({
         <button className="nav-tab nav-tab--summary" onClick={onShowSummary}>
           Summary
         </button>
+        {(page === "planner" || page === "priority") && (
+          <button className="nav-tab nav-tab--share" onClick={onSharePlan} title="Share your open house plan as an HTML page">
+            Share Plan ↗
+          </button>
+        )}
         <input
           ref={fileInputRef}
           type="file"

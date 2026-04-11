@@ -43,6 +43,8 @@
 .nav-tab--upload:hover { border-color: #34d399 !important; color: #34d399 !important; }
 .nav-tab--redfin { color: #f97316; text-decoration: none; }
 .nav-tab--redfin:hover { border-color: #f97316 !important; color: #f97316 !important; }
+.nav-tab--share { color: #a78bfa; }
+.nav-tab--share:hover { border-color: #a78bfa !important; color: #c4b5fd !important; }
 
 /* ── Ingest toast ─────────────────────────────── */
 .ingest-toast {

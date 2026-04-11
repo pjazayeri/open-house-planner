@@ -12,6 +12,7 @@ import { SummaryModal } from "./components/Summary/SummaryModal";
 import { DataView } from "./components/DataView/DataView";
 import { FinancePage } from "./components/Finance/FinancePage";
 import { AnalyticsPage } from "./components/Analytics/AnalyticsPage";
+import { generatePlanHtml } from "./utils/generatePlanHtml";
 import type { TimeSlotGroup } from "./types";
 import "./App.css";
 
@@ -402,6 +403,22 @@ function App() {
         saveFailed={saveFailed}
         onShowSummary={() => setShowSummary(true)}
         onUploadCsv={uploadListings}
+        onSharePlan={() => {
+          const html = generatePlanHtml(visibleGroups, window.location.origin);
+          const date = visibleGroups.find((g) => g.startTime.getTime() > 0)?.startTime;
+          const datePart = date
+            ? date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).replace(/[, ]/g, "-").toLowerCase()
+            : "plan";
+          const filename = `open-house-${datePart}.html`;
+          const blob = new Blob([html], { type: "text/html" });
+          const file = new File([blob], filename, { type: "text/html" });
+          if (typeof navigator.share === "function" && navigator.canShare?.({ files: [file] })) {
+            navigator.share({ files: [file], title: "Open House Plan" }).catch(() => {});
+          } else {
+            const url = URL.createObjectURL(blob);
+            window.open(url, "_blank");
+          }
+        }}
       />
       {page === "analytics" && (
         <AnalyticsPage
