@@ -9,6 +9,8 @@ import { useGeolocation } from "./useGeolocation";
 import type { SyncStatus } from "../utils/cloudSync";
 import { useListingSnapshots } from "./useListingSnapshots";
 import { useFinFavorites } from "./useFinFavorites";
+import { useAmenities } from "./useAmenities";
+import type { ListingAmenities } from "../utils/cloudSync";
 
 /** Haversine distance in miles */
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -62,6 +64,9 @@ interface UseListingsResult {
   // Finance favorites
   finFavoriteIds: Set<string>;
   toggleFinFavorite: (id: string) => void;
+  // Amenities (parking, in-unit W/D)
+  amenities: Record<string, ListingAmenities>;
+  setAmenity: (id: string, field: "parking" | "laundry", value: boolean | undefined) => void;
   uploadListings: (csvText: string) => Promise<number>;
   // Geolocation
   geoPosition: { lat: number; lng: number } | null;
@@ -86,6 +91,7 @@ export function useListings(): UseListingsResult {
   const { saveSnapshots, archivedListings } = useListingSnapshots();
   const { visits, markVisited, setLiked, setRating, setNoteField, toggleWantOffer, clearVisit, importVisits, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits();
   const { finFavoriteIds, toggleFinFavorite } = useFinFavorites();
+  const { amenities, setAmenity } = useAmenities();
 
   const syncStatus: SyncStatus =
     hiddenStatus === "loading"  || visitsStatus === "loading"  ? "loading" :
@@ -192,6 +198,8 @@ export function useListings(): UseListingsResult {
     clearVisit,
     finFavoriteIds,
     toggleFinFavorite,
+    amenities,
+    setAmenity,
     importData: (h: string[], p: string[], v: Record<string, VisitRecord>) => {
       importHiddenAndPriority(h, p);
       importVisits(v);

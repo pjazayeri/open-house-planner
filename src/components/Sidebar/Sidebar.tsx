@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import type { TimeSlotGroup as TimeSlotGroupType, Listing, VisitRecord, MapZone } from "../../types";
+import type { ListingAmenities } from "../../utils/cloudSync";
 import { TimeSlotGroup } from "./TimeSlotGroup";
 import { formatTimeRange } from "../../utils/formatters";
 import "./Sidebar.css";
@@ -50,6 +51,8 @@ interface SidebarProps {
   onSetNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   onClearVisit: (id: string) => void;
   onOpenFinance: (id: string) => void;
+  amenities: Record<string, ListingAmenities>;
+  onSetAmenity: (id: string, field: "parking" | "laundry", value: boolean | undefined) => void;
   // Zone filter
   zones: MapZone[];
   selectedZoneId: string | null;
@@ -262,6 +265,8 @@ export function Sidebar({
   onSetNoteField,
   onClearVisit,
   onOpenFinance,
+  amenities,
+  onSetAmenity,
   showOnlyPriority,
   onTogglePriorityFilter,
   sortKey,
@@ -511,6 +516,8 @@ export function Sidebar({
             onSetNoteField={onSetNoteField}
             onClearVisit={onClearVisit}
             onOpenFinance={onOpenFinance}
+            amenities={amenities}
+            onSetAmenity={onSetAmenity}
           />
         ))}
         {timeSlotGroups.length === 0 && (activeFilters.size > 0 || searchQuery.trim()) && (

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { TimeSlotGroup as TimeSlotGroupType, VisitRecord } from "../../types";
+import type { ListingAmenities } from "../../utils/cloudSync";
 import { PropertyCard } from "./PropertyCard";
 import "./Sidebar.css";
 
@@ -23,6 +24,8 @@ interface TimeSlotGroupProps {
   onSetNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   onClearVisit: (id: string) => void;
   onOpenFinance: (id: string) => void;
+  amenities: Record<string, ListingAmenities>;
+  onSetAmenity: (id: string, field: "parking" | "laundry", value: boolean | undefined) => void;
 }
 
 const SLOT_COLORS = [
@@ -54,6 +57,8 @@ export function TimeSlotGroup({
   onSetNoteField,
   onClearVisit,
   onOpenFinance,
+  amenities,
+  onSetAmenity,
 }: TimeSlotGroupProps) {
   const [collapsed, setCollapsed] = useState(false);
   const color = SLOT_COLORS[slotIndex % SLOT_COLORS.length];
@@ -91,6 +96,8 @@ export function TimeSlotGroup({
               onSetNoteField={onSetNoteField}
               onClearVisit={onClearVisit}
               onOpenFinance={onOpenFinance}
+              amenity={amenities[listing.id] ?? {}}
+              onSetAmenity={onSetAmenity}
             />
           ))}
         </div>

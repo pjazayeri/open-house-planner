@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Listing, VisitRecord } from "../../types";
 import type { CapRateBreakdown } from "../../utils/capRate";
+import type { ListingAmenities } from "../../utils/cloudSync";
 import { formatPrice, formatBedsBaths, formatTimeRange } from "../../utils/formatters";
 import "./PropertyCard.css";
 
@@ -23,6 +24,8 @@ interface PropertyCardProps {
   onSetNoteField: (id: string, field: "pros" | "cons", value: string) => void;
   onClearVisit: (id: string) => void;
   onOpenFinance: (id: string) => void;
+  amenity: ListingAmenities;
+  onSetAmenity: (id: string, field: "parking" | "laundry", value: boolean | undefined) => void;
 }
 
 function fmtDollar(n: number): string {
@@ -97,6 +100,8 @@ export function PropertyCard({
   onSetNoteField,
   onClearVisit,
   onOpenFinance,
+  amenity,
+  onSetAmenity,
 }: PropertyCardProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [thumbError, setThumbError] = useState(false);
@@ -184,7 +189,25 @@ export function PropertyCard({
       <div className="card-details">
         <span>{formatBedsBaths(listing.beds, listing.baths)}</span>
         {listing.sqft && <span>&middot; {listing.sqft.toLocaleString()} sqft</span>}
+        {listing.pricePerSqft && <span>&middot; ${listing.pricePerSqft.toLocaleString()}/sqft</span>}
         {listing.propertyType && <span>&middot; {listing.propertyType}</span>}
+      </div>
+
+      <div className="card-amenities" onClick={(e) => e.stopPropagation()}>
+        <button
+          className={`amenity-badge amenity-badge--parking${amenity.parking === true ? " on" : amenity.parking === false ? " off" : ""}`}
+          title={amenity.parking === true ? "Has parking — click to mark no parking" : amenity.parking === false ? "No parking — click to clear" : "Parking unknown — click to mark yes"}
+          onClick={() => onSetAmenity(listing.id, "parking", amenity.parking === undefined ? true : amenity.parking === true ? false : undefined)}
+        >
+          🚗 {amenity.parking === true ? "Parking" : amenity.parking === false ? "No parking" : "Parking?"}
+        </button>
+        <button
+          className={`amenity-badge amenity-badge--laundry${amenity.laundry === true ? " on" : amenity.laundry === false ? " off" : ""}`}
+          title={amenity.laundry === true ? "In-unit W/D — click to mark no W/D" : amenity.laundry === false ? "No in-unit W/D — click to clear" : "W/D unknown — click to mark yes"}
+          onClick={() => onSetAmenity(listing.id, "laundry", amenity.laundry === undefined ? true : amenity.laundry === true ? false : undefined)}
+        >
+          🫧 {amenity.laundry === true ? "W/D in unit" : amenity.laundry === false ? "No W/D" : "W/D?"}
+        </button>
       </div>
 
       <div className="card-rent-row">

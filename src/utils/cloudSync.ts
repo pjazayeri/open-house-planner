@@ -17,6 +17,11 @@ export type SyncStatus = "unconfigured" | "loading" | "ok" | "error" | "degraded
 
 const BIN_URL = `/api/sync`;
 
+export interface ListingAmenities {
+  parking?: boolean;  // undefined = unknown
+  laundry?: boolean;  // undefined = unknown (in-unit W/D)
+}
+
 export interface CloudState {
   hiddenIds: string[];
   priorityIds: string[];
@@ -25,6 +30,7 @@ export interface CloudState {
   skippedForDay: Record<string, string[]>;  // date → listing IDs hidden for that day only
   mapZones: MapZone[];
   finFavoriteIds: string[];
+  amenities: Record<string, ListingAmenities>;
 }
 
 function parseVisitRecord(v: unknown): VisitRecord {
@@ -85,6 +91,19 @@ function parseCloudState(record: unknown): CloudState {
     }
   }
 
+  const amenities: Record<string, ListingAmenities> = {};
+  if (r.amenities && typeof r.amenities === "object" && !Array.isArray(r.amenities)) {
+    for (const [id, a] of Object.entries(r.amenities as Record<string, unknown>)) {
+      const av = a && typeof a === "object" ? (a as Record<string, unknown>) : {};
+      const entry: ListingAmenities = {};
+      if (av.parking === true) entry.parking = true;
+      else if (av.parking === false) entry.parking = false;
+      if (av.laundry === true) entry.laundry = true;
+      else if (av.laundry === false) entry.laundry = false;
+      amenities[id] = entry;
+    }
+  }
+
   return {
     hiddenIds: Array.isArray(r.hiddenIds) ? (r.hiddenIds as string[]) : [],
     priorityIds: Array.isArray(r.priorityIds) ? (r.priorityIds as string[]) : [],
@@ -93,6 +112,7 @@ function parseCloudState(record: unknown): CloudState {
     skippedForDay,
     mapZones,
     finFavoriteIds: Array.isArray(r.finFavoriteIds) ? (r.finFavoriteIds as string[]) : [],
+    amenities,
   };
 }
 

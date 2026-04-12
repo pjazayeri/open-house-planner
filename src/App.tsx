@@ -231,6 +231,8 @@ function App() {
     saveFailed,
     finFavoriteIds,
     toggleFinFavorite,
+    amenities,
+    setAmenity,
   } = useListings();
 
   // Augment listings with zone names (replaces stripped SF District labels)
@@ -563,6 +565,8 @@ function App() {
           onSetNoteField={setNoteField}
           onClearVisit={clearVisit}
           onOpenFinance={(id) => { setFinanceInitId(id); setPage("finance"); }}
+          amenities={amenities}
+          onSetAmenity={setAmenity}
           zones={zones}
           selectedZoneId={selectedZoneId}
           onZoneSelect={(id) => setSelectedZoneId(selectedZoneId === id ? null : id)}
