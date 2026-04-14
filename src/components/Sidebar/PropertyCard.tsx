@@ -121,7 +121,8 @@ export function PropertyCard({
     .join(" ");
 
   const b = listing.capRateBreakdown;
-  const tooltipText = buildTooltipLines(b).join("\n");
+  const hasBreakdown = b && b.monthlyRent != null;
+  const tooltipText = hasBreakdown ? buildTooltipLines(b).join("\n") : "";
 
   return (
     <div
@@ -210,25 +211,27 @@ export function PropertyCard({
         </button>
       </div>
 
-      <div className="card-rent-row">
-        <span
-          className="card-rent"
-          onMouseEnter={() => setShowTooltip(true)}
-          onMouseLeave={() => setShowTooltip(false)}
-          onClick={(e) => { e.stopPropagation(); setShowTooltip((v) => !v); }}
-        >
-          Est. rent {fmtDollar(b.monthlyRent)}/mo
-          {b.sqftImputed && <span className="rent-imputed-flag">*</span>}
-        </span>
-        {listing.hoa !== null && listing.hoa > 0 && (
-          <span className="card-hoa">{fmtDollar(listing.hoa)} HOA</span>
-        )}
-        {showTooltip && (
-          <div className="rent-tooltip" role="tooltip">
-            <pre>{tooltipText}</pre>
-          </div>
-        )}
-      </div>
+      {hasBreakdown && (
+        <div className="card-rent-row">
+          <span
+            className="card-rent"
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+            onClick={(e) => { e.stopPropagation(); setShowTooltip((v) => !v); }}
+          >
+            Est. rent {fmtDollar(b.monthlyRent)}/mo
+            {b.sqftImputed && <span className="rent-imputed-flag">*</span>}
+          </span>
+          {listing.hoa !== null && listing.hoa > 0 && (
+            <span className="card-hoa">{fmtDollar(listing.hoa)} HOA</span>
+          )}
+          {showTooltip && (
+            <div className="rent-tooltip" role="tooltip">
+              <pre>{tooltipText}</pre>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="card-meta">
         <span className="card-time">
