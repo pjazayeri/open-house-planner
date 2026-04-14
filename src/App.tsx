@@ -479,7 +479,7 @@ function App() {
       />
       {page === "analytics" && (
         <AnalyticsPage
-          allListings={augmentedAllListings}
+          allListings={[...augmentedAllListings, ...augmentedArchivedListings.filter(a => !augmentedAllListings.some(l => l.id === a.id))]}
           visits={visits}
           hiddenIds={hiddenIds}
           priorityIds={priorityIds}
