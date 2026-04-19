@@ -110,9 +110,17 @@ function offsetCoords(
 /** Fit map bounds when listings change */
 function FitBounds({ timeSlotGroups }: { timeSlotGroups: TimeSlotGroup[] }) {
   const map = useMap();
+  const seenIds = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     const allListings = timeSlotGroups.flatMap((g) => g.listings);
     if (allListings.length === 0) return;
+    // Only re-fit when listings contain IDs we haven't seen before
+    // (city change or initial load). Filtering/sorting only removes IDs,
+    // so it won't trigger a re-fit and the user's zoom is preserved.
+    const hasNewListings = allListings.some((l) => !seenIds.current.has(l.id));
+    for (const l of allListings) seenIds.current.add(l.id);
+    if (!hasNewListings) return;
     const bounds = L.latLngBounds(
       allListings.map((l) => [l.lat, l.lng] as [number, number])
     );
