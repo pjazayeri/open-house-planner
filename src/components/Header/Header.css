@@ -7,6 +7,8 @@
   color: #fff;
   border-bottom: 2px solid #16213e;
   flex-shrink: 0;
+  position: relative;
+  z-index: 1000;
 }
 
 .header-left {
