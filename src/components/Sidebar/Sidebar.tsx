@@ -30,8 +30,8 @@ interface SidebarProps {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   neighborhoods: string[];
-  selectedNeighborhood: string;
-  onNeighborhoodChange: (n: string) => void;
+  selectedAreas: Set<string>;
+  onAreaChange: (area: string) => void;
   availableDates: { key: string; label: string }[];
   selectedDate: string;
   onDateChange: (d: string) => void;
@@ -53,10 +53,7 @@ interface SidebarProps {
   onOpenFinance: (id: string) => void;
   amenities: Record<string, ListingAmenities>;
   onSetAmenity: (id: string, field: "parking" | "laundry", value: boolean | undefined) => void;
-  // Zone filter
   zones: MapZone[];
-  selectedZoneId: string | null;
-  onZoneSelect: (id: string) => void;
   // Status filter (Browse mode only)
   statusFilter: string;
   onStatusFilterChange: (s: string) => void;
@@ -280,8 +277,8 @@ export function Sidebar({
   searchQuery,
   onSearchChange,
   neighborhoods,
-  selectedNeighborhood,
-  onNeighborhoodChange,
+  selectedAreas,
+  onAreaChange,
   availableDates,
   selectedDate,
   onDateChange,
@@ -290,8 +287,6 @@ export function Sidebar({
   onTimeFromChange,
   onTimeToChange,
   zones,
-  selectedZoneId,
-  onZoneSelect,
   statusFilter,
   onStatusFilterChange,
   statusCounts,
@@ -370,45 +365,34 @@ export function Sidebar({
               <button className="sb-search-clear" onClick={() => onSearchChange("")}>✕</button>
             )}
           </div>
-          {zones.length > 0 && (
+          {(zones.length > 0 || neighborhoods.length > 1) && (
             <div className="sb-control-row">
-              <span className="sb-control-label">Zone</span>
+              <span className="sb-control-label">Area</span>
               <div className="sb-chips">
-                {selectedZoneId && (
-                  <button
-                    className="sb-chip sb-chip-clear"
-                    onClick={() => onZoneSelect(selectedZoneId)}
-                  >
-                    Clear
-                  </button>
+                {selectedAreas.size > 0 && (
+                  <button className="sb-chip sb-chip-clear" onClick={() => onAreaChange("")}>Clear</button>
                 )}
                 {zones.map((z) => (
                   <button
                     key={z.id}
-                    className={`sb-chip sb-zone-chip${selectedZoneId === z.id ? " active" : ""}`}
+                    className={`sb-chip sb-zone-chip${selectedAreas.has(z.id) ? " active" : ""}`}
                     style={{ "--zone-color": z.color } as React.CSSProperties}
-                    onClick={() => onZoneSelect(z.id)}
+                    onClick={() => onAreaChange(z.id)}
                   >
                     <span className="sb-zone-dot" style={{ background: z.color }} />
                     {z.name}
                   </button>
                 ))}
-              </div>
-            </div>
-          )}
-          {neighborhoods.length > 1 && (
-            <div className="sb-control-row">
-              <span className="sb-control-label">Hood</span>
-              <select
-                className="sb-select"
-                value={selectedNeighborhood}
-                onChange={(e) => onNeighborhoodChange(e.target.value)}
-              >
-                <option value="">All neighborhoods</option>
                 {neighborhoods.map((n) => (
-                  <option key={n} value={n}>{n}</option>
+                  <button
+                    key={n}
+                    className={`sb-chip${selectedAreas.has(n) ? " active" : ""}`}
+                    onClick={() => onAreaChange(n)}
+                  >
+                    {n}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
           )}
           {/* date filter moved to top banner */}
@@ -497,7 +481,7 @@ export function Sidebar({
               ))}
             </div>
           </div>
-          {(activeFilters.size > 0 || sortKey !== "time" || searchQuery.trim() || selectedNeighborhood || selectedZoneId || selectedDate || timeFrom !== null || timeTo !== null || (mode === "browse" && statusFilter !== "Active")) && (
+          {(activeFilters.size > 0 || sortKey !== "time" || searchQuery.trim() || selectedAreas.size > 0 || selectedDate || timeFrom !== null || timeTo !== null || (mode === "browse" && statusFilter !== "Active")) && (
             <div className="sb-count">
               {totalVisible} of {totalListings} shown
             </div>

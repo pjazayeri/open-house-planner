@@ -75,7 +75,7 @@ function filtersFromHash() {
     sortKey: VALID_SORT_KEYS.includes(sort) ? sort : "time" as SortKey,
     activeFilters: new Set<FilterKey>(raw),
     searchQuery: p.get("q") ?? "",
-    selectedNeighborhood: p.get("hood") ?? "",
+    selectedNeighborhoods: new Set<string>(p.get("hood")?.split(",").filter(Boolean) ?? []),
     selectedDate: p.get("date") ?? "",
     timeFrom: p.has("from") ? Number(p.get("from")) : null,
     timeTo: p.has("to") ? Number(p.get("to")) : null,
@@ -87,7 +87,7 @@ function buildFilterParams(
   sortKey: SortKey,
   activeFilters: Set<FilterKey>,
   searchQuery: string,
-  selectedNeighborhood: string,
+  selectedAreas: Set<string>,
   selectedDate: string,
   timeFrom: number | null,
   timeTo: number | null,
@@ -97,7 +97,7 @@ function buildFilterParams(
   if (sortKey !== "time") p.set("sort", sortKey);
   if (activeFilters.size > 0) p.set("f", [...activeFilters].join(","));
   if (searchQuery) p.set("q", searchQuery);
-  if (selectedNeighborhood) p.set("hood", selectedNeighborhood);
+  if (selectedAreas.size > 0) p.set("hood", [...selectedAreas].join(","));
   if (selectedDate) p.set("date", selectedDate);
   if (timeFrom !== null) p.set("from", String(timeFrom));
   if (timeTo !== null) p.set("to", String(timeTo));
@@ -145,7 +145,7 @@ function App() {
   const [sortKey, setSortKey] = useState<SortKey>(_init.sortKey);
   const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(_init.activeFilters);
   const [searchQuery, setSearchQuery] = useState(_init.searchQuery);
-  const [selectedNeighborhood, setSelectedNeighborhood] = useState(_init.selectedNeighborhood);
+  const [selectedAreas, setSelectedAreas] = useState<Set<string>>(_init.selectedNeighborhoods);
   const [selectedDate, setSelectedDate] = useState(_init.selectedDate);
   const [timeFrom, setTimeFrom] = useState<number | null>(_init.timeFrom);
   const [timeTo, setTimeTo] = useState<number | null>(_init.timeTo);
@@ -154,7 +154,7 @@ function App() {
   // Keep hash in sync with page + filter state
   useEffect(() => {
     if (window.location.hash.startsWith("#share")) return;
-    const params = buildFilterParams(sortKey, activeFilters, searchQuery, selectedNeighborhood, selectedDate, timeFrom, timeTo, statusFilter);
+    const params = buildFilterParams(sortKey, activeFilters, searchQuery, selectedAreas, selectedDate, timeFrom, timeTo, statusFilter);
     const pageSlug = page === "home" ? "" : page;
     const full = pageSlug + (params ? "?" + params : "");
     const current = window.location.hash.slice(1).split("?")[0];
@@ -166,7 +166,7 @@ function App() {
       // Filter-only change → replace so back button still works for page nav
       history.replaceState(null, "", "#" + full);
     }
-  }, [page, sortKey, activeFilters, searchQuery, selectedNeighborhood, selectedDate, timeFrom, timeTo, statusFilter]);
+  }, [page, sortKey, activeFilters, searchQuery, selectedAreas, selectedDate, timeFrom, timeTo, statusFilter]);
 
   // Restore page + filters on browser back/forward
   useEffect(() => {
@@ -177,7 +177,7 @@ function App() {
       setSortKey(f.sortKey);
       setActiveFilters(f.activeFilters);
       setSearchQuery(f.searchQuery);
-      setSelectedNeighborhood(f.selectedNeighborhood);
+      setSelectedAreas(f.selectedNeighborhoods);
       setSelectedDate(f.selectedDate);
       setTimeFrom(f.timeFrom);
       setTimeTo(f.timeTo);
@@ -192,7 +192,6 @@ function App() {
   }
   const [showSummary, setShowSummary] = useState(false);
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
-  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
 
   const { zones, addZone, updateZone, removeZone, renameZone } = useMapZones();
 
@@ -362,30 +361,25 @@ function App() {
     return dates;
   }, [timeSlotGroups]);
 
-  // Reset neighborhood + status selection when city changes
-  useEffect(() => { setSelectedNeighborhood(""); setStatusFilter("Active"); }, [selectedCity]);
+  // Reset area + status selection when city changes
+  useEffect(() => { setSelectedAreas(new Set()); setStatusFilter("Active"); }, [selectedCity]);
 
   // Apply filters + sort on top of base groups (shared between home and planner)
   const visibleGroups = useMemo(() => {
     let groups = baseGroups;
 
-    if (selectedZoneId) {
-      const zone = zones.find((z) => z.id === selectedZoneId);
-      if (zone && zone.polygon.length >= 3) {
-        groups = groups
-          .map((g) => ({
-            ...g,
-            listings: g.listings.filter((l) => pointInPolygon(l.lat, l.lng, zone.polygon)),
-          }))
-          .filter((g) => g.listings.length > 0);
-      }
-    }
-
-    if (selectedNeighborhood) {
+    if (selectedAreas.size > 0) {
       groups = groups
         .map((g) => ({
           ...g,
-          listings: g.listings.filter((l) => l.location === selectedNeighborhood),
+          listings: g.listings.filter((l) => {
+            for (const area of selectedAreas) {
+              const zone = zones.find((z) => z.id === area);
+              if (zone && zone.polygon.length >= 3 && pointInPolygon(l.lat, l.lng, zone.polygon)) return true;
+              if (l.location === area) return true;
+            }
+            return false;
+          }),
         }))
         .filter((g) => g.listings.length > 0);
     }
@@ -451,7 +445,7 @@ function App() {
     }
 
     return groups;
-  }, [baseGroups, page, selectedZoneId, zones, selectedNeighborhood, selectedDate, skippedForDay, timeFrom, timeTo, activeFilters, sortKey, visits, priorityIds, searchQuery]);
+  }, [baseGroups, page, selectedAreas, zones, selectedDate, skippedForDay, timeFrom, timeTo, activeFilters, sortKey, visits, priorityIds, searchQuery]);
 
   const totalListings = useMemo(
     () => baseGroups.reduce((s, g) => s + g.listings.length, 0),
@@ -580,8 +574,13 @@ function App() {
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           neighborhoods={neighborhoods}
-          selectedNeighborhood={selectedNeighborhood}
-          onNeighborhoodChange={setSelectedNeighborhood}
+          selectedAreas={selectedAreas}
+          onAreaChange={(area) => setSelectedAreas((prev) => {
+            const next = new Set(prev);
+            if (!area) { next.clear(); return next; }
+            if (next.has(area)) next.delete(area); else next.add(area);
+            return next;
+          })}
           availableDates={availableDates}
           selectedDate={selectedDate}
           onDateChange={setSelectedDate}
@@ -604,8 +603,6 @@ function App() {
           amenities={amenities}
           onSetAmenity={setAmenity}
           zones={zones}
-          selectedZoneId={selectedZoneId}
-          onZoneSelect={(id) => setSelectedZoneId(selectedZoneId === id ? null : id)}
           statusFilter={statusFilter}
           onStatusFilterChange={setStatusFilter}
           statusCounts={statusCounts}
@@ -628,11 +625,15 @@ function App() {
           geoWatching={geoWatching}
           onLocate={startGeo}
           zones={zones}
-          selectedZoneId={selectedZoneId}
-          onZoneSelect={(id) => setSelectedZoneId(selectedZoneId === id ? null : id)}
+          selectedZoneIds={new Set([...selectedAreas].filter((a) => zones.some((z) => z.id === a)))}
+          onZoneSelect={(id) => setSelectedAreas((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+          })}
           onZoneCreate={addZone}
           onZoneUpdate={updateZone}
-          onZoneRemove={(id) => { removeZone(id); if (selectedZoneId === id) setSelectedZoneId(null); }}
+          onZoneRemove={(id) => { removeZone(id); setSelectedAreas((prev) => { const next = new Set(prev); next.delete(id); return next; }); }}
           onZoneRename={renameZone}
           allListings={augmentedAllListings.filter(l => !hiddenIds.has(l.id) && l.city === selectedCity)}
         />

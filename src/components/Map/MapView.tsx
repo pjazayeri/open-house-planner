@@ -34,7 +34,7 @@ interface MapViewProps {
   onLocate: () => void;
   // Zone management
   zones: MapZone[];
-  selectedZoneId: string | null;
+  selectedZoneIds: Set<string>;
   onZoneSelect: (id: string) => void;
   onZoneCreate: (zone: MapZone) => void;
   onZoneUpdate: (id: string, polygon: [number, number][]) => void;
@@ -161,7 +161,7 @@ function PanToSelected({
 
 interface ZoneLayerProps {
   zones: MapZone[];
-  selectedZoneId: string | null;
+  selectedZoneIds: Set<string>;
   editingZoneId: string | null;
   drawingMode: boolean;
   drawingPoints: [number, number][];
@@ -174,7 +174,7 @@ interface ZoneLayerProps {
 
 function ZoneLayer({
   zones,
-  selectedZoneId,
+  selectedZoneIds,
   editingZoneId,
   drawingMode,
   drawingPoints,
@@ -204,7 +204,7 @@ function ZoneLayer({
       if (zone.polygon.length < 3) continue;
       if (zone.id === editingZoneId) continue;
 
-      const isSelected = zone.id === selectedZoneId;
+      const isSelected = selectedZoneIds.has(zone.id);
       const poly = L.polygon(zone.polygon as L.LatLngExpression[], {
         color: zone.color,
         fillColor: zone.color,
@@ -239,7 +239,7 @@ function ZoneLayer({
     }
 
     return () => layers.forEach((l) => map.removeLayer(l));
-  }, [zones, selectedZoneId, editingZoneId, map]);
+  }, [zones, selectedZoneIds, editingZoneId, map]);
 
   // ── Vertex + edge-midpoint handles for the zone being edited ─
   useEffect(() => {
@@ -493,7 +493,7 @@ export function MapView({
   geoWatching,
   onLocate,
   zones,
-  selectedZoneId,
+  selectedZoneIds,
   onZoneSelect,
   onZoneCreate,
   onZoneUpdate,
@@ -669,7 +669,7 @@ export function MapView({
 
         <ZoneLayer
           zones={zones}
-          selectedZoneId={selectedZoneId}
+          selectedZoneIds={selectedZoneIds}
           editingZoneId={editingZoneId}
           drawingMode={drawingMode}
           drawingPoints={drawingPoints}
@@ -771,7 +771,7 @@ export function MapView({
 
       {/* Zones button */}
       <button
-        className={`zone-btn${showZonePanel ? " zone-btn--active" : ""}${selectedZoneId ? " zone-btn--filtered" : ""}`}
+        className={`zone-btn${showZonePanel ? " zone-btn--active" : ""}${selectedZoneIds.size > 0 ? " zone-btn--filtered" : ""}`}
         onClick={() => {
           setShowZonePanel((v) => !v);
           if (showZonePanel) {
@@ -787,7 +787,7 @@ export function MapView({
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polygon points="3 11 22 2 13 21 11 13 3 11" />
         </svg>
-        {selectedZoneId && <span className="zone-btn-dot" />}
+        {selectedZoneIds.size > 0 && <span className="zone-btn-dot" />}
       </button>
 
       {/* Locate me button */}
@@ -861,7 +861,7 @@ export function MapView({
                         />
                       ) : (
                         <button
-                          className={`zone-chip${selectedZoneId === zone.id ? " zone-chip--active" : ""}`}
+                          className={`zone-chip${selectedZoneIds.has(zone.id) ? " zone-chip--active" : ""}`}
                           style={{ "--zone-color": zone.color } as React.CSSProperties}
                           onClick={() => onZoneSelect(zone.id)}
                           title="Click to filter by this zone"
