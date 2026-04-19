@@ -18,6 +18,8 @@ export interface SerializedListing {
   end: string;
   url: string;
   cap: number;
+  lat: number;
+  lng: number;
 }
 
 export interface SerializedGroup {
@@ -48,6 +50,8 @@ export function serializePlan(groups: TimeSlotGroup[]): SerializedPlan {
       end: l.openHouseEnd.toISOString(),
       url: l.url,
       cap: l.capRate,
+      lat: l.lat,
+      lng: l.lng,
     })),
   }));
 }
@@ -76,8 +80,8 @@ export function deserializePlan(plan: SerializedPlan): TimeSlotGroup[] {
       openHouseStart: new Date(l.start),
       openHouseEnd: new Date(l.end),
       url: l.url,
-      lat: 0,
-      lng: 0,
+      lat: l.lat ?? 0,
+      lng: l.lng ?? 0,
       capRate: l.cap,
       capRateBreakdown: {} as Listing["capRateBreakdown"],
     })),

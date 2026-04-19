@@ -14,6 +14,7 @@ import { AnalyticsPage } from "./components/Analytics/AnalyticsPage";
 import { serializePlan, decodePlan, deserializePlan } from "./utils/serializePlan";
 import type { SerializedPlan } from "./utils/serializePlan";
 import { PlanView } from "./components/PlanView/PlanView";
+import { MapPlanView } from "./components/PlanView/MapPlanView";
 import type { TimeSlotGroup, Listing } from "./types";
 import "./App.css";
 
@@ -109,21 +110,25 @@ import { pointInPolygon } from "./utils/geometry";
 function App() {
   // Shared plan view — decode from URL hash before anything else
   const [sharedPlan, setSharedPlan] = useState<TimeSlotGroup[] | null>(null);
+  const [sharedPlanMode, setSharedPlanMode] = useState<"plan" | "map">("plan");
   const [sharedPlanLoading, setSharedPlanLoading] = useState(() => {
     const h = window.location.hash;
-    return h.startsWith("#share?d=") || h.startsWith("#share?bin=");
+    return h.startsWith("#share?d=") || h.startsWith("#share?bin=") || h.startsWith("#map?bin=");
   });
 
   useEffect(() => {
     const hash = window.location.hash;
     const legacyPrefix = "#share?d=";
     const binPrefix = "#share?bin=";
+    const mapPrefix = "#map?bin=";
     if (hash.startsWith(legacyPrefix)) {
       const plan = decodePlan(hash.slice(legacyPrefix.length));
       setSharedPlan(plan);
       setSharedPlanLoading(false);
-    } else if (hash.startsWith(binPrefix)) {
-      const id = hash.slice(binPrefix.length);
+    } else if (hash.startsWith(binPrefix) || hash.startsWith(mapPrefix)) {
+      const isMap = hash.startsWith(mapPrefix);
+      const id = hash.slice((isMap ? mapPrefix : binPrefix).length);
+      if (isMap) setSharedPlanMode("map");
       fetch(`/api/plan?id=${id}`)
         .then((r) => r.ok ? r.json() : Promise.reject(r.status))
         .then((data: SerializedPlan) => setSharedPlan(deserializePlan(data)))
@@ -458,7 +463,9 @@ function App() {
       <p>Loading plan\u2026</p>
     </div>
   );
-  if (sharedPlan) return <PlanView groups={sharedPlan} />;
+  if (sharedPlan) return sharedPlanMode === "map"
+    ? <MapPlanView groups={sharedPlan} />
+    : <PlanView groups={sharedPlan} />;
 
   if (syncStatus === "loading" || loading) {
     return (
@@ -502,8 +509,11 @@ function App() {
           });
           if (!r.ok) throw new Error("Failed");
           const { id } = await r.json() as { id: string };
-          const url = `${window.location.origin}/#share?bin=${id}`;
-          window.open(url, "_blank");
+          const origin = window.location.origin;
+          return {
+            planUrl: `${origin}/#share?bin=${id}`,
+            mapUrl: `${origin}/#map?bin=${id}`,
+          };
         }}
       />
       {page === "analytics" && (

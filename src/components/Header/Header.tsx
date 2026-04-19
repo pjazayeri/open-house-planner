@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import type { TimeSlotGroup } from "../../types";
 import type { SyncStatus } from "../../utils/cloudSync";
 import type { Page } from "../../App";
@@ -18,7 +18,7 @@ interface HeaderProps {
   saveFailed: boolean;
   onShowSummary: () => void;
   onUploadCsv: (text: string) => Promise<number>;
-  onSharePlan: () => Promise<void>;
+  onSharePlan: () => Promise<{ planUrl: string; mapUrl: string }>;
 }
 
 
@@ -65,6 +65,19 @@ export function Header({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [toast, setToast] = useState<{ msg: string; kind: "loading" | "ok" | "error" } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [shareLinks, setShareLinks] = useState<{ planUrl: string; mapUrl: string } | null>(null);
+  const shareRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!shareLinks) return;
+    function onClickOutside(e: MouseEvent) {
+      if (shareRef.current && !shareRef.current.contains(e.target as Node)) {
+        setShareLinks(null);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [shareLinks]);
 
   function showToast(msg: string, kind: "loading" | "ok" | "error", autoDismiss = false) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -157,21 +170,47 @@ export function Header({
           Summary
         </button>
         {(page === "planner" || page === "priority") && (
-          <button
-            className="nav-tab nav-tab--share"
-            title="Generate a shareable link for your open house plan"
-            onClick={async () => {
-              showToast("Generating plan…", "loading");
-              try {
-                await onSharePlan();
-                showToast("Plan opened in new tab", "ok", true);
-              } catch {
-                showToast("Failed to create plan link", "error", true);
-              }
-            }}
-          >
-            Share Plan ↗
-          </button>
+          <div className="share-plan-wrap" ref={shareRef}>
+            <button
+              className="nav-tab nav-tab--share"
+              title="Generate shareable links for your open house plan"
+              onClick={async () => {
+                if (shareLinks) { setShareLinks(null); return; }
+                showToast("Generating links…", "loading");
+                try {
+                  const links = await onSharePlan();
+                  setToast(null);
+                  setShareLinks(links);
+                } catch {
+                  showToast("Failed to create plan link", "error", true);
+                }
+              }}
+            >
+              Share Plan ↗
+            </button>
+            {shareLinks && (
+              <div className="share-plan-dropdown">
+                <div className="share-plan-row">
+                  <span className="share-plan-label">Full plan</span>
+                  <a href={shareLinks.planUrl} target="_blank" rel="noopener noreferrer" className="share-plan-link">Open ↗</a>
+                  <button
+                    className="share-plan-copy"
+                    onClick={() => { navigator.clipboard.writeText(shareLinks.planUrl); }}
+                    title="Copy link"
+                  >Copy</button>
+                </div>
+                <div className="share-plan-row">
+                  <span className="share-plan-label">Map only</span>
+                  <a href={shareLinks.mapUrl} target="_blank" rel="noopener noreferrer" className="share-plan-link">Open ↗</a>
+                  <button
+                    className="share-plan-copy"
+                    onClick={() => { navigator.clipboard.writeText(shareLinks.mapUrl); }}
+                    title="Copy link"
+                  >Copy</button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
         <input
           ref={fileInputRef}

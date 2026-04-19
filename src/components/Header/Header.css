@@ -216,3 +216,60 @@
     font-size: 16px;
   }
 }
+
+/* ── Share plan dropdown ───────────────────────── */
+.share-plan-wrap {
+  position: relative;
+}
+
+.share-plan-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.15);
+  padding: 8px;
+  min-width: 260px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.share-plan-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.share-plan-label {
+  flex: 1;
+  font-size: 13px;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.share-plan-link {
+  font-size: 13px;
+  color: #2563eb;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.share-plan-link:hover { text-decoration: underline; }
+
+.share-plan-copy {
+  font-size: 12px;
+  padding: 3px 8px;
+  background: #e2e8f0;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #475569;
+  white-space: nowrap;
+}
+.share-plan-copy:hover { background: #cbd5e1; }
