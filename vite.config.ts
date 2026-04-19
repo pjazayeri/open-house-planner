@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import type { Plugin } from 'vite'
 import type { IncomingMessage, ServerResponse } from 'http'
 import { readFileSync, readdirSync, writeFileSync, existsSync, mkdirSync } from 'fs'
-import { list } from '@vercel/blob'
+import { list, head } from '@vercel/blob'
 import { resolve } from 'path'
 
 function readEnvLocal(): Record<string, string> {
@@ -78,11 +78,30 @@ function localApis(): Plugin {
         res.end('Method not allowed');
       });
 
-      // /api/thumbnail — serve from public/thumbnails/ locally
-      server.middlewares.use('/api/thumbnail', (req: IncomingMessage, res: ServerResponse) => {
+      // /api/thumbnail — proxy Vercel Blob; fall back to public/thumbnails/ locally
+      server.middlewares.use('/api/thumbnail', async (req: IncomingMessage, res: ServerResponse) => {
         const mlsId = req.url?.split('/').pop()?.split('?')[0] ?? '';
+        if (!mlsId) { res.writeHead(400); res.end('Missing mlsId'); return; }
+
+        const token = env.BLOB_READ_WRITE_TOKEN;
+        if (token) {
+          try {
+            process.env.BLOB_READ_WRITE_TOKEN = token;
+            const blob = await head(`thumbnails/${mlsId}.jpg`);
+            const imgRes = await fetch(blob.url, { headers: { Authorization: `Bearer ${token}` } });
+            if (imgRes.ok) {
+              const buf = Buffer.from(await imgRes.arrayBuffer());
+              res.writeHead(200, { 'Content-Type': 'image/jpeg' });
+              res.end(buf);
+              return;
+            }
+          } catch {
+            // fall through to local file
+          }
+        }
+
         const file = resolve(process.cwd(), 'public', 'thumbnails', `${mlsId}.jpg`);
-        if (mlsId && existsSync(file)) {
+        if (existsSync(file)) {
           res.writeHead(200, { 'Content-Type': 'image/jpeg' });
           res.end(readFileSync(file));
         } else {
