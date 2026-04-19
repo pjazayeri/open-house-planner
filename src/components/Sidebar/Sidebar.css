@@ -555,3 +555,9 @@
   }
 }
 
+
+/* ── Status filter chips ───────────────────── */
+.sb-status-chip--active.active  { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
+.sb-status-chip--pending.active { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+.sb-status-chip--contingent.active { background: #ffedd5; border-color: #fdba74; color: #9a3412; }
+.sb-status-chip--sold.active    { background: #f1f5f9; border-color: #94a3b8; color: #334155; }

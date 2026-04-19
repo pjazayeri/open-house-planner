@@ -57,6 +57,10 @@ interface SidebarProps {
   zones: MapZone[];
   selectedZoneId: string | null;
   onZoneSelect: (id: string) => void;
+  // Status filter (Browse mode only)
+  statusFilter: string;
+  onStatusFilterChange: (s: string) => void;
+  statusCounts: Record<string, number>;
 }
 
 export type SortKey = "time" | "price" | "capRate" | "ppsf";
@@ -288,6 +292,9 @@ export function Sidebar({
   zones,
   selectedZoneId,
   onZoneSelect,
+  statusFilter,
+  onStatusFilterChange,
+  statusCounts,
 }: SidebarProps) {
   function fmtHour(h: number): string {
     if (h === 12) return "12pm";
@@ -433,6 +440,27 @@ export function Sidebar({
               </div>
             </div>
           )}
+          {mode === "browse" && (() => {
+            const statuses = ["Active", "Pending", "Contingent", "Sold"];
+            const visibleStatuses = statuses.filter((s) => (statusCounts[s] ?? 0) > 0 || s === "Active");
+            if (visibleStatuses.length <= 1) return null;
+            return (
+              <div className="sb-control-row">
+                <span className="sb-control-label">Status</span>
+                <div className="sb-chips">
+                  {visibleStatuses.map((s) => (
+                    <button
+                      key={s}
+                      className={`sb-chip sb-status-chip sb-status-chip--${s.toLowerCase()} ${statusFilter === s ? "active" : ""}`}
+                      onClick={() => onStatusFilterChange(statusFilter === s ? "Active" : s)}
+                    >
+                      {s}{statusCounts[s] != null ? ` (${statusCounts[s]})` : ""}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
           <div className="sb-control-row">
             <span className="sb-control-label">Sort</span>
             <div className="sb-chips">
@@ -469,7 +497,7 @@ export function Sidebar({
               ))}
             </div>
           </div>
-          {(activeFilters.size > 0 || sortKey !== "time" || searchQuery.trim() || selectedNeighborhood || selectedZoneId || selectedDate || timeFrom !== null || timeTo !== null) && (
+          {(activeFilters.size > 0 || sortKey !== "time" || searchQuery.trim() || selectedNeighborhood || selectedZoneId || selectedDate || timeFrom !== null || timeTo !== null || (mode === "browse" && statusFilter !== "Active")) && (
             <div className="sb-count">
               {totalVisible} of {totalListings} shown
             </div>

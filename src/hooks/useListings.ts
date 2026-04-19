@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import type { Listing, TimeSlotGroup, VisitRecord } from "../types";
 import { loadCsv, uploadCsvText } from "../utils/parseCsv";
-import { filterAndTransform, getCities } from "../utils/filterListings";
+import { filterAndTransform, transformAll, getCities } from "../utils/filterListings";
 import { optimizeRoute } from "../utils/routeOptimizer";
 import { useHiddenIds } from "./useHiddenIds";
 import { useVisits } from "./useVisits";
@@ -31,6 +31,7 @@ interface UseListingsResult {
   loading: boolean;
   error: string | null;
   allListings: Listing[];
+  allFavoritesListings: Listing[];
   archivedListings: Listing[];
   cities: string[];
   selectedCity: string;
@@ -81,6 +82,7 @@ interface UseListingsResult {
 
 export function useListings(): UseListingsResult {
   const [allListings, setAllListings] = useState<Listing[]>([]);
+  const [allFavoritesListings, setAllFavoritesListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCity, setSelectedCity] = useState("");
@@ -107,6 +109,7 @@ export function useListings(): UseListingsResult {
       .then((rows) => {
         const filtered = filterAndTransform(rows);
         setAllListings(filtered);
+        setAllFavoritesListings(transformAll(rows));
         const cities = getCities(filtered);
         if (cities.length > 0) setSelectedCity(cities[0]);
       })
@@ -168,6 +171,7 @@ export function useListings(): UseListingsResult {
     loading,
     error,
     allListings,
+    allFavoritesListings,
     archivedListings,
     cities,
     selectedCity,
@@ -208,6 +212,7 @@ export function useListings(): UseListingsResult {
       const rows = await uploadCsvText(csvText);
       const filtered = filterAndTransform(rows);
       setAllListings(filtered);
+      setAllFavoritesListings(transformAll(rows));
       const cities = getCities(filtered);
       if (cities.length > 0) setSelectedCity(cities[0]);
       return filtered.length;

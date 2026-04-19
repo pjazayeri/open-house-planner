@@ -133,7 +133,12 @@ export function PropertyCard({
       onMouseLeave={() => onHover(null)}
     >
       <div className="card-header">
-        <span className="visit-badge">#{listing.visitOrder}</span>
+        {listing.visitOrder != null && (
+          <span className="visit-badge">#{listing.visitOrder}</span>
+        )}
+        {listing.status && listing.status !== "Active" && (
+          <span className={`card-status-badge card-status-badge--${listing.status.toLowerCase()}`}>{listing.status}</span>
+        )}
         <span className="card-price">{formatPrice(listing.price)}</span>
         <span
           className={`card-cap-rate ${listing.capRate >= 3.5 ? "good" : listing.capRate >= 1.5 ? "ok" : "low"}`}

@@ -53,6 +53,7 @@ export interface Listing {
   lng: number;
   capRate: number;
   capRateBreakdown: import("./utils/capRate").CapRateBreakdown;
+  status?: string;
   visitOrder?: number;
   timeSlot?: string;
   archived?: boolean;

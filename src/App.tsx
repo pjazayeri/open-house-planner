@@ -64,10 +64,13 @@ function hashParams(): URLSearchParams {
   return new URLSearchParams(qi === -1 ? "" : h.slice(qi + 1));
 }
 
+const VALID_STATUS_FILTERS = ["", "Active", "Pending", "Sold", "Contingent"];
+
 function filtersFromHash() {
   const p = hashParams();
   const sort = p.get("sort") as SortKey;
   const raw = p.get("f")?.split(",").filter((k): k is FilterKey => VALID_FILTER_KEYS.includes(k as FilterKey)) ?? [];
+  const statusRaw = p.get("status") ?? "Active";
   return {
     sortKey: VALID_SORT_KEYS.includes(sort) ? sort : "time" as SortKey,
     activeFilters: new Set<FilterKey>(raw),
@@ -76,6 +79,7 @@ function filtersFromHash() {
     selectedDate: p.get("date") ?? "",
     timeFrom: p.has("from") ? Number(p.get("from")) : null,
     timeTo: p.has("to") ? Number(p.get("to")) : null,
+    statusFilter: VALID_STATUS_FILTERS.includes(statusRaw) ? statusRaw : "Active",
   };
 }
 
@@ -87,6 +91,7 @@ function buildFilterParams(
   selectedDate: string,
   timeFrom: number | null,
   timeTo: number | null,
+  statusFilter: string,
 ): string {
   const p = new URLSearchParams();
   if (sortKey !== "time") p.set("sort", sortKey);
@@ -96,6 +101,7 @@ function buildFilterParams(
   if (selectedDate) p.set("date", selectedDate);
   if (timeFrom !== null) p.set("from", String(timeFrom));
   if (timeTo !== null) p.set("to", String(timeTo));
+  if (statusFilter !== "Active") p.set("status", statusFilter);
   return p.toString();
 }
 
@@ -143,11 +149,12 @@ function App() {
   const [selectedDate, setSelectedDate] = useState(_init.selectedDate);
   const [timeFrom, setTimeFrom] = useState<number | null>(_init.timeFrom);
   const [timeTo, setTimeTo] = useState<number | null>(_init.timeTo);
+  const [statusFilter, setStatusFilter] = useState(_init.statusFilter);
 
   // Keep hash in sync with page + filter state
   useEffect(() => {
     if (window.location.hash.startsWith("#share")) return;
-    const params = buildFilterParams(sortKey, activeFilters, searchQuery, selectedNeighborhood, selectedDate, timeFrom, timeTo);
+    const params = buildFilterParams(sortKey, activeFilters, searchQuery, selectedNeighborhood, selectedDate, timeFrom, timeTo, statusFilter);
     const pageSlug = page === "home" ? "" : page;
     const full = pageSlug + (params ? "?" + params : "");
     const current = window.location.hash.slice(1).split("?")[0];
@@ -159,7 +166,7 @@ function App() {
       // Filter-only change → replace so back button still works for page nav
       history.replaceState(null, "", "#" + full);
     }
-  }, [page, sortKey, activeFilters, searchQuery, selectedNeighborhood, selectedDate, timeFrom, timeTo]);
+  }, [page, sortKey, activeFilters, searchQuery, selectedNeighborhood, selectedDate, timeFrom, timeTo, statusFilter]);
 
   // Restore page + filters on browser back/forward
   useEffect(() => {
@@ -174,6 +181,7 @@ function App() {
       setSelectedDate(f.selectedDate);
       setTimeFrom(f.timeFrom);
       setTimeTo(f.timeTo);
+      setStatusFilter(f.statusFilter);
     }
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
@@ -192,6 +200,7 @@ function App() {
     loading,
     error,
     allListings,
+    allFavoritesListings,
     archivedListings,
     cities,
     selectedCity,
@@ -252,6 +261,21 @@ function App() {
     [archivedListings, augmentWithZone]
   );
 
+  const augmentedAllFavoritesListings = useMemo(
+    () => allFavoritesListings.map(augmentWithZone),
+    [allFavoritesListings, augmentWithZone]
+  );
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const l of augmentedAllFavoritesListings) {
+      if (l.city !== selectedCity || hiddenIds.has(l.id)) continue;
+      const s = l.status ?? "Active";
+      counts[s] = (counts[s] ?? 0) + 1;
+    }
+    return counts;
+  }, [augmentedAllFavoritesListings, selectedCity, hiddenIds]);
+
   useEffect(() => {
     if (!scrollTarget) return;
     const isDesktop = window.innerWidth > 767;
@@ -279,17 +303,29 @@ function App() {
   // - planner: time-slot groups (optionally filtered to priority)
   const baseGroups = useMemo((): TimeSlotGroup[] => {
     if (page === "home") {
-      const activeIds = new Set(augmentedAllListings.map((l) => l.id));
-      const listings = augmentedAllListings
-        .filter((l) => !hiddenIds.has(l.id) && l.city === selectedCity)
-        .sort((a, b) => a.openHouseStart.getTime() - b.openHouseStart.getTime());
-      const pastVisits = augmentedArchivedListings
-        .filter((l) => !activeIds.has(l.id) && !hiddenIds.has(l.id) && l.city === selectedCity && visits[l.id])
+      const favIds = new Set(augmentedAllFavoritesListings.map((l) => l.id));
+      const listings = augmentedAllFavoritesListings
+        .filter((l) => {
+          if (hiddenIds.has(l.id) || l.city !== selectedCity) return false;
+          if (statusFilter && l.status !== statusFilter) return false;
+          return true;
+        })
         .sort((a, b) => {
-          const va = visits[a.id]?.visitedAt ?? "";
-          const vb = visits[b.id]?.visitedAt ?? "";
-          return vb.localeCompare(va); // most recently visited first
+          // Active listings: sort by open house time; others: sort by price descending
+          if (a.openHouseStart.getTime() > 0 && b.openHouseStart.getTime() > 0)
+            return a.openHouseStart.getTime() - b.openHouseStart.getTime();
+          return b.price - a.price;
         });
+      // Past Visits: visited archived listings not in the current CSV, shown for Active/All views
+      const pastVisits = (!statusFilter || statusFilter === "Active")
+        ? augmentedArchivedListings
+            .filter((l) => !favIds.has(l.id) && !hiddenIds.has(l.id) && l.city === selectedCity && visits[l.id])
+            .sort((a, b) => {
+              const va = visits[a.id]?.visitedAt ?? "";
+              const vb = visits[b.id]?.visitedAt ?? "";
+              return vb.localeCompare(va);
+            })
+        : [];
       const groups: TimeSlotGroup[] = [];
       if (listings.length > 0) groups.push({ label: "All Properties", startTime: new Date(0), endTime: new Date(0), listings });
       if (pastVisits.length > 0) groups.push({ label: "Past Visits", startTime: new Date(0), endTime: new Date(0), listings: pastVisits });
@@ -301,7 +337,7 @@ function App() {
           .filter((g) => g.listings.length > 0)
       : timeSlotGroups;
     return slotGroups.map((g) => ({ ...g, listings: g.listings.map(augmentWithZone) }));
-  }, [page, augmentedAllListings, augmentedArchivedListings, hiddenIds, selectedCity, timeSlotGroups, priorityIds, visits, showOnlyPriority, augmentWithZone]);
+  }, [page, augmentedAllFavoritesListings, augmentedArchivedListings, hiddenIds, selectedCity, statusFilter, timeSlotGroups, priorityIds, visits, showOnlyPriority, augmentWithZone]);
 
   // Neighborhoods for the current city (derived from base listings before filtering)
   const neighborhoods = useMemo(
@@ -326,8 +362,8 @@ function App() {
     return dates;
   }, [timeSlotGroups]);
 
-  // Reset neighborhood selection when city changes
-  useEffect(() => { setSelectedNeighborhood(""); }, [selectedCity]);
+  // Reset neighborhood + status selection when city changes
+  useEffect(() => { setSelectedNeighborhood(""); setStatusFilter("Active"); }, [selectedCity]);
 
   // Apply filters + sort on top of base groups (shared between home and planner)
   const visibleGroups = useMemo(() => {
@@ -570,6 +606,9 @@ function App() {
           zones={zones}
           selectedZoneId={selectedZoneId}
           onZoneSelect={(id) => setSelectedZoneId(selectedZoneId === id ? null : id)}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          statusCounts={statusCounts}
         />
         <MapView
           timeSlotGroups={visibleGroups}

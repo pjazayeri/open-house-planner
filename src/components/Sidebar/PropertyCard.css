@@ -40,6 +40,19 @@
   font-weight: 700;
 }
 
+.card-status-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.card-status-badge--pending    { background: #fef3c7; color: #92400e; }
+.card-status-badge--contingent { background: #ffedd5; color: #9a3412; }
+.card-status-badge--sold       { background: #f1f5f9; color: #475569; }
+
 .card-price {
   font-size: 16px;
   font-weight: 700;

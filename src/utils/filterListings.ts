@@ -73,6 +73,65 @@ export function filterAndTransform(rows: RawListing[]): Listing[] {
       lng,
       capRate: breakdown.capRate,
       capRateBreakdown: breakdown,
+      status: row.STATUS || "Active",
+    });
+  }
+
+  return listings;
+}
+
+/**
+ * Transform all CSV rows regardless of status (for Browse page).
+ * Listings without open house times get epoch-0 dates.
+ */
+export function transformAll(rows: RawListing[]): Listing[] {
+  const listings: Listing[] = [];
+
+  for (const row of rows) {
+    const status = row.STATUS?.trim() || "Active";
+    if (!status) continue;
+
+    const lat = parseFloat(row.LATITUDE);
+    const lng = parseFloat(row.LONGITUDE);
+    if (isNaN(lat) || isNaN(lng)) continue;
+
+    const price = Number(row.PRICE) || 0;
+    const beds = Number(row.BEDS) || 0;
+    const baths = Number(row.BATHS) || 0;
+    const sqft = parseNum(row["SQUARE FEET"]);
+    const yearBuilt = parseNum(row["YEAR BUILT"]);
+    const hoa = parseNum(row["HOA/MONTH"]);
+    const zip = row["ZIP OR POSTAL CODE"];
+    const propertyType = row["PROPERTY TYPE"];
+    const breakdown = computeCapRateBreakdown({ price, beds, baths, sqft, yearBuilt, hoa, city: row.CITY, zip, propertyType });
+
+    const startTime = parseRedfinDate(row["NEXT OPEN HOUSE START TIME"]) ?? new Date(0);
+    const endTime = parseRedfinDate(row["NEXT OPEN HOUSE END TIME"]) ?? new Date(0);
+
+    listings.push({
+      id: row["MLS#"] || `${row.ADDRESS}-${row.CITY}`,
+      address: row.ADDRESS,
+      location: normalizeLocation(row.LOCATION || "", row.CITY),
+      city: row.CITY,
+      state: row["STATE OR PROVINCE"],
+      zip,
+      price,
+      beds,
+      baths,
+      sqft,
+      yearBuilt,
+      daysOnMarket: parseNum(row["DAYS ON MARKET"]),
+      pricePerSqft: parseNum(row["$/SQUARE FEET"]),
+      hoa,
+      propertyType,
+      openHouseStart: startTime,
+      openHouseEnd: endTime,
+      url: row[URL_COLUMN],
+      lat,
+      lng,
+      capRate: breakdown.capRate,
+      capRateBreakdown: breakdown,
+      status,
     });
   }
 
