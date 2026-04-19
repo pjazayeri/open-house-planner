@@ -29,7 +29,6 @@ interface SidebarProps {
   onFiltersChange: (filters: Set<FilterKey>) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
-  neighborhoods: string[];
   selectedAreas: Set<string>;
   onAreaChange: (area: string) => void;
   availableDates: { key: string; label: string }[];
@@ -278,7 +277,6 @@ export function Sidebar({
   onFiltersChange,
   searchQuery,
   onSearchChange,
-  neighborhoods,
   selectedAreas,
   onAreaChange,
   availableDates,
@@ -367,7 +365,7 @@ export function Sidebar({
               <button className="sb-search-clear" onClick={() => onSearchChange("")}>✕</button>
             )}
           </div>
-          {(zones.length > 0 || neighborhoods.length > 1) && (
+          {zones.length > 0 && (
             <div className="sb-control-row">
               <span className="sb-control-label">Area</span>
               <div className="sb-chips">
@@ -383,15 +381,6 @@ export function Sidebar({
                   >
                     <span className="sb-zone-dot" style={{ background: z.color }} />
                     {z.name}
-                  </button>
-                ))}
-                {neighborhoods.map((n) => (
-                  <button
-                    key={n}
-                    className={`sb-chip${selectedAreas.has(n) ? " active" : ""}`}
-                    onClick={() => onAreaChange(n)}
-                  >
-                    {n}
                   </button>
                 ))}
               </div>

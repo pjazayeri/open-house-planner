@@ -3,7 +3,6 @@ import { useListings } from "./hooks/useListings";
 import { useMapZones } from "./hooks/useMapZones";
 import { Header } from "./components/Header/Header";
 import { Sidebar, sortListings, matchesFilter } from "./components/Sidebar/Sidebar";
-import { getNeighborhoods } from "./utils/filterListings";
 import type { SortKey, FilterKey } from "./components/Sidebar/Sidebar";
 const VALID_SORT_KEYS: SortKey[] = ["time", "price", "capRate", "ppsf"];
 const VALID_FILTER_KEYS: FilterKey[] = ["liked", "disliked", "visited", "unvisited", "priority", "notPriority", "rated"];
@@ -338,12 +337,6 @@ function App() {
     return slotGroups.map((g) => ({ ...g, listings: g.listings.map(augmentWithZone) }));
   }, [page, augmentedAllFavoritesListings, augmentedArchivedListings, hiddenIds, selectedCity, statusFilter, timeSlotGroups, priorityIds, visits, showOnlyPriority, augmentWithZone]);
 
-  // Neighborhoods for the current city (derived from base listings before filtering)
-  const neighborhoods = useMemo(
-    () => getNeighborhoods(baseGroups.flatMap((g) => g.listings)),
-    [baseGroups]
-  );
-
   // Distinct dates available in the planner (from time slot groups)
   const availableDates = useMemo(() => {
     const seen = new Set<string>();
@@ -579,7 +572,6 @@ function App() {
           onFiltersChange={setActiveFilters}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          neighborhoods={neighborhoods}
           selectedAreas={selectedAreas}
           onAreaChange={(area) => setSelectedAreas((prev) => {
             const next = new Set(prev);
