@@ -61,7 +61,7 @@ interface SidebarProps {
 }
 
 export type SortKey = "time" | "price" | "capRate" | "ppsf";
-export type FilterKey = "liked" | "disliked" | "visited" | "unvisited" | "priority" | "rated";
+export type FilterKey = "liked" | "disliked" | "visited" | "unvisited" | "priority" | "notPriority" | "rated";
 
 const SORT_LABELS: Record<SortKey, string> = {
   time: "Time",
@@ -77,6 +77,7 @@ const FILTER_LABELS: Record<FilterKey, string> = {
   unvisited: "Unvisited",
   rated: "★ Rated",
   priority: "⭐ Priority",
+  notPriority: "Not priority",
 };
 
 export function sortListings(listings: Listing[], key: SortKey): Listing[] {
@@ -102,6 +103,7 @@ export function matchesFilter(id: string, key: FilterKey, visits: Record<string,
     case "unvisited": return !v;
     case "rated":    return !!v && v.rating !== null;
     case "priority": return priorityIds.has(id);
+    case "notPriority": return !priorityIds.has(id);
   }
 }
 

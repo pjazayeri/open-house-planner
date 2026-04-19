@@ -6,7 +6,7 @@ import { Sidebar, sortListings, matchesFilter } from "./components/Sidebar/Sideb
 import { getNeighborhoods } from "./utils/filterListings";
 import type { SortKey, FilterKey } from "./components/Sidebar/Sidebar";
 const VALID_SORT_KEYS: SortKey[] = ["time", "price", "capRate", "ppsf"];
-const VALID_FILTER_KEYS: FilterKey[] = ["liked", "disliked", "visited", "unvisited", "priority", "rated"];
+const VALID_FILTER_KEYS: FilterKey[] = ["liked", "disliked", "visited", "unvisited", "priority", "notPriority", "rated"];
 import { MapView } from "./components/Map/MapView";
 import { SummaryModal } from "./components/Summary/SummaryModal";
 import { DataView } from "./components/DataView/DataView";
