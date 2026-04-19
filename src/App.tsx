@@ -414,12 +414,18 @@ function App() {
     }
 
     if (activeFilters.size > 0) {
+      const excludePriority = activeFilters.has("notPriority");
+      const inclusionFilters = [...activeFilters].filter((f) => f !== "notPriority");
       groups = groups
         .map((g) => ({
           ...g,
-          listings: g.listings.filter((l) =>
-            [...activeFilters].some((f) => matchesFilter(l.id, f, visits, priorityIds))
-          ),
+          listings: g.listings.filter((l) => {
+            if (excludePriority && priorityIds.has(l.id)) return false;
+            if (inclusionFilters.length > 0) {
+              return inclusionFilters.some((f) => matchesFilter(l.id, f, visits, priorityIds));
+            }
+            return true;
+          }),
         }))
         .filter((g) => g.listings.length > 0);
     }
