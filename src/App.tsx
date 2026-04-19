@@ -155,9 +155,13 @@ function App() {
   const [timeTo, setTimeTo] = useState<number | null>(_init.timeTo);
   const [statusFilter, setStatusFilter] = useState(_init.statusFilter);
 
+  function isSharedView(hash: string) {
+    return hash.startsWith("#share") || hash.startsWith("#map?bin=");
+  }
+
   // Keep hash in sync with page + filter state
   useEffect(() => {
-    if (window.location.hash.startsWith("#share")) return;
+    if (isSharedView(window.location.hash)) return;
     const params = buildFilterParams(sortKey, activeFilters, searchQuery, selectedAreas, selectedDate, timeFrom, timeTo, statusFilter);
     const pageSlug = page === "home" ? "" : page;
     const full = pageSlug + (params ? "?" + params : "");
@@ -175,7 +179,7 @@ function App() {
   // Restore page + filters on browser back/forward
   useEffect(() => {
     function onHashChange() {
-      if (window.location.hash.startsWith("#share")) return;
+      if (isSharedView(window.location.hash)) return;
       setPageState(pageFromHash());
       const f = filtersFromHash();
       setSortKey(f.sortKey);
