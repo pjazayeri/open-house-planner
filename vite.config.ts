@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import type { Plugin } from 'vite'
 import type { IncomingMessage, ServerResponse } from 'http'
 import { readFileSync, readdirSync, writeFileSync, existsSync, mkdirSync } from 'fs'
+import { list } from '@vercel/blob'
 import { resolve } from 'path'
 
 function readEnvLocal(): Record<string, string> {
@@ -149,13 +150,33 @@ function localApis(): Plugin {
         res.end(readFileSync(file, 'utf8'));
       });
 
-      // /api/csv — serve latest public/redfin-favorites_*.csv
-      server.middlewares.use('/api/csv', (req: IncomingMessage, res: ServerResponse) => {
+      // /api/csv — proxy to Vercel Blob (same as production), fall back to public/
+      server.middlewares.use('/api/csv', async (req: IncomingMessage, res: ServerResponse) => {
         if (req.method !== 'GET') {
           res.writeHead(405);
           res.end('Method not allowed');
           return;
         }
+        const token = env.BLOB_READ_WRITE_TOKEN;
+        if (token) {
+          try {
+            process.env.BLOB_READ_WRITE_TOKEN = token;
+            const { blobs } = await list({ prefix: 'csv/redfin-favorites_' });
+            if (blobs.length > 0) {
+              const latest = blobs.sort((a, b) => a.pathname.localeCompare(b.pathname)).at(-1)!;
+              const csvRes = await fetch(latest.url, { headers: { Authorization: `Bearer ${token}` } });
+              if (csvRes.ok) {
+                console.log(`[local-csv-api] serving from Blob: ${latest.pathname}`);
+                res.writeHead(200, { 'Content-Type': 'text/csv' });
+                res.end(await csvRes.text());
+                return;
+              }
+            }
+          } catch (e) {
+            console.warn('[local-csv-api] Blob fetch failed, falling back to public/', e);
+          }
+        }
+        // Fallback: serve latest public/redfin-favorites_*.csv
         try {
           const files = readdirSync(resolve(process.cwd(), 'public'))
             .filter((f) => f.startsWith('redfin-favorites_') && f.endsWith('.csv'))
@@ -163,13 +184,12 @@ function localApis(): Plugin {
           const latest = files.at(-1);
           if (!latest) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'No CSV found in public/' }));
+            res.end(JSON.stringify({ error: 'No CSV found in Blob or public/' }));
             return;
           }
-          const csv = readFileSync(resolve(process.cwd(), 'public', latest), 'utf8');
-          console.log(`[local-csv-api] serving ${latest}`);
+          console.log(`[local-csv-api] serving from public/${latest}`);
           res.writeHead(200, { 'Content-Type': 'text/csv' });
-          res.end(csv);
+          res.end(readFileSync(resolve(process.cwd(), 'public', latest), 'utf8'));
         } catch (e) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: String(e) }));
