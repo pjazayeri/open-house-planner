@@ -34,6 +34,18 @@ interface SidebarProps {
   availableDates: { key: string; label: string }[];
   selectedDate: string;
   onDateChange: (d: string) => void;
+  priceMin: number | null;
+  priceMax: number | null;
+  onPriceMinChange: (v: number | null) => void;
+  onPriceMaxChange: (v: number | null) => void;
+  capRateMin: number | null;
+  capRateMax: number | null;
+  onCapRateMinChange: (v: number | null) => void;
+  onCapRateMaxChange: (v: number | null) => void;
+  ppsfMin: number | null;
+  ppsfMax: number | null;
+  onPpsfMinChange: (v: number | null) => void;
+  onPpsfMaxChange: (v: number | null) => void;
   timeFrom: number | null;
   timeTo: number | null;
   onTimeFromChange: (h: number | null) => void;
@@ -282,6 +294,18 @@ export function Sidebar({
   availableDates,
   selectedDate,
   onDateChange,
+  priceMin,
+  priceMax,
+  onPriceMinChange,
+  onPriceMaxChange,
+  capRateMin,
+  capRateMax,
+  onCapRateMinChange,
+  onCapRateMaxChange,
+  ppsfMin,
+  ppsfMax,
+  onPpsfMinChange,
+  onPpsfMaxChange,
   timeFrom,
   timeTo,
   onTimeFromChange,
@@ -295,6 +319,9 @@ export function Sidebar({
     if (h === 12) return "12pm";
     if (h === 0) return "12am";
     return h < 12 ? `${h}am` : `${h - 12}pm`;
+  }
+  function fmtPrice(v: number): string {
+    return v >= 1_000_000 ? `$${v / 1_000_000}M` : `$${v / 1_000}K`;
   }
   function toggleFilter(k: FilterKey) {
     const next = new Set(activeFilters);
@@ -437,6 +464,52 @@ export function Sidebar({
             );
           })()}
           <div className="sb-control-row">
+            <span className="sb-control-label">Price</span>
+            <div className="sb-time-range">
+              <select className="sb-select sb-select--sm" value={priceMin ?? ""} onChange={(e) => onPriceMinChange(e.target.value !== "" ? Number(e.target.value) : null)}>
+                <option value="">Min</option>
+                {[500_000,750_000,1_000_000,1_250_000,1_500_000,1_750_000,2_000_000,2_500_000,3_000_000].map((v) => (
+                  <option key={v} value={v}>{fmtPrice(v)}</option>
+                ))}
+              </select>
+              <span className="sb-time-sep">–</span>
+              <select className="sb-select sb-select--sm" value={priceMax ?? ""} onChange={(e) => onPriceMaxChange(e.target.value !== "" ? Number(e.target.value) : null)}>
+                <option value="">Max</option>
+                {[750_000,1_000_000,1_250_000,1_500_000,1_750_000,2_000_000,2_500_000,3_000_000,4_000_000].map((v) => (
+                  <option key={v} value={v}>{fmtPrice(v)}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="sb-control-row">
+            <span className="sb-control-label">Cap Rate</span>
+            <div className="sb-time-range">
+              <select className="sb-select sb-select--sm" value={capRateMin ?? ""} onChange={(e) => onCapRateMinChange(e.target.value !== "" ? Number(e.target.value) : null)}>
+                <option value="">Min</option>
+                {[1,2,3,4,5,6].map((v) => <option key={v} value={v}>{v}%</option>)}
+              </select>
+              <span className="sb-time-sep">–</span>
+              <select className="sb-select sb-select--sm" value={capRateMax ?? ""} onChange={(e) => onCapRateMaxChange(e.target.value !== "" ? Number(e.target.value) : null)}>
+                <option value="">Max</option>
+                {[2,3,4,5,6,8].map((v) => <option key={v} value={v}>{v}%</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="sb-control-row">
+            <span className="sb-control-label">$/sqft</span>
+            <div className="sb-time-range">
+              <select className="sb-select sb-select--sm" value={ppsfMin ?? ""} onChange={(e) => onPpsfMinChange(e.target.value !== "" ? Number(e.target.value) : null)}>
+                <option value="">Min</option>
+                {[400,600,800,1000,1200,1500].map((v) => <option key={v} value={v}>${v}</option>)}
+              </select>
+              <span className="sb-time-sep">–</span>
+              <select className="sb-select sb-select--sm" value={ppsfMax ?? ""} onChange={(e) => onPpsfMaxChange(e.target.value !== "" ? Number(e.target.value) : null)}>
+                <option value="">Max</option>
+                {[600,800,1000,1200,1500,2000].map((v) => <option key={v} value={v}>${v}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="sb-control-row">
             <span className="sb-control-label">Sort</span>
             <div className="sb-chips">
               {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
@@ -472,7 +545,7 @@ export function Sidebar({
               ))}
             </div>
           </div>
-          {(activeFilters.size > 0 || sortKey !== "time" || searchQuery.trim() || selectedAreas.size > 0 || selectedDate || timeFrom !== null || timeTo !== null || (mode === "browse" && statusFilter !== "Active")) && (
+          {(activeFilters.size > 0 || sortKey !== "time" || searchQuery.trim() || selectedAreas.size > 0 || selectedDate || timeFrom !== null || timeTo !== null || priceMin !== null || priceMax !== null || capRateMin !== null || capRateMax !== null || ppsfMin !== null || ppsfMax !== null || (mode === "browse" && statusFilter !== "Active")) && (
             <div className="sb-count">
               {totalVisible} of {totalListings} shown
             </div>

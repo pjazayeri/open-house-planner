@@ -80,6 +80,12 @@ function filtersFromHash() {
     timeFrom: p.has("from") ? Number(p.get("from")) : null,
     timeTo: p.has("to") ? Number(p.get("to")) : null,
     statusFilter: VALID_STATUS_FILTERS.includes(statusRaw) ? statusRaw : "Active",
+    priceMin: p.has("pmin") ? Number(p.get("pmin")) : null,
+    priceMax: p.has("pmax") ? Number(p.get("pmax")) : null,
+    capRateMin: p.has("crmin") ? Number(p.get("crmin")) : null,
+    capRateMax: p.has("crmax") ? Number(p.get("crmax")) : null,
+    ppsfMin: p.has("sfmin") ? Number(p.get("sfmin")) : null,
+    ppsfMax: p.has("sfmax") ? Number(p.get("sfmax")) : null,
   };
 }
 
@@ -92,6 +98,12 @@ function buildFilterParams(
   timeFrom: number | null,
   timeTo: number | null,
   statusFilter: string,
+  priceMin: number | null,
+  priceMax: number | null,
+  capRateMin: number | null,
+  capRateMax: number | null,
+  ppsfMin: number | null,
+  ppsfMax: number | null,
 ): string {
   const p = new URLSearchParams();
   if (sortKey !== "time") p.set("sort", sortKey);
@@ -102,6 +114,12 @@ function buildFilterParams(
   if (timeFrom !== null) p.set("from", String(timeFrom));
   if (timeTo !== null) p.set("to", String(timeTo));
   if (statusFilter !== "Active") p.set("status", statusFilter);
+  if (priceMin !== null) p.set("pmin", String(priceMin));
+  if (priceMax !== null) p.set("pmax", String(priceMax));
+  if (capRateMin !== null) p.set("crmin", String(capRateMin));
+  if (capRateMax !== null) p.set("crmax", String(capRateMax));
+  if (ppsfMin !== null) p.set("sfmin", String(ppsfMin));
+  if (ppsfMax !== null) p.set("sfmax", String(ppsfMax));
   return p.toString();
 }
 
@@ -154,6 +172,12 @@ function App() {
   const [timeFrom, setTimeFrom] = useState<number | null>(_init.timeFrom);
   const [timeTo, setTimeTo] = useState<number | null>(_init.timeTo);
   const [statusFilter, setStatusFilter] = useState(_init.statusFilter);
+  const [priceMin, setPriceMin] = useState<number | null>(_init.priceMin);
+  const [priceMax, setPriceMax] = useState<number | null>(_init.priceMax);
+  const [capRateMin, setCapRateMin] = useState<number | null>(_init.capRateMin);
+  const [capRateMax, setCapRateMax] = useState<number | null>(_init.capRateMax);
+  const [ppsfMin, setPpsfMin] = useState<number | null>(_init.ppsfMin);
+  const [ppsfMax, setPpsfMax] = useState<number | null>(_init.ppsfMax);
 
   function isSharedView(hash: string) {
     return hash.startsWith("#share") || hash.startsWith("#map?bin=");
@@ -162,7 +186,7 @@ function App() {
   // Keep hash in sync with page + filter state
   useEffect(() => {
     if (isSharedView(window.location.hash)) return;
-    const params = buildFilterParams(sortKey, activeFilters, searchQuery, selectedAreas, selectedDate, timeFrom, timeTo, statusFilter);
+    const params = buildFilterParams(sortKey, activeFilters, searchQuery, selectedAreas, selectedDate, timeFrom, timeTo, statusFilter, priceMin, priceMax, capRateMin, capRateMax, ppsfMin, ppsfMax);
     const pageSlug = page === "home" ? "" : page;
     const full = pageSlug + (params ? "?" + params : "");
     const current = window.location.hash.slice(1).split("?")[0];
@@ -174,7 +198,7 @@ function App() {
       // Filter-only change → replace so back button still works for page nav
       history.replaceState(null, "", "#" + full);
     }
-  }, [page, sortKey, activeFilters, searchQuery, selectedAreas, selectedDate, timeFrom, timeTo, statusFilter]);
+  }, [page, sortKey, activeFilters, searchQuery, selectedAreas, selectedDate, timeFrom, timeTo, statusFilter, priceMin, priceMax, capRateMin, capRateMax, ppsfMin, ppsfMax]);
 
   // Restore page + filters on browser back/forward
   useEffect(() => {
@@ -190,6 +214,12 @@ function App() {
       setTimeFrom(f.timeFrom);
       setTimeTo(f.timeTo);
       setStatusFilter(f.statusFilter);
+      setPriceMin(f.priceMin);
+      setPriceMax(f.priceMax);
+      setCapRateMin(f.capRateMin);
+      setCapRateMax(f.capRateMax);
+      setPpsfMin(f.ppsfMin);
+      setPpsfMax(f.ppsfMax);
     }
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
@@ -363,8 +393,13 @@ function App() {
     return dates;
   }, [timeSlotGroups]);
 
-  // Reset area + status selection when city changes
-  useEffect(() => { setSelectedAreas(new Set()); setStatusFilter("Active"); }, [selectedCity]);
+  // Reset area + status + range filters when city changes
+  useEffect(() => {
+    setSelectedAreas(new Set()); setStatusFilter("Active");
+    setPriceMin(null); setPriceMax(null);
+    setCapRateMin(null); setCapRateMax(null);
+    setPpsfMin(null); setPpsfMax(null);
+  }, [selectedCity]);
 
   // Apply filters + sort on top of base groups (shared between home and planner)
   const visibleGroups = useMemo(() => {
@@ -432,6 +467,23 @@ function App() {
         .filter((g) => g.listings.length > 0);
     }
 
+    if (priceMin !== null || priceMax !== null || capRateMin !== null || capRateMax !== null || ppsfMin !== null || ppsfMax !== null) {
+      groups = groups
+        .map((g) => ({
+          ...g,
+          listings: g.listings.filter((l) => {
+            if (priceMin !== null && l.price < priceMin) return false;
+            if (priceMax !== null && l.price > priceMax) return false;
+            if (capRateMin !== null && l.capRate < capRateMin) return false;
+            if (capRateMax !== null && l.capRate > capRateMax) return false;
+            if (ppsfMin !== null && (l.pricePerSqft == null || l.pricePerSqft < ppsfMin)) return false;
+            if (ppsfMax !== null && (l.pricePerSqft == null || l.pricePerSqft > ppsfMax)) return false;
+            return true;
+          }),
+        }))
+        .filter((g) => g.listings.length > 0);
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       groups = groups
@@ -453,7 +505,7 @@ function App() {
     }
 
     return groups;
-  }, [baseGroups, page, selectedAreas, zones, selectedDate, skippedForDay, timeFrom, timeTo, activeFilters, sortKey, visits, priorityIds, searchQuery]);
+  }, [baseGroups, page, selectedAreas, zones, selectedDate, skippedForDay, timeFrom, timeTo, activeFilters, sortKey, visits, priorityIds, searchQuery, priceMin, priceMax, capRateMin, capRateMax, ppsfMin, ppsfMax]);
 
   const totalListings = useMemo(
     () => baseGroups.reduce((s, g) => s + g.listings.length, 0),
@@ -596,6 +648,18 @@ function App() {
           availableDates={availableDates}
           selectedDate={selectedDate}
           onDateChange={setSelectedDate}
+          priceMin={priceMin}
+          priceMax={priceMax}
+          onPriceMinChange={setPriceMin}
+          onPriceMaxChange={setPriceMax}
+          capRateMin={capRateMin}
+          capRateMax={capRateMax}
+          onCapRateMinChange={setCapRateMin}
+          onCapRateMaxChange={setCapRateMax}
+          ppsfMin={ppsfMin}
+          ppsfMax={ppsfMax}
+          onPpsfMinChange={setPpsfMin}
+          onPpsfMaxChange={setPpsfMax}
           timeFrom={timeFrom}
           timeTo={timeTo}
           onTimeFromChange={setTimeFrom}
