@@ -3,6 +3,7 @@ import type { Listing, VisitRecord } from "../../types";
 import type { CapRateBreakdown } from "../../utils/capRate";
 import type { ListingAmenities } from "../../utils/cloudSync";
 import { formatPrice, formatBedsBaths, formatTimeRange } from "../../utils/formatters";
+import { readRentEstimate } from "../../hooks/useRentEstimates";
 import "./PropertyCard.css";
 
 interface PropertyCardProps {
@@ -123,6 +124,7 @@ export function PropertyCard({
   const b = listing.capRateBreakdown;
   const hasBreakdown = b && b.monthlyRent != null;
   const tooltipText = hasBreakdown ? buildTooltipLines(b).join("\n") : "";
+  const rentEstimate = hasBreakdown ? readRentEstimate(listing.id) : null;
 
   return (
     <div
@@ -224,8 +226,14 @@ export function PropertyCard({
             onMouseLeave={() => setShowTooltip(false)}
             onClick={(e) => { e.stopPropagation(); setShowTooltip((v) => !v); }}
           >
-            Est. rent {fmtDollar(b.monthlyRent)}/mo
-            {b.sqftImputed && <span className="rent-imputed-flag">*</span>}
+            Est. rent {rentEstimate ? fmtDollar(rentEstimate.rent) : fmtDollar(b.monthlyRent)}/mo
+            {!rentEstimate && b.sqftImputed && <span className="rent-imputed-flag">*</span>}
+            {rentEstimate && (
+              <span
+                className="rent-rc-badge"
+                title={`RentCast: $${rentEstimate.low.toLocaleString()}–$${rentEstimate.high.toLocaleString()}/mo${rentEstimate.comparables > 0 ? ` · ${rentEstimate.comparables} comps` : ""}`}
+              >&#x1F535;</span>
+            )}
           </span>
           {listing.hoa !== null && listing.hoa > 0 && (
             <span className="card-hoa">{fmtDollar(listing.hoa)} HOA</span>

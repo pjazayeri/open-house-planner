@@ -169,6 +169,22 @@ function localApis(): Plugin {
         res.end(readFileSync(file, 'utf8'));
       });
 
+      // /api/rent-estimate — proxy to RentCast AVM API
+      server.middlewares.use('/api/rent-estimate', async (req: IncomingMessage, res: ServerResponse) => {
+        const RENTCAST_API_KEY = env.RENTCAST_API_KEY;
+        if (!RENTCAST_API_KEY) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Not configured — set RENTCAST_API_KEY in .env.local' }));
+          return;
+        }
+        const qs = (req.url ?? '').split('?')[1] ?? '';
+        const r = await fetch(`https://api.rentcast.io/v1/avm/rent/long-term?${qs}`, {
+          headers: { 'X-Api-Key': RENTCAST_API_KEY },
+        });
+        res.writeHead(r.status, { 'Content-Type': 'application/json' });
+        res.end(await r.text());
+      });
+
       // /api/csv — proxy to Vercel Blob (same as production), fall back to public/
       server.middlewares.use('/api/csv', async (req: IncomingMessage, res: ServerResponse) => {
         if (req.method !== 'GET') {

@@ -4,6 +4,7 @@ import { calcBuyVsRent, calcTimeSeries, type BuyVsRentResult, type TimeSeriesPoi
 import { getNeighborhoods } from "../../utils/filterListings";
 import { formatPrice, formatBedsBaths } from "../../utils/formatters";
 import "./FinancePage.css";
+import { useRentEstimates, type RentEstimate } from "../../hooks/useRentEstimates";
 
 interface FinancePageProps {
   allListings: Listing[];
@@ -329,6 +330,8 @@ interface DetailProps {
   includePrincipal: boolean;
   rentOverride: number | null;
   onSetRentOverride: (rent: number | null) => void;
+  rentEstimate: RentEstimate | null;
+  fetchingEstimate: boolean;
   // time series params (lifted so they persist across selection changes)
   holdYears: number;
   setHoldYears: (n: number) => void;
@@ -340,7 +343,7 @@ interface DetailProps {
   setRentInflationPct: (n: number) => void;
 }
 
-function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPct, taxRatePct, appreciationPct, saltHeadroom, includePrincipal, rentOverride, onSetRentOverride, holdYears, setHoldYears, buyerClosingPct, setBuyerClosingPct, sellerCostPct, setSellerCostPct, rentInflationPct, setRentInflationPct }: DetailProps) {
+function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPct, taxRatePct, appreciationPct, saltHeadroom, includePrincipal, rentOverride, onSetRentOverride, rentEstimate, fetchingEstimate, holdYears, setHoldYears, buyerClosingPct, setBuyerClosingPct, sellerCostPct, setSellerCostPct, rentInflationPct, setRentInflationPct }: DetailProps) {
   const [thumbError, setThumbError] = useState(false);
   const thumbSrc = `/api/thumbnail/${listing.id}`;
 
@@ -641,6 +644,33 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
             )}
           </div>
         </div>
+        {(rentEstimate || fetchingEstimate) && (
+          <div className="fp-bd-row fp-bd-row--rentcast">
+            <span className="fp-bd-label fp-rentcast-label">
+              RentCast est.
+            </span>
+            {fetchingEstimate && !rentEstimate ? (
+              <span className="fp-rentcast-loading">fetching…</span>
+            ) : rentEstimate ? (
+              <div className="fp-rentcast-val">
+                <span>{fmtMo(rentEstimate.rent)}</span>
+                <span className="fp-rentcast-range">
+                  {" "}({fmtDollar(rentEstimate.low)}–{fmtDollar(rentEstimate.high)})
+                </span>
+                {rentEstimate.comparables > 0 && (
+                  <span className="fp-rentcast-comps"> · {rentEstimate.comparables} comps</span>
+                )}
+                <button
+                  className="fp-rentcast-use"
+                  onClick={() => onSetRentOverride(rentEstimate.rent)}
+                  title="Set rent override to this RentCast estimate"
+                >
+                  Use
+                </button>
+              </div>
+            ) : null}
+          </div>
+        )}
         <hr className="fp-divider" />
         <div className={`fp-bd-row ${premiumClass(result.monthlyBuyPremium)}`}>
           <span className="fp-bd-label">Buy premium</span>
@@ -808,6 +838,19 @@ export function FinancePage({ allListings, initialSelectedId, finFavoriteIds, to
   const [sellerCostPct, setSellerCostPct] = useState(() => readLs(LS_SELLER_COST, 6));
   const [rentInflationPct, setRentInflationPct] = useState(() => readLs(LS_RENT_INFLATION, 3));
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
+  const { fetchEstimate, getEstimate } = useRentEstimates();
+  const [fetchingEstimate, setFetchingEstimate] = useState(false);
+
+  // Auto-fetch RentCast estimate when selection changes
+  useEffect(() => {
+    if (!selectedId) return;
+    const listing = allListings.find((l) => l.id === selectedId);
+    if (!listing || getEstimate(selectedId)) return;
+    let cancelled = false;
+    setFetchingEstimate(true);
+    fetchEstimate(listing).finally(() => { if (!cancelled) setFetchingEstimate(false); });
+    return () => { cancelled = true; };
+  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync selected listing to URL for deep linking
   useEffect(() => {
@@ -1094,6 +1137,8 @@ export function FinancePage({ allListings, initialSelectedId, finFavoriteIds, to
               includePrincipal={includePrincipal}
               rentOverride={rentOverrides[selectedEntry.listing.id] ?? null}
               onSetRentOverride={(rent) => setRentOverride(selectedEntry.listing.id, rent)}
+              rentEstimate={getEstimate(selectedEntry.listing.id)}
+              fetchingEstimate={fetchingEstimate}
               holdYears={holdYears}
               setHoldYears={setHoldYears}
               buyerClosingPct={buyerClosingPct}

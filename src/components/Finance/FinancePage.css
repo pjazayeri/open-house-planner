@@ -380,6 +380,37 @@
 }
 .fp-rent-reset:hover { color: #94a3b8; }
 
+.fp-bd-row--rentcast {
+  background: rgba(59, 130, 246, 0.05);
+  border-radius: 4px;
+  padding: 3px 4px;
+  margin: 2px 0;
+  align-items: flex-start;
+}
+.fp-rentcast-label { color: #60a5fa; font-size: 11px; }
+.fp-rentcast-loading { font-size: 11px; color: #475569; font-style: italic; }
+.fp-rentcast-val {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  color: #93c5fd;
+}
+.fp-rentcast-range { color: #64748b; font-size: 11px; }
+.fp-rentcast-comps { color: #475569; font-size: 11px; }
+.fp-rentcast-use {
+  background: #1d4ed8;
+  border: none;
+  border-radius: 3px;
+  color: #eff6ff;
+  font-size: 10px;
+  padding: 1px 6px;
+  cursor: pointer;
+  margin-left: 4px;
+}
+.fp-rentcast-use:hover { background: #2563eb; }
+
 .fp-divider {
   border: none;
   border-top: 1px solid #334155;

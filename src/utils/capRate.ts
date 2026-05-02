@@ -50,8 +50,20 @@ const ZIP_RENT_PSF: Record<string, number> = {
   "94107": 4.20, // SoMa / Potrero
   "94108": 4.10, // Chinatown / Nob Hill
   "94109": 4.00, // Polk / Russian Hill
+  "94110": 3.90, // Mission
   "94111": 4.30, // Embarcadero / Financial
+  "94112": 3.50, // Excelsior / Outer Mission
+  "94114": 4.20, // Castro / Noe Valley
+  "94115": 4.30, // Pacific Heights
+  "94116": 3.80, // West Portal / Forest Hill
+  "94117": 3.90, // Haight-Ashbury
+  "94118": 4.00, // Inner Richmond / Laurel Heights
+  "94121": 3.70, // Outer Richmond
+  "94122": 3.60, // Inner / Outer Sunset
   "94123": 4.20, // Marina
+  "94124": 3.20, // Bayview-Hunters Point
+  "94131": 3.80, // Glen Park / Twin Peaks
+  "94132": 3.50, // Lake Merced / West Sunset
   "94133": 3.90, // North Beach / Telegraph Hill
   // Irvine zips
   "92603": 2.60, // Turtle Rock / Shady Canyon

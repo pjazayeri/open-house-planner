@@ -255,6 +255,12 @@
   margin-left: 1px;
 }
 
+.rent-rc-badge {
+  font-size: 10px;
+  margin-left: 3px;
+  cursor: default;
+}
+
 .card-hoa {
   font-size: 11px;
   color: #94a3b8;
