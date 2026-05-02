@@ -31,6 +31,7 @@ export interface CloudState {
   mapZones: MapZone[];
   finFavoriteIds: string[];
   amenities: Record<string, ListingAmenities>;
+  rentEstimates: Record<string, unknown>; // typed as RentEstimate in useRentEstimates.ts
 }
 
 function parseVisitRecord(v: unknown): VisitRecord {
@@ -104,6 +105,11 @@ function parseCloudState(record: unknown): CloudState {
     }
   }
 
+  const rentEstimates: Record<string, unknown> =
+    r.rentEstimates && typeof r.rentEstimates === "object" && !Array.isArray(r.rentEstimates)
+      ? (r.rentEstimates as Record<string, unknown>)
+      : {};
+
   return {
     hiddenIds: Array.isArray(r.hiddenIds) ? (r.hiddenIds as string[]) : [],
     priorityIds: Array.isArray(r.priorityIds) ? (r.priorityIds as string[]) : [],
@@ -113,6 +119,7 @@ function parseCloudState(record: unknown): CloudState {
     mapZones,
     finFavoriteIds: Array.isArray(r.finFavoriteIds) ? (r.finFavoriteIds as string[]) : [],
     amenities,
+    rentEstimates,
   };
 }
 
