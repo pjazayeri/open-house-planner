@@ -11,7 +11,6 @@ export interface RentEstimate {
 }
 
 const LS_KEY = "rent-estimates";
-const TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 function parseRentEstimate(raw: unknown): RentEstimate | null {
   if (!raw || typeof raw !== "object") return null;
@@ -26,21 +25,17 @@ function parseRentEstimate(raw: unknown): RentEstimate | null {
   };
 }
 
-function isStale(est: RentEstimate): boolean {
-  return Date.now() - new Date(est.fetchedAt).getTime() >= TTL_MS;
-}
-
 function parseLocal(): Record<string, RentEstimate> {
   try {
     const v = localStorage.getItem(LS_KEY);
     if (!v) return {};
     const parsed = JSON.parse(v) as Record<string, unknown>;
-    const fresh: Record<string, RentEstimate> = {};
+    const result: Record<string, RentEstimate> = {};
     for (const [id, raw] of Object.entries(parsed)) {
       const est = parseRentEstimate(raw);
-      if (est && !isStale(est)) fresh[id] = est;
+      if (est) result[id] = est;
     }
-    return fresh;
+    return result;
   } catch {
     return {};
   }
@@ -57,7 +52,7 @@ function mergeWithCloud(
   const merged = { ...local };
   for (const [id, raw] of Object.entries(cloud)) {
     const est = parseRentEstimate(raw);
-    if (!est || isStale(est)) continue;
+    if (!est) continue;
     const existing = merged[id];
     if (!existing || new Date(est.fetchedAt) > new Date(existing.fetchedAt)) {
       merged[id] = est;
@@ -81,9 +76,7 @@ export function readRentEstimate(id: string): RentEstimate | null {
     const v = localStorage.getItem(LS_KEY);
     if (!v) return null;
     const parsed = JSON.parse(v) as Record<string, unknown>;
-    const est = parseRentEstimate(parsed[id]);
-    if (!est || isStale(est)) return null;
-    return est;
+    return parseRentEstimate(parsed[id]);
   } catch {
     return null;
   }
