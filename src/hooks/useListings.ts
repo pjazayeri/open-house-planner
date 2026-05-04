@@ -82,7 +82,7 @@ interface UseListingsResult {
   saveFailed: boolean;
 }
 
-export function useListings(): UseListingsResult {
+export function useListings(authMode: "loading" | "signed-in" | "guest" | "signed-out" = "signed-in"): UseListingsResult {
   const [allListings, setAllListings] = useState<Listing[]>([]);
   const [allFavoritesListings, setAllFavoritesListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,6 +108,10 @@ export function useListings(): UseListingsResult {
   const { position: geoPosition, error: geoError, watching: geoWatching, startWatching: startGeo } = useGeolocation();
 
   useEffect(() => {
+    // Wait for auth to resolve before fetching cloud state — avoids loading CSV
+    // without auth context (which would miss the user's csvUrl)
+    if (authMode === "loading" || authMode === "signed-out") return;
+
     (async () => {
       try {
         // Fetch cloud state first to get the user's CSV URL
@@ -115,10 +119,13 @@ export function useListings(): UseListingsResult {
         try {
           const state = await cloudFetch();
           csvUrl = state.csvUrl;
-        } catch {
+          console.log("[useListings] cloudFetch csvUrl:", csvUrl ?? "(none)");
+        } catch (e) {
+          console.warn("[useListings] cloudFetch failed:", e);
           // Cloud fetch failed (e.g. degraded) — proceed without csvUrl
         }
         const rows = await loadCsv(csvUrl);
+        console.log("[useListings] loadCsv rows:", rows.length, "csvUrl:", csvUrl ?? "(none)");
         if (rows.length === 0) {
           setNeedsCsvUpload(true);
         } else {
@@ -134,7 +141,7 @@ export function useListings(): UseListingsResult {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [authMode]);
 
   const hideListing = (id: string) => {
     hide(id);

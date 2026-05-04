@@ -294,7 +294,7 @@ function App() {
     toggleFinFavorite,
     amenities,
     setAmenity,
-  } = useListings();
+  } = useListings(authMode);
 
   // Augment listings with zone names (replaces stripped SF District labels)
   const augmentWithZone = useCallback((l: Listing): Listing => {
