@@ -62,9 +62,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       const decoded = await admin.auth().verifyIdToken(token);
       uid = decoded.uid;
       email = decoded.email;
-    } catch {
+    } catch (err) {
+      console.error("[api/user] token verification failed:", err);
       res.writeHead(401, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Invalid token" }));
+      res.end(JSON.stringify({ error: "Invalid token", detail: String(err) }));
       return;
     }
   }
