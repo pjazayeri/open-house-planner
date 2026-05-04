@@ -21,45 +21,12 @@ async function getUidFromToken(token: string): Promise<string | null> {
   }
 }
 
-const UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-const OG_IMAGE_RE = /og:image"\s+content="([^"]+)"/;
-
 function corsHeaders(): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
   };
-}
-
-async function fetchOgImage(listingUrl: string): Promise<string | null> {
-  try {
-    const res = await fetch(listingUrl, {
-      headers: { "User-Agent": UA },
-      signal: AbortSignal.timeout(15000),
-    });
-    const html = await res.text();
-    const match = OG_IMAGE_RE.exec(html);
-    return match ? match[1] : null;
-  } catch {
-    return null;
-  }
-}
-
-async function storeThumbnail(mlsId: string, imageUrl: string): Promise<void> {
-  const res = await fetch(imageUrl, {
-    headers: { "User-Agent": UA },
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!res.ok) return;
-  const buf = Buffer.from(await res.arrayBuffer());
-  if (buf.length < 1000) return; // sanity check
-  await put(`thumbnails/${mlsId}.jpg`, buf, {
-    access: "private",
-    contentType: "image/jpeg",
-    addRandomSuffix: false,
-  });
 }
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
@@ -112,81 +79,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     await del(oldCsvBlobs.map((b) => b.url));
   }
 
-  // Parse rows to find active listings with open houses
-  const lines = csvText.split("\n");
-  if (lines.length < 2) {
-    res.writeHead(200, { "Content-Type": "application/json", ...headers });
-    res.end(JSON.stringify({ csvUrl: csvBlob.url, thumbnails: { fetched: 0, skipped: 0, failed: 0 }, deleted: 0 }));
-    return;
-  }
-
-  const headerLine = lines[0];
-  const headers2 = headerLine.split(",").map((h) => h.replace(/^"|"$/g, "").trim());
-  const statusIdx = headers2.indexOf("STATUS");
-  const mlsIdx = headers2.indexOf("MLS#");
-  const urlIdx = headers2.findIndex((h) => h.startsWith("URL (SEE"));
-
-  const activeIds = new Set<string>();
-  const activeListings: { mlsId: string; url: string }[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-    // Simple CSV split (values may be quoted)
-    const cols = line.split(",");
-    const status = cols[statusIdx]?.trim() ?? "";
-    const mlsId = cols[mlsIdx]?.trim() ?? "";
-    const url = cols[urlIdx]?.trim() ?? "";
-    if (status === "Active" && mlsId && url) {
-      activeIds.add(mlsId);
-      activeListings.push({ mlsId, url });
-    }
-  }
-
-  // Get all existing thumbnail blobs
-  const existingThumbBlobs = await list({ prefix: "thumbnails/" });
-  const existingIds = new Set(
-    existingThumbBlobs.blobs.map((b) => b.pathname.replace("thumbnails/", "").replace(".jpg", ""))
-  );
-
-  // Fetch thumbnails for new listings not already in Blob
-  let fetched = 0;
-  let skipped = 0;
-  let failed = 0;
-
-  for (const { mlsId, url } of activeListings) {
-    if (existingIds.has(mlsId)) {
-      skipped++;
-      continue;
-    }
-    const ogUrl = await fetchOgImage(url);
-    if (!ogUrl) {
-      failed++;
-      continue;
-    }
-    try {
-      await storeThumbnail(mlsId, ogUrl);
-      fetched++;
-    } catch {
-      failed++;
-    }
-    // Small delay to be polite
-    await new Promise((r) => setTimeout(r, 500));
-  }
-
-  // Delete thumbnail blobs for listings no longer in the active set
-  const staleBlobs = existingThumbBlobs.blobs.filter((b) => {
-    const id = b.pathname.replace("thumbnails/", "").replace(".jpg", "");
-    return !activeIds.has(id);
-  });
-  if (staleBlobs.length > 0) {
-    await del(staleBlobs.map((b) => b.url));
-  }
-
+  // Return immediately — thumbnail fetching is handled offline by scripts/fetch-thumbnails.py
   res.writeHead(200, { "Content-Type": "application/json", ...headers });
-  res.end(JSON.stringify({
-    csvUrl: csvBlob.url,
-    thumbnails: { fetched, skipped, failed },
-    deleted: staleBlobs.length,
-  }));
+  res.end(JSON.stringify({ csvUrl: csvBlob.url }));
 }

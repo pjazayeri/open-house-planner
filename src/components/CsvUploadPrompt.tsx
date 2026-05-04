@@ -2,9 +2,11 @@ import { useRef, useState } from "react";
 
 interface CsvUploadPromptProps {
   onUpload: (csvText: string) => Promise<number>;
+  user?: { displayName: string | null; email: string | null } | null;
+  onSignOut?: () => Promise<void>;
 }
 
-export function CsvUploadPrompt({ onUpload }: CsvUploadPromptProps) {
+export function CsvUploadPrompt({ onUpload, user, onSignOut }: CsvUploadPromptProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +58,12 @@ export function CsvUploadPrompt({ onUpload }: CsvUploadPromptProps) {
         </div>
         {error && <p className="csv-prompt-error">{error}</p>}
         <input ref={fileRef} type="file" accept=".csv" style={{ display: "none" }} onChange={handleFile} />
+        {user && onSignOut && (
+          <p className="csv-prompt-signout">
+            Signed in as {user.displayName ?? user.email}.{" "}
+            <button className="csv-prompt-signout-btn" onClick={onSignOut}>Sign out</button>
+          </p>
+        )}
       </div>
     </div>
   );
