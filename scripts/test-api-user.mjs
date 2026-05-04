@@ -72,27 +72,47 @@ try {
   process.exit(1);
 }
 
-// --- 4. Call /api/user with the real token ---
-console.log("\n=== Calling /api/user ===");
-try {
+async function callApiUser(label) {
   const res = await fetch(`${baseUrl}/api/user`, {
     headers: { Authorization: `Bearer ${idToken}` },
   });
   const body = await res.text();
-  console.log(`Status: ${res.status} ${res.statusText}`);
-  console.log(`Body:   ${body.slice(0, 300)}`);
+  console.log(`[${label}] Status: ${res.status} ${res.statusText}`);
+  console.log(`[${label}] Body:   ${body.slice(0, 300)}`);
+  if (!res.ok) throw new Error(`/api/user returned ${res.status}`);
+  return JSON.parse(body).binId;
+}
 
-  if (res.ok) {
-    console.log("\nAll checks passed — /api/user is working correctly.");
-  } else {
-    console.error("\nFAIL: /api/user returned non-OK status.");
-    if (res.status === 401) {
-      console.error("  → Firebase token verification is failing on the server.");
-      console.error("  → Check that FIREBASE_SERVICE_ACCOUNT_JSON in Vercel matches project:", sa.project_id);
-    }
-    process.exit(1);
-  }
+// --- 4. Call /api/user TWICE — must return same binId both times ---
+console.log("\n=== Calling /api/user (run 1) ===");
+let binId1;
+try {
+  binId1 = await callApiUser("run1");
 } catch (e) {
-  console.error("FAIL: fetch threw:", e.message);
+  console.error("FAIL:", e.message);
+  if (e.message.includes("401")) {
+    console.error("  → Firebase token verification failing. Check FIREBASE_SERVICE_ACCOUNT_JSON in Vercel for project:", sa.project_id);
+  }
+  process.exit(1);
+}
+
+console.log("\n=== Calling /api/user (run 2) ===");
+let binId2;
+try {
+  binId2 = await callApiUser("run2");
+} catch (e) {
+  console.error("FAIL:", e.message);
+  process.exit(1);
+}
+
+console.log("\n=== Registry persistence check ===");
+console.log(`Run 1 binId: ${binId1}`);
+console.log(`Run 2 binId: ${binId2}`);
+if (binId1 === binId2) {
+  console.log("\nAll checks passed — registry is persisting correctly.");
+} else {
+  console.error("\nFAIL: registry not persisting — different binIds returned!");
+  console.error("  → Check Vercel function logs for '[api/user] registry PUT failed'");
+  console.error("  → Verify JSONBIN_REGISTRY_BIN_ID and JSONBIN_API_KEY are set correctly in Vercel");
   process.exit(1);
 }

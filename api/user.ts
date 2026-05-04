@@ -77,17 +77,25 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
   // Fetch the user registry
   let registry: Registry = {};
+  let registryFetchOk = false;
   try {
     const registryRes = await fetch(`${registryUrl}/latest`, { headers: binHeaders });
+    console.log("[api/user] registry GET status:", registryRes.status);
     if (registryRes.ok) {
       const data = (await registryRes.json()) as { record: unknown };
       if (data.record && typeof data.record === "object") {
         registry = data.record as Registry;
+        registryFetchOk = true;
       }
+    } else {
+      const errBody = await registryRes.text().catch(() => "(unreadable)");
+      console.error("[api/user] registry GET failed:", registryRes.status, errBody);
     }
-  } catch {
-    // Registry fetch failed — treat as empty
+  } catch (err) {
+    console.error("[api/user] registry GET threw:", err);
   }
+
+  console.log("[api/user] registry has", Object.keys(registry).length, "entries; uid lookup:", uid in registry ? "found" : "not found");
 
   // Return existing bin if user already registered
   if (registry[uid]) {
@@ -96,11 +104,20 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
+  // If registry fetch failed, don't risk creating duplicate bins
+  if (!registryFetchOk && Object.keys(registry).length === 0) {
+    console.error("[api/user] registry fetch failed and no fallback — cannot safely assign bin");
+    res.writeHead(503, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Registry unavailable, try again" }));
+    return;
+  }
+
   // New user — determine bin ID
   let binId: string;
   if (Object.keys(registry).length === 0 && process.env.JSONBIN_BIN_ID) {
     // Owner migration: first sign-in inherits the existing bin
     binId = process.env.JSONBIN_BIN_ID;
+    console.log("[api/user] owner migration: assigning existing bin", binId);
   } else {
     // Create a new private bin for this user
     const createRes = await fetch("https://api.jsonbin.io/v3/b", {
@@ -117,15 +134,23 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     }
     const createData = (await createRes.json()) as { metadata: { id: string } };
     binId = createData.metadata.id;
+    console.log("[api/user] created new bin", binId, "for uid", uid);
   }
 
   // Register user in the registry
   registry[uid] = { binId, email, createdAt: new Date().toISOString() };
-  await fetch(registryUrl, {
+  const putRes = await fetch(registryUrl, {
     method: "PUT",
     headers: { ...binHeaders, "Content-Type": "application/json" },
     body: JSON.stringify(registry),
   });
+  if (!putRes.ok) {
+    const errBody = await putRes.text().catch(() => "(unreadable)");
+    console.error("[api/user] registry PUT failed:", putRes.status, errBody);
+    // Still return the binId — user can use it this session even if registry write failed
+  } else {
+    console.log("[api/user] registry PUT ok, uid", uid, "→ bin", binId);
+  }
 
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(JSON.stringify({ binId }));
