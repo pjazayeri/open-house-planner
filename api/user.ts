@@ -1,4 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
 
 type RegistryEntry = { binId: string; email?: string; createdAt: string };
 type Registry = Record<string, RegistryEntry>;
@@ -104,11 +106,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     const createRes = await fetch("https://api.jsonbin.io/v3/b", {
       method: "POST",
       headers: { ...binHeaders, "Content-Type": "application/json", "X-Bin-Private": "true" },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ hiddenIds: [], priorityOrder: [], visits: {} }),
     });
     if (!createRes.ok) {
+      const errBody = await createRes.text().catch(() => "(unreadable)");
+      console.error("[api/user] JSONBin create bin failed:", createRes.status, errBody);
       res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Failed to create bin" }));
+      res.end(JSON.stringify({ error: "Failed to create bin", detail: `${createRes.status}: ${errBody}` }));
       return;
     }
     const createData = (await createRes.json()) as { metadata: { id: string } };

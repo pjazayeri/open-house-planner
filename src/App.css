@@ -107,6 +107,24 @@ html, body, #root {
   flex-shrink: 0;
 }
 
+.csv-prompt-signout {
+  margin: 20px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.csv-prompt-signout-btn {
+  background: none;
+  border: none;
+  color: #60a5fa;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.csv-prompt-signout-btn:hover { color: #93c5fd; }
+
 .csv-prompt-error {
   margin: 16px 0 0;
   font-size: 13px;

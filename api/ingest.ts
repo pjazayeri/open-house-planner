@@ -1,5 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { put, list, del } from "@vercel/blob";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
 
 let adminInitialized = false;
 
