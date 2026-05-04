@@ -119,14 +119,12 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "signe
         try {
           const state = await cloudFetch();
           csvUrl = state.csvUrl;
-          console.log("[useListings] cloudFetch csvUrl:", csvUrl ?? "(none)");
         } catch (e) {
           console.warn("[useListings] cloudFetch failed:", e);
           // Cloud fetch failed (e.g. degraded) — proceed without csvUrl
         }
         const authHeaders = await getAuthHeaders();
         const rows = await loadCsv(csvUrl, Object.keys(authHeaders).length ? authHeaders : undefined);
-        console.log("[useListings] loadCsv rows:", rows.length, "csvUrl:", csvUrl ?? "(none)", "auth:", !!Object.keys(authHeaders).length);
         if (rows.length === 0) {
           setNeedsCsvUpload(true);
         } else {
@@ -248,19 +246,15 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "signe
       (async () => {
         try {
           const authHeaders = await getAuthHeaders();
-          console.log("[uploadListings] ingest auth headers:", Object.keys(authHeaders));
           const r = await fetch("/api/ingest", {
             method: "POST",
             headers: { "Content-Type": "text/csv", ...authHeaders },
             body: csvText,
           });
-          console.log("[uploadListings] ingest response:", r.status);
           if (r.ok) {
             const d = (await r.json()) as { csvUrl?: string };
-            console.log("[uploadListings] csvUrl to persist:", d.csvUrl ?? "(none)");
             if (d.csvUrl) {
               await cloudPatch({ csvUrl: d.csvUrl });
-              console.log("[uploadListings] cloudPatch done");
             }
           }
         } catch (e) {
