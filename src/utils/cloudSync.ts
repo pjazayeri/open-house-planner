@@ -25,6 +25,9 @@ export function setAuthContext(getToken: () => Promise<string>, binId: string) {
   _getToken = getToken;
   _binId = binId || null;
   _guestMode = false;
+  // Invalidate any cached fetch made before auth was set so the next
+  // cloudFetch() uses the correct authenticated bin.
+  _pendingFetch = null;
 }
 
 export function setGuestMode() {

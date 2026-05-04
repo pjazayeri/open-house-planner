@@ -247,17 +247,23 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "signe
       (async () => {
         try {
           const authHeaders = await getAuthHeaders();
+          console.log("[uploadListings] ingest auth headers:", Object.keys(authHeaders));
           const r = await fetch("/api/ingest", {
             method: "POST",
             headers: { "Content-Type": "text/csv", ...authHeaders },
             body: csvText,
           });
+          console.log("[uploadListings] ingest response:", r.status);
           if (r.ok) {
             const d = (await r.json()) as { csvUrl?: string };
-            if (d.csvUrl) cloudPatch({ csvUrl: d.csvUrl }).catch(() => {});
+            console.log("[uploadListings] csvUrl to persist:", d.csvUrl ?? "(none)");
+            if (d.csvUrl) {
+              await cloudPatch({ csvUrl: d.csvUrl });
+              console.log("[uploadListings] cloudPatch done");
+            }
           }
-        } catch {
-          // Non-fatal — local state is already updated
+        } catch (e) {
+          console.error("[uploadListings] background persist failed:", e);
         }
       })();
       return filtered.length;
