@@ -15,6 +15,31 @@ export const USE_CLOUD = import.meta.env.VITE_SYNC_DISABLED !== "true";
 
 export type SyncStatus = "unconfigured" | "loading" | "ok" | "error" | "degraded";
 
+// Auth context — set by useAuth before the main app mounts.
+// getToken() returns a fresh Firebase ID token (auto-refreshed by the SDK).
+let _getToken: (() => Promise<string>) | null = null;
+let _binId: string | null = null;
+let _guestMode = false;
+
+export function setAuthContext(getToken: () => Promise<string>, binId: string) {
+  _getToken = getToken;
+  _binId = binId || null;
+  _guestMode = false;
+}
+
+export function setGuestMode() {
+  _guestMode = true;
+  _getToken = null;
+  _binId = null;
+}
+
+export function clearAuthContext() {
+  _getToken = null;
+  _binId = null;
+  _guestMode = false;
+  _pendingFetch = null;
+}
+
 const BIN_URL = `/api/sync`;
 
 export interface ListingAmenities {
@@ -127,10 +152,16 @@ function parseCloudState(record: unknown): CloudState {
 let _pendingFetch: Promise<CloudState> | null = null;
 
 export async function cloudFetch(): Promise<CloudState> {
+  if (_guestMode) return parseCloudState({});
   if (_pendingFetch) return _pendingFetch;
 
   _pendingFetch = (async () => {
-    const res = await fetch(BIN_URL);
+    const headers: Record<string, string> = {};
+    if (_getToken && _binId) {
+      headers["Authorization"] = `Bearer ${await _getToken()}`;
+      headers["X-Bin-Id"] = _binId;
+    }
+    const res = await fetch(BIN_URL, { headers });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       console.error(`[cloudSync] fetch failed ${res.status}:`, body.slice(0, 200));
@@ -151,11 +182,17 @@ export async function cloudFetch(): Promise<CloudState> {
  * Merge `patch` into the current cloud state and write back.
  */
 export async function cloudPatch(patch: Partial<CloudState>): Promise<void> {
+  if (_guestMode) return;
   const current = await cloudFetch();
   const merged: CloudState = { ...current, ...patch };
+  const putHeaders: Record<string, string> = { "Content-Type": "application/json" };
+  if (_getToken && _binId) {
+    putHeaders["Authorization"] = `Bearer ${await _getToken()}`;
+    putHeaders["X-Bin-Id"] = _binId;
+  }
   const res = await fetch(BIN_URL, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: putHeaders,
     body: JSON.stringify(merged),
   });
   if (!res.ok) {

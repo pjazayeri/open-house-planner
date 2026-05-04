@@ -1,10 +1,18 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
-  const BIN_ID = process.env.JSONBIN_BIN_ID;
   const API_KEY = process.env.JSONBIN_API_KEY;
+  if (!API_KEY) {
+    res.writeHead(503, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Sync not configured" }));
+    return;
+  }
 
-  if (!BIN_ID || !API_KEY) {
+  // Authenticated requests send X-Bin-Id; unauthenticated fall back to env var (local dev)
+  const binIdHeader = (req.headers["x-bin-id"] as string) ?? "";
+  const BIN_ID = binIdHeader || process.env.JSONBIN_BIN_ID;
+
+  if (!BIN_ID) {
     res.writeHead(503, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Sync not configured" }));
     return;

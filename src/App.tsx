@@ -1,6 +1,8 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useListings } from "./hooks/useListings";
 import { useMapZones } from "./hooks/useMapZones";
+import { useAuth } from "./hooks/useAuth";
+import { AuthScreen } from "./components/Auth/AuthScreen";
 import { Header } from "./components/Header/Header";
 import { Sidebar, sortListings, matchesFilter } from "./components/Sidebar/Sidebar";
 import type { SortKey, FilterKey } from "./components/Sidebar/Sidebar";
@@ -126,6 +128,17 @@ function buildFilterParams(
 import { pointInPolygon } from "./utils/geometry";
 
 function App() {
+  const { user, mode: authMode, signInWithGoogle, continueAsGuest, signOut } = useAuth();
+
+  // If user signs in from guest mode, remount the whole app to reload cloud state
+  const prevAuthMode = useRef(authMode);
+  useEffect(() => {
+    if (prevAuthMode.current === "guest" && authMode === "signed-in") {
+      window.location.reload();
+    }
+    prevAuthMode.current = authMode;
+  }, [authMode]);
+
   // Shared plan view — decode from URL hash before anything else
   const [sharedPlan, setSharedPlan] = useState<TimeSlotGroup[] | null>(null);
   const [sharedPlanMode, setSharedPlanMode] = useState<"plan" | "map">("plan");
@@ -523,6 +536,16 @@ function App() {
     ? <MapPlanView groups={sharedPlan} />
     : <PlanView groups={sharedPlan} />;
 
+  // Auth gate
+  if (authMode === "loading") return (
+    <div className="loading-screen">
+      <div className="loading-spinner" />
+    </div>
+  );
+  if (authMode === "signed-out") return (
+    <AuthScreen onSignIn={signInWithGoogle} onGuest={continueAsGuest} />
+  );
+
   if (syncStatus === "loading" || loading) {
     return (
       <div className="loading-screen">
@@ -542,7 +565,13 @@ function App() {
   }
 
   return (
-    <div className="app">
+    <div className={`app${authMode === "guest" ? " app--guest" : ""}`}>
+      {authMode === "guest" && (
+        <div className="guest-banner">
+          Guest mode &mdash; data is not synced.{" "}
+          <button className="guest-banner-signin" onClick={signInWithGoogle}>Sign in</button>
+        </div>
+      )}
       <Header
         page={page}
         onNavigate={setPage}
@@ -555,6 +584,9 @@ function App() {
         onRestoreHidden={clearHidden}
         syncStatus={syncStatus}
         saveFailed={saveFailed}
+        authMode={authMode}
+        user={user ? { displayName: user.displayName, email: user.email, photoURL: user.photoURL } : null}
+        onSignOut={signOut}
         onShowSummary={() => setShowSummary(true)}
         onUploadCsv={uploadListings}
         onSharePlan={async () => {

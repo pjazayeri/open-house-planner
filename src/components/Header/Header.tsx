@@ -2,7 +2,14 @@ import { useRef, useState, useEffect } from "react";
 import type { TimeSlotGroup } from "../../types";
 import type { SyncStatus } from "../../utils/cloudSync";
 import type { Page } from "../../App";
+import type { AuthMode } from "../../hooks/useAuth";
 import "./Header.css";
+
+interface AuthUser {
+  displayName: string | null;
+  email: string | null;
+  photoURL: string | null;
+}
 
 interface HeaderProps {
   page: Page;
@@ -16,6 +23,9 @@ interface HeaderProps {
   onRestoreHidden: () => void;
   syncStatus: SyncStatus;
   saveFailed: boolean;
+  authMode: AuthMode;
+  user: AuthUser | null;
+  onSignOut: () => Promise<void>;
   onShowSummary: () => void;
   onUploadCsv: (text: string) => Promise<number>;
   onSharePlan: () => Promise<{ planUrl: string; mapUrl: string }>;
@@ -58,6 +68,9 @@ export function Header({
   onRestoreHidden,
   syncStatus,
   saveFailed,
+  authMode,
+  user,
+  onSignOut,
   onShowSummary,
   onUploadCsv,
   onSharePlan,
@@ -254,6 +267,17 @@ export function Header({
               <option key={city} value={city}>{city}</option>
             ))}
           </select>
+        )}
+        {authMode === "signed-in" && user && (
+          <div className="user-menu">
+            {user.photoURL
+              ? <img className="user-avatar" src={user.photoURL} alt={user.displayName ?? ""} referrerPolicy="no-referrer" />
+              : <span className="user-avatar user-avatar--initials">{(user.displayName ?? user.email ?? "?")[0].toUpperCase()}</span>
+            }
+            <button className="user-signout" onClick={onSignOut} title="Sign out">
+              Sign out
+            </button>
+          </div>
         )}
       </div>
     </header>
