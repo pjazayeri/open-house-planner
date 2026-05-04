@@ -15,20 +15,15 @@ function parseCsvText(text: string): Promise<RawListing[]> {
 
 declare const __LATEST_CSV__: string;
 
-export async function loadCsv(): Promise<RawListing[]> {
-  // 1. Cloud Blob (latest uploaded CSV)
-  try {
-    const r = await fetch("/api/csv");
-    if (r.ok) {
-      const text = await r.text();
-      return parseCsvText(text);
-    }
-  } catch {
-    // fall through
-  }
+const CSV_LS_KEY = "redfin-csv";
 
-  // 2. Static public CSV bundled with the deploy
-  if (typeof __LATEST_CSV__ !== "undefined" && __LATEST_CSV__) {
+export async function loadCsv(): Promise<RawListing[]> {
+  // 1. User's own CSV saved in localStorage (set by uploadCsvText)
+  const saved = localStorage.getItem(CSV_LS_KEY);
+  if (saved) return parseCsvText(saved);
+
+  // 2. Local dev only: fall back to bundled static CSV so the dev server works out of the box
+  if (import.meta.env.DEV && typeof __LATEST_CSV__ !== "undefined" && __LATEST_CSV__) {
     try {
       const r = await fetch(`/${__LATEST_CSV__}`);
       if (r.ok) return parseCsvText(await r.text());
@@ -37,9 +32,11 @@ export async function loadCsv(): Promise<RawListing[]> {
     }
   }
 
+  // No CSV found — caller should show an upload prompt
   return [];
 }
 
 export async function uploadCsvText(text: string): Promise<RawListing[]> {
+  localStorage.setItem(CSV_LS_KEY, text);
   return parseCsvText(text);
 }

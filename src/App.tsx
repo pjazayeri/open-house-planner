@@ -3,6 +3,7 @@ import { useListings } from "./hooks/useListings";
 import { useMapZones } from "./hooks/useMapZones";
 import { useAuth } from "./hooks/useAuth";
 import { AuthScreen } from "./components/Auth/AuthScreen";
+import { CsvUploadPrompt } from "./components/CsvUploadPrompt";
 import { Header } from "./components/Header/Header";
 import { Sidebar, sortListings, matchesFilter } from "./components/Sidebar/Sidebar";
 import type { SortKey, FilterKey } from "./components/Sidebar/Sidebar";
@@ -248,6 +249,7 @@ function App() {
 
   const {
     loading,
+    needsCsvUpload,
     error,
     allListings,
     allFavoritesListings,
@@ -562,6 +564,10 @@ function App() {
         <p>Error loading data: {error}</p>
       </div>
     );
+  }
+
+  if (needsCsvUpload) {
+    return <CsvUploadPrompt onUpload={uploadListings} />;
   }
 
   return (

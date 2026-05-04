@@ -29,6 +29,7 @@ const NEARBY_MILES = 0.062; // ~100 meters
 
 interface UseListingsResult {
   loading: boolean;
+  needsCsvUpload: boolean;
   error: string | null;
   allListings: Listing[];
   allFavoritesListings: Listing[];
@@ -84,6 +85,7 @@ export function useListings(): UseListingsResult {
   const [allListings, setAllListings] = useState<Listing[]>([]);
   const [allFavoritesListings, setAllFavoritesListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
+  const [needsCsvUpload, setNeedsCsvUpload] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedCity, setSelectedCity] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -107,11 +109,15 @@ export function useListings(): UseListingsResult {
   useEffect(() => {
     loadCsv()
       .then((rows) => {
-        const filtered = filterAndTransform(rows);
-        setAllListings(filtered);
-        setAllFavoritesListings(transformAll(rows));
-        const cities = getCities(filtered);
-        if (cities.length > 0) setSelectedCity(cities[0]);
+        if (rows.length === 0) {
+          setNeedsCsvUpload(true);
+        } else {
+          const filtered = filterAndTransform(rows);
+          setAllListings(filtered);
+          setAllFavoritesListings(transformAll(rows));
+          const cities = getCities(filtered);
+          if (cities.length > 0) setSelectedCity(cities[0]);
+        }
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -169,6 +175,7 @@ export function useListings(): UseListingsResult {
 
   return {
     loading,
+    needsCsvUpload,
     error,
     allListings,
     allFavoritesListings,
@@ -213,6 +220,7 @@ export function useListings(): UseListingsResult {
       const filtered = filterAndTransform(rows);
       setAllListings(filtered);
       setAllFavoritesListings(transformAll(rows));
+      setNeedsCsvUpload(false);
       const cities = getCities(filtered);
       if (cities.length > 0) setSelectedCity(cities[0]);
       return filtered.length;
