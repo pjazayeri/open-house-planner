@@ -567,7 +567,13 @@ function App() {
   }
 
   if (needsCsvUpload) {
-    return <CsvUploadPrompt onUpload={uploadListings} />;
+    return (
+      <CsvUploadPrompt
+        onUpload={uploadListings}
+        user={user ? { displayName: user.displayName, email: user.email } : null}
+        onSignOut={signOut}
+      />
+    );
   }
 
   return (
