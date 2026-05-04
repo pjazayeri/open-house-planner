@@ -11,7 +11,15 @@ async function getUidFromToken(token: string): Promise<string | null> {
     if (!adminInitialized && admin.apps.length === 0) {
       const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
       if (!json) return null;
-      admin.initializeApp({ credential: admin.credential.cert(JSON.parse(Buffer.from(json, "base64").toString())) });
+      let serviceAccount: unknown;
+      try {
+        const decoded = Buffer.from(json, "base64").toString("utf8");
+        serviceAccount = JSON.parse(decoded);
+        if (typeof (serviceAccount as Record<string, unknown>).project_id !== "string") throw new Error();
+      } catch {
+        serviceAccount = JSON.parse(json);
+      }
+      admin.initializeApp({ credential: admin.credential.cert(serviceAccount as Parameters<typeof admin.credential.cert>[0]) });
       adminInitialized = true;
     }
     const decoded = await admin.auth().verifyIdToken(token);

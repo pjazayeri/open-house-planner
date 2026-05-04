@@ -11,7 +11,16 @@ async function getFirebaseAdmin() {
   if (!adminInitialized && admin.apps.length === 0) {
     const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     if (!json) throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON not configured");
-    const serviceAccount = JSON.parse(Buffer.from(json, "base64").toString("utf8"));
+    let serviceAccount: unknown;
+    try {
+      // Try base64-encoded first, then fall back to raw JSON
+      const decoded = Buffer.from(json, "base64").toString("utf8");
+      serviceAccount = JSON.parse(decoded);
+      // Sanity check: a valid service account has a project_id field
+      if (typeof (serviceAccount as Record<string, unknown>).project_id !== "string") throw new Error();
+    } catch {
+      serviceAccount = JSON.parse(json);
+    }
     admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     adminInitialized = true;
   }
