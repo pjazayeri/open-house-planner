@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import {
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut,
   type User,
 } from "firebase/auth";
@@ -23,6 +25,16 @@ export function useAuth(): AuthResult {
   const [mode, setMode] = useState<AuthMode>("loading");
 
   useEffect(() => {
+    // Handle the result from signInWithRedirect (mobile fallback).
+    // Must be called before onAuthStateChanged so the user state is set correctly.
+    getRedirectResult(auth).catch((e: unknown) => {
+      const code = (e as { code?: string }).code;
+      // Ignore "missing state" errors from a previous abandoned redirect attempt
+      if (code !== "auth/missing-or-invalid-nonce" && code !== "auth/cancelled-popup-request") {
+        console.error("[useAuth] getRedirectResult error:", e);
+      }
+    });
+
     return onAuthStateChanged(auth, async (u) => {
       if (u) {
         // Clear guest mode — user is now authenticated
@@ -54,8 +66,18 @@ export function useAuth(): AuthResult {
   }, []);
 
   const signInWithGoogle = async () => {
-    await signInWithPopup(auth, googleProvider);
-    // onAuthStateChanged handles the rest
+    try {
+      await signInWithPopup(auth, googleProvider);
+      // onAuthStateChanged handles the rest
+    } catch (e: unknown) {
+      const code = (e as { code?: string }).code;
+      if (code === "auth/popup-blocked") {
+        // Mobile browsers often block popups — fall back to redirect flow
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      }
+      throw e;
+    }
   };
 
   const continueAsGuest = () => {
