@@ -15,11 +15,11 @@ function parseCsvText(text: string): Promise<RawListing[]> {
 
 declare const __LATEST_CSV__: string;
 
-export async function loadCsv(csvUrl?: string): Promise<RawListing[]> {
-  // 1. User's own CSV from cloud (Vercel Blob URL stored in their cloud state)
+export async function loadCsv(csvUrl?: string, authHeaders?: Record<string, string>): Promise<RawListing[]> {
+  // 1. User's own CSV from cloud (served via /api/csv with auth headers)
   if (csvUrl) {
     try {
-      const r = await fetch(csvUrl);
+      const r = await fetch(csvUrl, authHeaders ? { headers: authHeaders } : undefined);
       if (r.ok) return parseCsvText(await r.text());
     } catch {
       // fall through

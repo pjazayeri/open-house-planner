@@ -124,8 +124,9 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "signe
           console.warn("[useListings] cloudFetch failed:", e);
           // Cloud fetch failed (e.g. degraded) — proceed without csvUrl
         }
-        const rows = await loadCsv(csvUrl);
-        console.log("[useListings] loadCsv rows:", rows.length, "csvUrl:", csvUrl ?? "(none)");
+        const authHeaders = await getAuthHeaders();
+        const rows = await loadCsv(csvUrl, Object.keys(authHeaders).length ? authHeaders : undefined);
+        console.log("[useListings] loadCsv rows:", rows.length, "csvUrl:", csvUrl ?? "(none)", "auth:", !!Object.keys(authHeaders).length);
         if (rows.length === 0) {
           setNeedsCsvUpload(true);
         } else {

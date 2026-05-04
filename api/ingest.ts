@@ -71,25 +71,39 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   // Determine per-user or shared path
   const authHeader = (req.headers["authorization"] as string) ?? "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  console.log("[ingest] auth header present:", !!token, "csv bytes:", csvText.length);
   const uid = token ? await getUidFromToken(token) : null;
+  console.log("[ingest] uid:", uid ?? "(none)");
   const csvPrefix = uid ? `csv/${uid}/` : "csv/";
   const csvPath = `${csvPrefix}redfin-favorites_latest.csv`;
 
-  // Store CSV to Blob (public so client can fetch directly via stored URL)
-  const csvBlob = await put(csvPath, csvText, {
-    access: "public",
-    contentType: "text/csv",
-    addRandomSuffix: false,
-  });
-
-  // Delete previous CSVs for this user (keep only the latest)
-  const allCsvBlobs = await list({ prefix: csvPrefix });
-  const oldCsvBlobs = allCsvBlobs.blobs.filter((b) => b.pathname !== csvBlob.pathname);
-  if (oldCsvBlobs.length > 0) {
-    await del(oldCsvBlobs.map((b) => b.url));
+  // Store CSV to Blob (private — served via /api/csv proxy)
+  let csvBlob: Awaited<ReturnType<typeof put>>;
+  try {
+    csvBlob = await put(csvPath, csvText, {
+      access: "private",
+      contentType: "text/csv",
+      addRandomSuffix: false,
+      allowOverwrite: true,
+    });
+    console.log("[ingest] blob put ok:", csvBlob.url);
+  } catch (err) {
+    console.error("[ingest] blob put failed:", err);
+    res.writeHead(500, { "Content-Type": "application/json", ...headers });
+    res.end(JSON.stringify({ error: "Failed to store CSV", detail: String(err) }));
+    return;
   }
 
-  // Return immediately — thumbnail fetching is handled offline by scripts/fetch-thumbnails.py
+  // Delete previous CSVs for this user (keep only the latest)
+  try {
+    const allCsvBlobs = await list({ prefix: csvPrefix });
+    const oldCsvBlobs = allCsvBlobs.blobs.filter((b) => b.pathname !== csvBlob.pathname);
+    if (oldCsvBlobs.length > 0) await del(oldCsvBlobs.map((b) => b.url));
+  } catch (err) {
+    console.warn("[ingest] blob cleanup failed (non-fatal):", err);
+  }
+
+  // Return the fixed proxy URL — client fetches CSV via /api/csv with auth headers
   res.writeHead(200, { "Content-Type": "application/json", ...headers });
-  res.end(JSON.stringify({ csvUrl: csvBlob.url }));
+  res.end(JSON.stringify({ csvUrl: "/api/csv" }));
 }
