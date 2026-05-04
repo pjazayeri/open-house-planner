@@ -107,21 +107,8 @@ export function Header({
       if (typeof text === "string") {
         showToast("Loading\u2026", "loading");
         onUploadCsv(text).then((count) => {
-          showToast(`${count} listings loaded · saving to cloud\u2026`, "loading");
-          fetch("/api/ingest", {
-            method: "POST",
-            headers: { "Content-Type": "text/csv" },
-            body: text,
-          })
-            .then((r) => r.ok ? r.json() : Promise.reject(r.status))
-            .then((d) => {
-              const th = d.thumbnails ?? {};
-              const parts = [`${count} listings`];
-              if (th.fetched > 0) parts.push(`${th.fetched} new photos`);
-              showToast(parts.join(" · "), "ok", true);
-            })
-            .catch(() => showToast(`${count} listings loaded (cloud save failed)`, "error", true));
-        });
+          showToast(`${count} listings loaded`, "ok", true);
+        }).catch(() => showToast("Failed to load CSV", "error", true));
       }
     };
     reader.readAsText(file);

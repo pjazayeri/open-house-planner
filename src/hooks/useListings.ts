@@ -7,6 +7,7 @@ import { useHiddenIds } from "./useHiddenIds";
 import { useVisits } from "./useVisits";
 import { useGeolocation } from "./useGeolocation";
 import type { SyncStatus } from "../utils/cloudSync";
+import { cloudFetch, cloudPatch, getAuthHeaders } from "../utils/cloudSync";
 import { useListingSnapshots } from "./useListingSnapshots";
 import { useFinFavorites } from "./useFinFavorites";
 import { useAmenities } from "./useAmenities";
@@ -107,8 +108,17 @@ export function useListings(): UseListingsResult {
   const { position: geoPosition, error: geoError, watching: geoWatching, startWatching: startGeo } = useGeolocation();
 
   useEffect(() => {
-    loadCsv()
-      .then((rows) => {
+    (async () => {
+      try {
+        // Fetch cloud state first to get the user's CSV URL
+        let csvUrl: string | undefined;
+        try {
+          const state = await cloudFetch();
+          csvUrl = state.csvUrl;
+        } catch {
+          // Cloud fetch failed (e.g. degraded) — proceed without csvUrl
+        }
+        const rows = await loadCsv(csvUrl);
         if (rows.length === 0) {
           setNeedsCsvUpload(true);
         } else {
@@ -118,9 +128,12 @@ export function useListings(): UseListingsResult {
           const cities = getCities(filtered);
           if (cities.length > 0) setSelectedCity(cities[0]);
         }
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   const hideListing = (id: string) => {
@@ -223,6 +236,23 @@ export function useListings(): UseListingsResult {
       setNeedsCsvUpload(false);
       const cities = getCities(filtered);
       if (cities.length > 0) setSelectedCity(cities[0]);
+      // Background: save to Vercel Blob and persist URL to user's cloud state
+      (async () => {
+        try {
+          const authHeaders = await getAuthHeaders();
+          const r = await fetch("/api/ingest", {
+            method: "POST",
+            headers: { "Content-Type": "text/csv", ...authHeaders },
+            body: csvText,
+          });
+          if (r.ok) {
+            const d = (await r.json()) as { csvUrl?: string };
+            if (d.csvUrl) cloudPatch({ csvUrl: d.csvUrl }).catch(() => {});
+          }
+        } catch {
+          // Non-fatal — local state is already updated
+        }
+      })();
       return filtered.length;
     },
     geoPosition,

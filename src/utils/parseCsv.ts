@@ -15,12 +15,16 @@ function parseCsvText(text: string): Promise<RawListing[]> {
 
 declare const __LATEST_CSV__: string;
 
-const CSV_LS_KEY = "redfin-csv";
-
-export async function loadCsv(): Promise<RawListing[]> {
-  // 1. User's own CSV saved in localStorage (set by uploadCsvText)
-  const saved = localStorage.getItem(CSV_LS_KEY);
-  if (saved) return parseCsvText(saved);
+export async function loadCsv(csvUrl?: string): Promise<RawListing[]> {
+  // 1. User's own CSV from cloud (Vercel Blob URL stored in their cloud state)
+  if (csvUrl) {
+    try {
+      const r = await fetch(csvUrl);
+      if (r.ok) return parseCsvText(await r.text());
+    } catch {
+      // fall through
+    }
+  }
 
   // 2. Local dev only: fall back to bundled static CSV so the dev server works out of the box
   if (import.meta.env.DEV && typeof __LATEST_CSV__ !== "undefined" && __LATEST_CSV__) {
@@ -37,6 +41,5 @@ export async function loadCsv(): Promise<RawListing[]> {
 }
 
 export async function uploadCsvText(text: string): Promise<RawListing[]> {
-  localStorage.setItem(CSV_LS_KEY, text);
   return parseCsvText(text);
 }

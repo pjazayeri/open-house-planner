@@ -1,6 +1,26 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { put, list, del } from "@vercel/blob";
 
+let adminInitialized = false;
+
+async function getUidFromToken(token: string): Promise<string | null> {
+  if (process.env.SKIP_AUTH_VERIFY === "true") return "dev-user";
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const admin = require("firebase-admin") as typeof import("firebase-admin");
+    if (!adminInitialized && admin.apps.length === 0) {
+      const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+      if (!json) return null;
+      admin.initializeApp({ credential: admin.credential.cert(JSON.parse(Buffer.from(json, "base64").toString())) });
+      adminInitialized = true;
+    }
+    const decoded = await admin.auth().verifyIdToken(token);
+    return decoded.uid;
+  } catch {
+    return null;
+  }
+}
+
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 const OG_IMAGE_RE = /og:image"\s+content="([^"]+)"/;
@@ -71,16 +91,22 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
-  // Store new CSV to Blob
-  const date = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  const csvBlob = await put(`csv/redfin-favorites_${date}.csv`, csvText, {
-    access: "private",
+  // Determine per-user or shared path
+  const authHeader = (req.headers["authorization"] as string) ?? "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  const uid = token ? await getUidFromToken(token) : null;
+  const csvPrefix = uid ? `csv/${uid}/` : "csv/";
+  const csvPath = `${csvPrefix}redfin-favorites_latest.csv`;
+
+  // Store CSV to Blob (public so client can fetch directly via stored URL)
+  const csvBlob = await put(csvPath, csvText, {
+    access: "public",
     contentType: "text/csv",
     addRandomSuffix: false,
   });
 
-  // Delete all previous CSV blobs (keep only the one we just uploaded)
-  const allCsvBlobs = await list({ prefix: "csv/redfin-favorites_" });
+  // Delete previous CSVs for this user (keep only the latest)
+  const allCsvBlobs = await list({ prefix: csvPrefix });
   const oldCsvBlobs = allCsvBlobs.blobs.filter((b) => b.pathname !== csvBlob.pathname);
   if (oldCsvBlobs.length > 0) {
     await del(oldCsvBlobs.map((b) => b.url));

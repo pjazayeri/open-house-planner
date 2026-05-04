@@ -40,6 +40,12 @@ export function clearAuthContext() {
   _pendingFetch = null;
 }
 
+export async function getAuthHeaders(): Promise<Record<string, string>> {
+  if (!_getToken || !_binId) return {};
+  const token = await _getToken();
+  return { Authorization: `Bearer ${token}`, "X-Bin-Id": _binId };
+}
+
 const BIN_URL = `/api/sync`;
 
 export interface ListingAmenities {
@@ -57,6 +63,7 @@ export interface CloudState {
   finFavoriteIds: string[];
   amenities: Record<string, ListingAmenities>;
   rentEstimates: Record<string, unknown>; // typed as RentEstimate in useRentEstimates.ts
+  csvUrl?: string; // user's own CSV stored in Vercel Blob
 }
 
 function parseVisitRecord(v: unknown): VisitRecord {
@@ -145,6 +152,7 @@ function parseCloudState(record: unknown): CloudState {
     finFavoriteIds: Array.isArray(r.finFavoriteIds) ? (r.finFavoriteIds as string[]) : [],
     amenities,
     rentEstimates,
+    csvUrl: typeof r.csvUrl === "string" ? r.csvUrl : undefined,
   };
 }
 
