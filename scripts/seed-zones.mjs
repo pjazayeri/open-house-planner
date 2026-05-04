@@ -90,6 +90,17 @@ const STARTER_ZONES = [
       [37.7680, -122.4070],  // SW  Bryant & 8th
     ],
   },
+  {
+    id: "zone-nob-hill",
+    name: "Nob Hill",
+    color: "#06b6d4",
+    polygon: [
+      [37.7975, -122.4210],  // NW  Broadway & Polk
+      [37.7975, -122.4080],  // NE  Broadway & Mason
+      [37.7880, -122.4080],  // SE  Pine & Mason
+      [37.7880, -122.4210],  // SW  Pine & Polk
+    ],
+  },
 ];
 
 // ── Fetch current state ────────────────────────────────────────
