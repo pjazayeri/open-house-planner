@@ -14,8 +14,9 @@ import { SummaryModal } from "./components/Summary/SummaryModal";
 import { DataView } from "./components/DataView/DataView";
 import { FinancePage } from "./components/Finance/FinancePage";
 import { AnalyticsPage } from "./components/Analytics/AnalyticsPage";
-import { serializePlan, decodePlan, deserializePlan } from "./utils/serializePlan";
+import { serializePlan, decodePlan, deserializePlan, shiftPlanToFuture } from "./utils/serializePlan";
 import type { SerializedPlan } from "./utils/serializePlan";
+import { DEMO_BIN_ID } from "./components/Auth/AuthScreen";
 import { PlanView } from "./components/PlanView/PlanView";
 import { MapPlanView } from "./components/PlanView/MapPlanView";
 import type { TimeSlotGroup, Listing } from "./types";
@@ -163,7 +164,13 @@ function App() {
       if (isMap) setSharedPlanMode("map");
       fetch(`/api/plan?id=${id}`)
         .then((r) => r.ok ? r.json() : Promise.reject(r.status))
-        .then((data: SerializedPlan) => setSharedPlan(deserializePlan(data)))
+        .then((data: SerializedPlan) => {
+          let plan = deserializePlan(data);
+          // For the demo bin, shift all dates so the earliest open house is
+          // always in the future (next occurrence of the same day-of-week).
+          if (id === DEMO_BIN_ID) plan = shiftPlanToFuture(plan);
+          setSharedPlan(plan);
+        })
         .catch(() => setSharedPlan(null))
         .finally(() => setSharedPlanLoading(false));
     } else {

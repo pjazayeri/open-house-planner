@@ -3,7 +3,7 @@ import "./AuthScreen.css";
 
 // Set this to a JSONBin share ID after creating a demo plan.
 // Leave empty to hide the "View Demo" button.
-const DEMO_BIN_ID = "69f8cdb4856a682189a62f92";
+export const DEMO_BIN_ID = "69f8cdb4856a682189a62f92";
 
 function GoogleIcon() {
   return (
