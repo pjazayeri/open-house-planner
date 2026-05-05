@@ -106,6 +106,7 @@ export function PropertyCard({
 }: PropertyCardProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [thumbError, setThumbError] = useState(false);
+  const [thumbRetry, setThumbRetry] = useState(0);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [localPros, setLocalPros] = useState(visit?.pros ?? "");
   const [localCons, setLocalCons] = useState(visit?.cons ?? "");
@@ -182,11 +183,18 @@ export function PropertyCard({
       </div>
 
       {thumbError ? (
-        <div className="card-thumbnail-ph">🏠</div>
+        <div className="card-thumbnail-ph">
+          🏠
+          <button
+            className="thumb-retry-btn"
+            title="Retry loading image"
+            onClick={(e) => { e.stopPropagation(); setThumbError(false); setThumbRetry(r => r + 1); }}
+          >↻</button>
+        </div>
       ) : (
         <img
           className="card-thumbnail"
-          src={`/api/thumbnail/${listing.id}`}
+          src={`/api/thumbnail/${listing.id}${thumbRetry > 0 ? `?r=${thumbRetry}` : ""}`}
           alt={listing.address}
           loading="eager"
           onError={() => setThumbError(true)}

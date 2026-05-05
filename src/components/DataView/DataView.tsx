@@ -170,6 +170,7 @@ function DetailPanel({
   const [localCons, setLocalCons] = useState(visit?.cons ?? "");
   const [saved, setSaved] = useState(false);
   const [thumbError, setThumbError] = useState(false);
+  const [thumbRetry, setThumbRetry] = useState(0);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
 
   const handleSetLiked = (liked: boolean | null) => {
@@ -196,12 +197,19 @@ function DetailPanel({
           {!thumbError ? (
             <img
               className="dv-detail-thumb"
-              src={`/api/thumbnail/${l.id}`}
+              src={`/api/thumbnail/${l.id}${thumbRetry > 0 ? `?r=${thumbRetry}` : ""}`}
               alt={l.address}
               onError={() => setThumbError(true)}
             />
           ) : (
-            <div className="dv-detail-thumb dv-detail-thumb-ph">🏠</div>
+            <div className="dv-detail-thumb dv-detail-thumb-ph">
+              🏠
+              <button
+                className="thumb-retry-btn"
+                title="Retry loading image"
+                onClick={() => { setThumbError(false); setThumbRetry(r => r + 1); }}
+              >↻</button>
+            </div>
           )}
         </div>
 
