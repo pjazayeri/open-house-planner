@@ -96,20 +96,16 @@ describe("transformAll", () => {
 describe("getNeighborhoods", () => {
   it("returns distinct, sorted neighborhood names", () => {
     const listings = [
-      { ...makeRow(), location: "Noe Valley" } as ReturnType<typeof makeRow>,
-      { ...makeRow(), location: "Pacific Heights" } as ReturnType<typeof makeRow>,
-      { ...makeRow(), location: "Noe Valley" } as ReturnType<typeof makeRow>, // duplicate
+      ...filterAndTransform([makeRow({ LOCATION: "Noe Valley", "MLS#": "A" })]),
+      ...filterAndTransform([makeRow({ LOCATION: "Pacific Heights", "MLS#": "B" })]),
+      ...filterAndTransform([makeRow({ LOCATION: "Noe Valley", "MLS#": "C" })]), // duplicate
     ];
-    const result = getNeighborhoods(
-      listings.map((r) => ({ ...filterAndTransform([r])[0], location: r.location }))
-    );
-    expect(result).toEqual(["Noe Valley", "Pacific Heights"]);
+    expect(getNeighborhoods(listings)).toEqual(["Noe Valley", "Pacific Heights"]);
   });
 
   it("filters out generic/empty location values", () => {
-    const rows = filterAndTransform([makeRow()]);
-    const withBadLocation = rows.map((l) => ({ ...l, location: "not applicable" }));
-    expect(getNeighborhoods(withBadLocation)).toHaveLength(0);
+    const listings = filterAndTransform([makeRow({ LOCATION: "not applicable" })]);
+    expect(getNeighborhoods(listings)).toHaveLength(0);
   });
 });
 
