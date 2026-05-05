@@ -114,16 +114,14 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "signe
 
     (async () => {
       try {
-        // Fetch cloud state first to get the user's CSV URL
-        let csvUrl: string | undefined;
-        try {
-          const state = await cloudFetch();
-          csvUrl = state.csvUrl;
-        } catch (e) {
-          console.warn("[useListings] cloudFetch failed:", e);
-          // Cloud fetch failed (e.g. degraded) — proceed without csvUrl
-        }
-        const authHeaders = await getAuthHeaders();
+        // Fire cloudFetch and getAuthHeaders in parallel — no need to wait for
+        // cloud state before starting the auth header fetch.
+        const [stateResult, authHeaders] = await Promise.all([
+          cloudFetch().catch((e) => { console.warn("[useListings] cloudFetch failed:", e); return null; }),
+          getAuthHeaders(),
+        ]);
+        // csvUrl from cloud state; for signed-in users it's always "/api/csv"
+        const csvUrl = stateResult?.csvUrl;
         const rows = await loadCsv(csvUrl, Object.keys(authHeaders).length ? authHeaders : undefined);
         if (rows.length === 0) {
           setNeedsCsvUpload(true);

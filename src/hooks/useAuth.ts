@@ -41,15 +41,40 @@ export function useAuth(): AuthResult {
         sessionStorage.removeItem("guest-mode");
         try {
           const token = await u.getIdToken();
-          const res = await fetch("/api/user", {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (res.ok) {
-            const data = (await res.json()) as { binId: string };
-            setAuthContext(() => u.getIdToken(), data.binId);
+
+          // Fast path: returning users have their binId cached in localStorage.
+          // Skip /api/user entirely and unblock the UI immediately.
+          const cacheKey = "auth-bin-cache";
+          const cached = localStorage.getItem(cacheKey);
+          let binId = "";
+          if (cached) {
+            try {
+              const { uid, binId: cachedBinId } = JSON.parse(cached) as { uid: string; binId: string };
+              if (uid === u.uid && cachedBinId) binId = cachedBinId;
+            } catch { /* ignore bad cache */ }
+          }
+
+          if (binId) {
+            // Cache hit — set auth context immediately so the app loads without waiting
+            setAuthContext(() => u.getIdToken(), binId);
+            // Refresh cache in background (catches bin reassignments, no await)
+            fetch("/api/user", { headers: { Authorization: `Bearer ${token}` } })
+              .then(r => r.ok ? r.json() : null)
+              .then((data: { binId: string } | null) => {
+                if (data?.binId) localStorage.setItem(cacheKey, JSON.stringify({ uid: u.uid, binId: data.binId }));
+              })
+              .catch(() => {});
           } else {
-            // /api/user not configured — auth without per-user bin
-            setAuthContext(() => u.getIdToken(), "");
+            // First login (or cache miss) — must fetch binId before proceeding
+            const res = await fetch("/api/user", { headers: { Authorization: `Bearer ${token}` } });
+            if (res.ok) {
+              const data = (await res.json()) as { binId: string };
+              binId = data.binId;
+              localStorage.setItem(cacheKey, JSON.stringify({ uid: u.uid, binId }));
+              setAuthContext(() => u.getIdToken(), binId);
+            } else {
+              setAuthContext(() => u.getIdToken(), "");
+            }
           }
         } catch {
           // Network error or not configured; app still works (falls back to env bin)
@@ -91,6 +116,7 @@ export function useAuth(): AuthResult {
       await firebaseSignOut(auth);
     }
     sessionStorage.removeItem("guest-mode");
+    localStorage.removeItem("auth-bin-cache");
     clearAuthContext();
     setUser(null);
     setMode("signed-out");
