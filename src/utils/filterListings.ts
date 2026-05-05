@@ -8,9 +8,12 @@ const URL_COLUMN =
 // Override SF MLS district codes with real neighborhood names.
 // Fill in the correct mapping for your listings — leave blank to show the raw district label.
 export const SF_DISTRICT_MAP: Record<string, string> = {
-  // "SF District 1": "Richmond",
-  // "SF District 2": "...",
-  // etc.
+  "SF District 1": "Richmond",
+  "SF District 5": "Noe Valley",
+  "SF District 6": "Lower Pacific Heights",
+  "SF District 7": "Pacific Heights",
+  "SF District 8": "Russian Hill",
+  "SF District 9": "SOMA",
 };
 
 function normalizeLocation(location: string, city: string): string {
