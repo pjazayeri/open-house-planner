@@ -1,45 +1,42 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { put, list, del } from "@vercel/blob";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
 
-const UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-const OG_IMAGE_RE = /og:image"\s+content="([^"]+)"/;
+let adminInitialized = false;
 
-function corsHeaders(): Record<string, string> {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
-}
-
-async function fetchOgImage(listingUrl: string): Promise<string | null> {
+async function getUidFromToken(token: string): Promise<string | null> {
+  if (process.env.SKIP_AUTH_VERIFY === "true") return "dev-user";
   try {
-    const res = await fetch(listingUrl, {
-      headers: { "User-Agent": UA },
-      signal: AbortSignal.timeout(15000),
-    });
-    const html = await res.text();
-    const match = OG_IMAGE_RE.exec(html);
-    return match ? match[1] : null;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const admin = require("firebase-admin") as typeof import("firebase-admin");
+    if (!adminInitialized && admin.apps.length === 0) {
+      const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+      if (!json) return null;
+      let serviceAccount: unknown;
+      try {
+        const decoded = Buffer.from(json, "base64").toString("utf8");
+        serviceAccount = JSON.parse(decoded);
+        if (typeof (serviceAccount as Record<string, unknown>).project_id !== "string") throw new Error();
+      } catch {
+        serviceAccount = JSON.parse(json);
+      }
+      admin.initializeApp({ credential: admin.credential.cert(serviceAccount as Parameters<typeof admin.credential.cert>[0]) });
+      adminInitialized = true;
+    }
+    const decoded = await admin.auth().verifyIdToken(token);
+    return decoded.uid;
   } catch {
     return null;
   }
 }
 
-async function storeThumbnail(mlsId: string, imageUrl: string): Promise<void> {
-  const res = await fetch(imageUrl, {
-    headers: { "User-Agent": UA },
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!res.ok) return;
-  const buf = Buffer.from(await res.arrayBuffer());
-  if (buf.length < 1000) return; // sanity check
-  await put(`thumbnails/${mlsId}.jpg`, buf, {
-    access: "private",
-    contentType: "image/jpeg",
-    addRandomSuffix: false,
-  });
+function corsHeaders(): Record<string, string> {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
 }
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
@@ -71,96 +68,42 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
-  // Store new CSV to Blob
-  const date = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  const csvBlob = await put(`csv/redfin-favorites_${date}.csv`, csvText, {
-    access: "private",
-    contentType: "text/csv",
-    addRandomSuffix: false,
-  });
+  // Determine per-user or shared path
+  const authHeader = (req.headers["authorization"] as string) ?? "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  console.log("[ingest] auth header present:", !!token, "csv bytes:", csvText.length);
+  const uid = token ? await getUidFromToken(token) : null;
+  console.log("[ingest] uid:", uid ?? "(none)");
+  const csvPrefix = uid ? `csv/${uid}/` : "csv/";
+  const csvPath = `${csvPrefix}redfin-favorites_latest.csv`;
 
-  // Delete all previous CSV blobs (keep only the one we just uploaded)
-  const allCsvBlobs = await list({ prefix: "csv/redfin-favorites_" });
-  const oldCsvBlobs = allCsvBlobs.blobs.filter((b) => b.pathname !== csvBlob.pathname);
-  if (oldCsvBlobs.length > 0) {
-    await del(oldCsvBlobs.map((b) => b.url));
-  }
-
-  // Parse rows to find active listings with open houses
-  const lines = csvText.split("\n");
-  if (lines.length < 2) {
-    res.writeHead(200, { "Content-Type": "application/json", ...headers });
-    res.end(JSON.stringify({ csvUrl: csvBlob.url, thumbnails: { fetched: 0, skipped: 0, failed: 0 }, deleted: 0 }));
+  // Store CSV to Blob (private — served via /api/csv proxy)
+  let csvBlob: Awaited<ReturnType<typeof put>>;
+  try {
+    csvBlob = await put(csvPath, csvText, {
+      access: "private",
+      contentType: "text/csv",
+      addRandomSuffix: false,
+      allowOverwrite: true,
+    });
+    console.log("[ingest] blob put ok:", csvBlob.url);
+  } catch (err) {
+    console.error("[ingest] blob put failed:", err);
+    res.writeHead(500, { "Content-Type": "application/json", ...headers });
+    res.end(JSON.stringify({ error: "Failed to store CSV", detail: String(err) }));
     return;
   }
 
-  const headerLine = lines[0];
-  const headers2 = headerLine.split(",").map((h) => h.replace(/^"|"$/g, "").trim());
-  const statusIdx = headers2.indexOf("STATUS");
-  const mlsIdx = headers2.indexOf("MLS#");
-  const urlIdx = headers2.findIndex((h) => h.startsWith("URL (SEE"));
-
-  const activeIds = new Set<string>();
-  const activeListings: { mlsId: string; url: string }[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-    // Simple CSV split (values may be quoted)
-    const cols = line.split(",");
-    const status = cols[statusIdx]?.trim() ?? "";
-    const mlsId = cols[mlsIdx]?.trim() ?? "";
-    const url = cols[urlIdx]?.trim() ?? "";
-    if (status === "Active" && mlsId && url) {
-      activeIds.add(mlsId);
-      activeListings.push({ mlsId, url });
-    }
+  // Delete previous CSVs for this user (keep only the latest)
+  try {
+    const allCsvBlobs = await list({ prefix: csvPrefix });
+    const oldCsvBlobs = allCsvBlobs.blobs.filter((b) => b.pathname !== csvBlob.pathname);
+    if (oldCsvBlobs.length > 0) await del(oldCsvBlobs.map((b) => b.url));
+  } catch (err) {
+    console.warn("[ingest] blob cleanup failed (non-fatal):", err);
   }
 
-  // Get all existing thumbnail blobs
-  const existingThumbBlobs = await list({ prefix: "thumbnails/" });
-  const existingIds = new Set(
-    existingThumbBlobs.blobs.map((b) => b.pathname.replace("thumbnails/", "").replace(".jpg", ""))
-  );
-
-  // Fetch thumbnails for new listings not already in Blob
-  let fetched = 0;
-  let skipped = 0;
-  let failed = 0;
-
-  for (const { mlsId, url } of activeListings) {
-    if (existingIds.has(mlsId)) {
-      skipped++;
-      continue;
-    }
-    const ogUrl = await fetchOgImage(url);
-    if (!ogUrl) {
-      failed++;
-      continue;
-    }
-    try {
-      await storeThumbnail(mlsId, ogUrl);
-      fetched++;
-    } catch {
-      failed++;
-    }
-    // Small delay to be polite
-    await new Promise((r) => setTimeout(r, 500));
-  }
-
-  // Delete thumbnail blobs for listings no longer in the active set
-  const staleBlobs = existingThumbBlobs.blobs.filter((b) => {
-    const id = b.pathname.replace("thumbnails/", "").replace(".jpg", "");
-    return !activeIds.has(id);
-  });
-  if (staleBlobs.length > 0) {
-    await del(staleBlobs.map((b) => b.url));
-  }
-
+  // Return the fixed proxy URL — client fetches CSV via /api/csv with auth headers
   res.writeHead(200, { "Content-Type": "application/json", ...headers });
-  res.end(JSON.stringify({
-    csvUrl: csvBlob.url,
-    thumbnails: { fetched, skipped, failed },
-    deleted: staleBlobs.length,
-  }));
+  res.end(JSON.stringify({ csvUrl: "/api/csv" }));
 }

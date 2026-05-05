@@ -7,6 +7,7 @@ import { useHiddenIds } from "./useHiddenIds";
 import { useVisits } from "./useVisits";
 import { useGeolocation } from "./useGeolocation";
 import type { SyncStatus } from "../utils/cloudSync";
+import { cloudFetch, cloudPatch, getAuthHeaders } from "../utils/cloudSync";
 import { useListingSnapshots } from "./useListingSnapshots";
 import { useFinFavorites } from "./useFinFavorites";
 import { useAmenities } from "./useAmenities";
@@ -29,6 +30,7 @@ const NEARBY_MILES = 0.062; // ~100 meters
 
 interface UseListingsResult {
   loading: boolean;
+  needsCsvUpload: boolean;
   error: string | null;
   allListings: Listing[];
   allFavoritesListings: Listing[];
@@ -80,18 +82,19 @@ interface UseListingsResult {
   saveFailed: boolean;
 }
 
-export function useListings(): UseListingsResult {
+export function useListings(authMode: "loading" | "signed-in" | "guest" | "signed-out" = "signed-in"): UseListingsResult {
   const [allListings, setAllListings] = useState<Listing[]>([]);
   const [allFavoritesListings, setAllFavoritesListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
+  const [needsCsvUpload, setNeedsCsvUpload] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedCity, setSelectedCity] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  const { hiddenIds, hide, unhide, clearHidden, priorityIds, priorityOrder, togglePriority, reorderPriority, importHiddenAndPriority, skippedForDay, skipForDay, restoreSkippedForDay, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds();
+  const { hiddenIds, hide, unhide, clearHidden, priorityIds, priorityOrder, togglePriority, reorderPriority, importHiddenAndPriority, skippedForDay, skipForDay, restoreSkippedForDay, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds(authMode);
   const { saveSnapshots, archivedListings } = useListingSnapshots();
-  const { visits, markVisited, setLiked, setRating, setNoteField, toggleWantOffer, clearVisit, importVisits, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits();
+  const { visits, markVisited, setLiked, setRating, setNoteField, toggleWantOffer, clearVisit, importVisits, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits(authMode);
   const { finFavoriteIds, toggleFinFavorite } = useFinFavorites();
   const { amenities, setAmenity } = useAmenities();
 
@@ -105,17 +108,37 @@ export function useListings(): UseListingsResult {
   const { position: geoPosition, error: geoError, watching: geoWatching, startWatching: startGeo } = useGeolocation();
 
   useEffect(() => {
-    loadCsv()
-      .then((rows) => {
-        const filtered = filterAndTransform(rows);
-        setAllListings(filtered);
-        setAllFavoritesListings(transformAll(rows));
-        const cities = getCities(filtered);
-        if (cities.length > 0) setSelectedCity(cities[0]);
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, []);
+    // Wait for auth to resolve before fetching cloud state — avoids loading CSV
+    // without auth context (which would miss the user's csvUrl)
+    if (authMode === "loading" || authMode === "signed-out") return;
+
+    (async () => {
+      try {
+        // Fire cloudFetch and getAuthHeaders in parallel — no need to wait for
+        // cloud state before starting the auth header fetch.
+        const [stateResult, authHeaders] = await Promise.all([
+          cloudFetch().catch((e) => { console.warn("[useListings] cloudFetch failed:", e); return null; }),
+          getAuthHeaders(),
+        ]);
+        // csvUrl from cloud state; for signed-in users it's always "/api/csv"
+        const csvUrl = stateResult?.csvUrl;
+        const rows = await loadCsv(csvUrl, Object.keys(authHeaders).length ? authHeaders : undefined);
+        if (rows.length === 0) {
+          setNeedsCsvUpload(true);
+        } else {
+          const filtered = filterAndTransform(rows);
+          setAllListings(filtered);
+          setAllFavoritesListings(transformAll(rows));
+          const cities = getCities(filtered);
+          if (cities.length > 0) setSelectedCity(cities[0]);
+        }
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [authMode]);
 
   const hideListing = (id: string) => {
     hide(id);
@@ -169,6 +192,7 @@ export function useListings(): UseListingsResult {
 
   return {
     loading,
+    needsCsvUpload,
     error,
     allListings,
     allFavoritesListings,
@@ -213,8 +237,28 @@ export function useListings(): UseListingsResult {
       const filtered = filterAndTransform(rows);
       setAllListings(filtered);
       setAllFavoritesListings(transformAll(rows));
+      setNeedsCsvUpload(false);
       const cities = getCities(filtered);
       if (cities.length > 0) setSelectedCity(cities[0]);
+      // Background: save to Vercel Blob and persist URL to user's cloud state
+      (async () => {
+        try {
+          const authHeaders = await getAuthHeaders();
+          const r = await fetch("/api/ingest", {
+            method: "POST",
+            headers: { "Content-Type": "text/csv", ...authHeaders },
+            body: csvText,
+          });
+          if (r.ok) {
+            const d = (await r.json()) as { csvUrl?: string };
+            if (d.csvUrl) {
+              await cloudPatch({ csvUrl: d.csvUrl });
+            }
+          }
+        } catch (e) {
+          console.error("[uploadListings] background persist failed:", e);
+        }
+      })();
       return filtered.length;
     },
     geoPosition,

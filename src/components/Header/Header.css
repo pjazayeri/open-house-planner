@@ -219,6 +219,50 @@
   }
 }
 
+/* ── User menu ─────────────────────────────────── */
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #334155;
+  flex-shrink: 0;
+}
+
+.user-avatar--initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1e293b;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.user-signout {
+  padding: 3px 10px;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.user-signout:hover {
+  border-color: #475569;
+  color: #94a3b8;
+}
+
+
 /* ── Share plan dropdown ───────────────────────── */
 .share-plan-wrap {
   position: relative;

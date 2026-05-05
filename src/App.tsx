@@ -1,6 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useListings } from "./hooks/useListings";
 import { useMapZones } from "./hooks/useMapZones";
+import { useAuth } from "./hooks/useAuth";
+import { AuthScreen } from "./components/Auth/AuthScreen";
+import { CsvUploadPrompt } from "./components/CsvUploadPrompt";
 import { Header } from "./components/Header/Header";
 import { Sidebar, sortListings, matchesFilter } from "./components/Sidebar/Sidebar";
 import type { SortKey, FilterKey } from "./components/Sidebar/Sidebar";
@@ -11,8 +14,9 @@ import { SummaryModal } from "./components/Summary/SummaryModal";
 import { DataView } from "./components/DataView/DataView";
 import { FinancePage } from "./components/Finance/FinancePage";
 import { AnalyticsPage } from "./components/Analytics/AnalyticsPage";
-import { serializePlan, decodePlan, deserializePlan } from "./utils/serializePlan";
+import { serializePlan, decodePlan, deserializePlan, shiftPlanToFuture } from "./utils/serializePlan";
 import type { SerializedPlan } from "./utils/serializePlan";
+import { DEMO_BIN_ID } from "./components/Auth/AuthScreen";
 import { PlanView } from "./components/PlanView/PlanView";
 import { MapPlanView } from "./components/PlanView/MapPlanView";
 import type { TimeSlotGroup, Listing } from "./types";
@@ -126,6 +130,17 @@ function buildFilterParams(
 import { pointInPolygon } from "./utils/geometry";
 
 function App() {
+  const { user, mode: authMode, signInWithGoogle, continueAsGuest, signOut } = useAuth();
+
+  // If user signs in from guest mode, remount the whole app to reload cloud state
+  const prevAuthMode = useRef(authMode);
+  useEffect(() => {
+    if (prevAuthMode.current === "guest" && authMode === "signed-in") {
+      window.location.reload();
+    }
+    prevAuthMode.current = authMode;
+  }, [authMode]);
+
   // Shared plan view — decode from URL hash before anything else
   const [sharedPlan, setSharedPlan] = useState<TimeSlotGroup[] | null>(null);
   const [sharedPlanMode, setSharedPlanMode] = useState<"plan" | "map">("plan");
@@ -149,7 +164,13 @@ function App() {
       if (isMap) setSharedPlanMode("map");
       fetch(`/api/plan?id=${id}`)
         .then((r) => r.ok ? r.json() : Promise.reject(r.status))
-        .then((data: SerializedPlan) => setSharedPlan(deserializePlan(data)))
+        .then((data: SerializedPlan) => {
+          let plan = deserializePlan(data);
+          // For the demo bin, shift all dates so the earliest open house is
+          // always in the future (next occurrence of the same day-of-week).
+          if (id === DEMO_BIN_ID) plan = shiftPlanToFuture(plan);
+          setSharedPlan(plan);
+        })
         .catch(() => setSharedPlan(null))
         .finally(() => setSharedPlanLoading(false));
     } else {
@@ -235,6 +256,7 @@ function App() {
 
   const {
     loading,
+    needsCsvUpload,
     error,
     allListings,
     allFavoritesListings,
@@ -279,7 +301,7 @@ function App() {
     toggleFinFavorite,
     amenities,
     setAmenity,
-  } = useListings();
+  } = useListings(authMode);
 
   // Augment listings with zone names (replaces stripped SF District labels)
   const augmentWithZone = useCallback((l: Listing): Listing => {
@@ -523,6 +545,16 @@ function App() {
     ? <MapPlanView groups={sharedPlan} />
     : <PlanView groups={sharedPlan} />;
 
+  // Auth gate
+  if (authMode === "loading") return (
+    <div className="loading-screen">
+      <div className="loading-spinner" />
+    </div>
+  );
+  if (authMode === "signed-out") return (
+    <AuthScreen onSignIn={signInWithGoogle} onGuest={continueAsGuest} />
+  );
+
   if (syncStatus === "loading" || loading) {
     return (
       <div className="loading-screen">
@@ -541,8 +573,24 @@ function App() {
     );
   }
 
+  if (needsCsvUpload) {
+    return (
+      <CsvUploadPrompt
+        onUpload={uploadListings}
+        user={user ? { displayName: user.displayName, email: user.email } : null}
+        onSignOut={signOut}
+      />
+    );
+  }
+
   return (
-    <div className="app">
+    <div className={`app${authMode === "guest" ? " app--guest" : ""}`}>
+      {authMode === "guest" && (
+        <div className="guest-banner">
+          Guest mode &mdash; data is not synced.{" "}
+          <button className="guest-banner-signin" onClick={signInWithGoogle}>Sign in</button>
+        </div>
+      )}
       <Header
         page={page}
         onNavigate={setPage}
@@ -555,6 +603,9 @@ function App() {
         onRestoreHidden={clearHidden}
         syncStatus={syncStatus}
         saveFailed={saveFailed}
+        authMode={authMode}
+        user={user ? { displayName: user.displayName, email: user.email, photoURL: user.photoURL } : null}
+        onSignOut={signOut}
         onShowSummary={() => setShowSummary(true)}
         onUploadCsv={uploadListings}
         onSharePlan={async () => {

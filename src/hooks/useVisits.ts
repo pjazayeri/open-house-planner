@@ -16,7 +16,7 @@ interface UseVisitsResult {
   saveFailed: boolean;
 }
 
-export function useVisits(): UseVisitsResult {
+export function useVisits(authMode: "loading" | "signed-in" | "guest" | "signed-out" = "signed-in"): UseVisitsResult {
   const [visits, setVisits] = useState<Record<string, VisitRecord> | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(
     USE_CLOUD ? "loading" : "unconfigured"
@@ -24,7 +24,8 @@ export function useVisits(): UseVisitsResult {
   const [saveFailed, setSaveFailed] = useState(false);
 
   useEffect(() => {
-    if (!USE_CLOUD) {
+    if (authMode === "loading" || authMode === "signed-out") return;
+    if (!USE_CLOUD || authMode === "guest") {
       setVisits({});
       return;
     }
@@ -39,7 +40,7 @@ export function useVisits(): UseVisitsResult {
         setVisits({});
         setSyncStatus(isAuth ? "degraded" : "error");
       });
-  }, []);
+  }, [authMode]);
 
   const persist = useCallback((v: Record<string, VisitRecord>) => {
     if (!USE_CLOUD) return;

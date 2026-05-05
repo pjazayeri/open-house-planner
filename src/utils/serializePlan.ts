@@ -88,6 +88,34 @@ export function deserializePlan(plan: SerializedPlan): TimeSlotGroup[] {
   }));
 }
 
+/**
+ * Shifts all open house dates in a plan so the earliest one is in the future.
+ * Preserves relative spacing between slots (e.g. Saturday + Sunday stay together).
+ * Used for the demo plan so it always shows upcoming open houses.
+ */
+export function shiftPlanToFuture(groups: TimeSlotGroup[]): TimeSlotGroup[] {
+  if (groups.length === 0) return groups;
+  const earliest = groups.reduce((min, g) => g.startTime < min ? g.startTime : min, groups[0].startTime);
+  const now = new Date();
+  if (earliest > now) return groups; // already in the future
+
+  // Advance by whole weeks until the earliest slot is in the future
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+  const weeksNeeded = Math.ceil((now.getTime() - earliest.getTime()) / msPerWeek);
+  const offsetMs = weeksNeeded * msPerWeek;
+
+  return groups.map((g) => ({
+    ...g,
+    startTime: new Date(g.startTime.getTime() + offsetMs),
+    endTime: new Date(g.endTime.getTime() + offsetMs),
+    listings: g.listings.map((l) => ({
+      ...l,
+      openHouseStart: new Date(l.openHouseStart.getTime() + offsetMs),
+      openHouseEnd: new Date(l.openHouseEnd.getTime() + offsetMs),
+    })),
+  }));
+}
+
 export function encodePlan(groups: TimeSlotGroup[]): string {
   return encodeURIComponent(JSON.stringify(serializePlan(groups)));
 }

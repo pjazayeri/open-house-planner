@@ -345,7 +345,8 @@ interface DetailProps {
 
 function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPct, taxRatePct, appreciationPct, saltHeadroom, includePrincipal, rentOverride, onSetRentOverride, rentEstimate, fetchingEstimate, holdYears, setHoldYears, buyerClosingPct, setBuyerClosingPct, sellerCostPct, setSellerCostPct, rentInflationPct, setRentInflationPct }: DetailProps) {
   const [thumbError, setThumbError] = useState(false);
-  const thumbSrc = `/api/thumbnail/${listing.id}`;
+  const [thumbRetry, setThumbRetry] = useState(0);
+  const thumbSrc = `/api/thumbnail/${listing.id}${thumbRetry > 0 ? `?r=${thumbRetry}` : ""}`;
 
   const params = useMemo(() => ({
     downPaymentPct: downPct / 100,
@@ -509,7 +510,14 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
       <div className="fp-detail-left">
       <div className="fp-detail-hero">
         {thumbError ? (
-          <div className="fp-detail-thumb fp-detail-thumb-ph">🏠</div>
+          <div className="fp-detail-thumb fp-detail-thumb-ph">
+            🏠
+            <button
+              className="thumb-retry-btn"
+              title="Retry loading image"
+              onClick={() => { setThumbError(false); setThumbRetry(r => r + 1); }}
+            >↻</button>
+          </div>
         ) : (
           <img className="fp-detail-thumb" src={thumbSrc} alt="" onError={() => setThumbError(true)} />
         )}

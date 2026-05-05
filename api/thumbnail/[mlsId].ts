@@ -25,9 +25,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       "Cache-Control": "public, max-age=604800, immutable",
     });
     res.end(buf);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.writeHead(404, { "X-Thumb-Error": msg.slice(0, 200) });
-    res.end("Not found");
+  } catch {
+    // Fall back to static file in public/thumbnails/ (pre-fetched by fetch-thumbnails.py)
+    res.writeHead(302, { Location: `/thumbnails/${mlsId}.jpg` });
+    res.end();
   }
 }

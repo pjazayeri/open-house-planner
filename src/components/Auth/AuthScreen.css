@@ -1,0 +1,132 @@
+.auth-screen {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0f172a;
+  padding: 24px;
+}
+
+.auth-card {
+  background: #1a1a2e;
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  padding: 40px 36px;
+  width: 100%;
+  max-width: 360px;
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+}
+
+.auth-icon {
+  font-size: 40px;
+  margin-bottom: 16px;
+}
+
+.auth-title {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #f1f5f9;
+  letter-spacing: -0.3px;
+}
+
+.auth-subtitle {
+  margin: 0 0 32px;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.auth-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  width: 100%;
+  text-align: left;
+}
+
+.auth-btn--google {
+  background: #fff;
+  color: #1e293b;
+  border-color: #e2e8f0;
+  justify-content: center;
+}
+
+.auth-btn--google:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.auth-btn--google:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.auth-btn--guest,
+.auth-btn--demo {
+  background: #1e293b;
+  color: #cbd5e1;
+  border-color: #334155;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  padding: 12px 20px;
+}
+
+.auth-btn--guest:hover,
+.auth-btn--demo:hover {
+  background: #263347;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+.auth-btn-main {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.auth-btn-sub {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+.auth-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e2e8f0;
+  border-top-color: #64748b;
+  border-radius: 50%;
+  animation: auth-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes auth-spin {
+  to { transform: rotate(360deg); }
+}
+
+.auth-error {
+  margin: 16px 0 0;
+  font-size: 13px;
+  color: #fca5a5;
+  background: #450a0a;
+  border: 1px solid #7f1d1d;
+  border-radius: 8px;
+  padding: 10px 14px;
+  text-align: center;
+}

@@ -78,6 +78,21 @@ function localApis(): Plugin {
         res.end('Method not allowed');
       });
 
+      // /api/user — local dev: return existing bin ID (no registry lookup needed)
+      server.middlewares.use('/api/user', (req: IncomingMessage, res: ServerResponse) => {
+        if (req.method !== 'GET') {
+          res.writeHead(405); res.end('Method not allowed'); return;
+        }
+        const BIN_ID = env.JSONBIN_BIN_ID;
+        if (!BIN_ID) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Not configured — set JSONBIN_BIN_ID in .env.local' }));
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ binId: BIN_ID }));
+      });
+
       // /api/thumbnail — proxy Vercel Blob; fall back to public/thumbnails/ locally
       server.middlewares.use('/api/thumbnail', async (req: IncomingMessage, res: ServerResponse) => {
         const mlsId = req.url?.split('/').pop()?.split('?')[0] ?? '';
