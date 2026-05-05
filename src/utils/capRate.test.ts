@@ -57,7 +57,7 @@ describe("computeCapRateBreakdown", () => {
   });
 
   it("estimates multiple units for multi-family", () => {
-    const b = computeCapRateBreakdown({ ...BASE, propertyType: "Multi-Family (2-4)", baths: 3 });
+    const b = computeCapRateBreakdown({ ...BASE, propertyType: "Multi-Family (2-4 Unit)", baths: 3 });
     expect(b.units).toBeGreaterThan(1);
   });
 
@@ -75,7 +75,7 @@ describe("computeCapRateBreakdown", () => {
   });
 
   it("adds management expense for 5+ unit properties", () => {
-    const mf5 = computeCapRateBreakdown({ ...BASE, propertyType: "Multi-Family (5+)", baths: 6 });
+    const mf5 = computeCapRateBreakdown({ ...BASE, propertyType: "Multi-Family (5+ Unit)", baths: 6 });
     expect(mf5.management).toBeGreaterThan(0);
   });
 

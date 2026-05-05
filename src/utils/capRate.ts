@@ -85,17 +85,17 @@ const IMPUTED_SQFT_BY_BEDS = [475, 650, 900, 1200, 1600, 2100];
 function rentMultiplier(propertyType: string): number {
   const pt = propertyType.toLowerCase();
   if (pt.includes("single family")) return 1.12;
-  if (pt.includes("multi-family (5+)")) return 0.95;
+  if (pt.includes("multi-family (5+")) return 0.95;
   return 1.0;
 }
 
 /** Estimate unit count for multi-family from bath count */
 function estimateUnits(propertyType: string, baths: number): number {
   const pt = propertyType.toLowerCase();
-  if (pt.includes("multi-family (2-4)")) {
+  if (pt.includes("multi-family (2-4")) {
     return Math.max(2, Math.min(4, Math.round(baths)));
   }
-  if (pt.includes("multi-family (5+)")) {
+  if (pt.includes("multi-family (5+")) {
     return Math.max(5, Math.round(baths));
   }
   return 1;
@@ -191,7 +191,7 @@ export function computeCapRateBreakdown(input: CapRateInput): CapRateBreakdown {
     }
   }
 
-  const managementRate = pt.includes("multi-family (5+)") ? 0.08 : 0;
+  const managementRate = pt.includes("multi-family (5+") ? 0.08 : 0;
   const management = annualGrossRent * managementRate;
 
   const totalExpenses = propertyTax + insurance + vacancy + maintenance + management + annualHoa;
