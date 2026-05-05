@@ -167,11 +167,13 @@ export async function cloudFetch(): Promise<CloudState> {
   if (_pendingFetch) return _pendingFetch;
 
   _pendingFetch = (async () => {
-    const headers: Record<string, string> = {};
-    if (_getToken && _binId) {
-      headers["Authorization"] = `Bearer ${await _getToken()}`;
-      headers["X-Bin-Id"] = _binId;
+    if (!_getToken || !_binId) {
+      throw Object.assign(new Error("Auth context not ready"), { authError: true });
     }
+    const headers = {
+      "Authorization": `Bearer ${await _getToken()}`,
+      "X-Bin-Id": _binId,
+    };
     const res = await fetch(BIN_URL, { headers });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
@@ -197,10 +199,9 @@ export async function cloudPatch(patch: Partial<CloudState>): Promise<void> {
   const current = await cloudFetch();
   const merged: CloudState = { ...current, ...patch };
   const putHeaders: Record<string, string> = { "Content-Type": "application/json" };
-  if (_getToken && _binId) {
-    putHeaders["Authorization"] = `Bearer ${await _getToken()}`;
-    putHeaders["X-Bin-Id"] = _binId;
-  }
+  if (!_getToken || !_binId) return;
+  putHeaders["Authorization"] = `Bearer ${await _getToken()}`;
+  putHeaders["X-Bin-Id"] = _binId;
   const res = await fetch(BIN_URL, {
     method: "PUT",
     headers: putHeaders,

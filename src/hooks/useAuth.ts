@@ -77,7 +77,9 @@ export function useAuth(): AuthResult {
             }
           }
         } catch {
-          // Network error or not configured; app still works (falls back to env bin)
+          // Network error fetching binId — set token without binId so cloudFetch
+          // skips cleanly rather than firing an unauthenticated request.
+          try { setAuthContext(() => u.getIdToken(), ""); } catch { /* token unavailable */ }
         }
         setUser(u);
         setMode("signed-in");

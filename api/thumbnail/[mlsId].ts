@@ -26,8 +26,14 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     });
     res.end(buf);
   } catch {
-    // Fall back to static file in public/thumbnails/ (pre-fetched by fetch-thumbnails.py)
-    res.writeHead(302, { Location: `/thumbnails/${mlsId}.jpg` });
-    res.end();
+    // No thumbnail in Blob or static files — return a placeholder SVG so the
+    // browser never logs a 404. The PropertyCard onError handler won't fire,
+    // but the card still shows a house icon via the SVG.
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="240" viewBox="0 0 400 240"><rect width="400" height="240" fill="#f3f4f6"/><text x="200" y="130" text-anchor="middle" font-size="64" font-family="sans-serif" fill="#d1d5db">🏠</text></svg>`;
+    res.writeHead(200, {
+      "Content-Type": "image/svg+xml",
+      "Cache-Control": "public, max-age=60",
+    });
+    res.end(svg);
   }
 }
