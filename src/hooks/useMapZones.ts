@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { USE_CLOUD, cloudFetch, cloudPatch } from "../utils/cloudSync";
 import type { MapZone } from "../types";
+import type { AuthMode } from "./useAuth";
 
 interface UseMapZonesResult {
   zones: MapZone[];
@@ -10,20 +11,39 @@ interface UseMapZonesResult {
   renameZone: (id: string, name: string) => void;
 }
 
-export function useMapZones(): UseMapZonesResult {
+export function useMapZones(authMode: AuthMode): UseMapZonesResult {
   const [zones, setZones] = useState<MapZone[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    if (!USE_CLOUD) return;
+    if (authMode === "loading" || authMode === "signed-out") return;
+    if (!USE_CLOUD || authMode === "guest") {
+      setZones([]);
+      setLoaded(true);
+      return;
+    }
     cloudFetch()
-      .then((state) => setZones(state.mapZones ?? []))
-      .catch(() => {});
-  }, []);
+      .then((state) => {
+        setZones(state.mapZones ?? []);
+        setLoaded(true);
+      })
+      .catch((err) => {
+        console.error("[useMapZones] cloud fetch failed:", err);
+        // Don't mark loaded — leaves persist() guarded so we can't overwrite
+        // the cloud copy with an empty local state.
+      });
+  }, [authMode]);
 
-  const persist = useCallback((z: MapZone[]) => {
-    if (!USE_CLOUD) return;
-    cloudPatch({ mapZones: z }).catch(console.error);
-  }, []);
+  const persist = useCallback(
+    (z: MapZone[]) => {
+      if (!USE_CLOUD) return;
+      // Skip writes until the initial load succeeded; otherwise an early
+      // mutation would clobber the existing cloud zones with our empty local state.
+      if (!loaded) return;
+      cloudPatch({ mapZones: z }).catch(console.error);
+    },
+    [loaded]
+  );
 
   const addZone = useCallback(
     (zone: MapZone) => {

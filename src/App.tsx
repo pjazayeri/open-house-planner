@@ -252,7 +252,7 @@ function App() {
   const [showSummary, setShowSummary] = useState(false);
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
 
-  const { zones, addZone, updateZone, removeZone, renameZone } = useMapZones();
+  const { zones, addZone, updateZone, removeZone, renameZone } = useMapZones(authMode);
 
   const {
     loading,
