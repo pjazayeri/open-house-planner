@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+# Run the unit tests before allowing a push. Bypass with `git push --no-verify`
+# (use sparingly — only when the failure is unrelated to the change).
+
+echo "[pre-push] running vitest…"
+npm test --silent
+status=$?
+if [ $status -ne 0 ]; then
+  echo "[pre-push] tests failed — push aborted." >&2
+  exit $status
+fi
