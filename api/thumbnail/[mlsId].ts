@@ -20,10 +20,12 @@ async function fetchAndStore(mlsId: string, redfinUrl: string): Promise<Buffer |
 
   const task = (async () => {
     try {
-      const html = await fetch(redfinUrl, {
+      const r = await fetch(redfinUrl, {
         headers: { "User-Agent": UA },
         signal: AbortSignal.timeout(15000),
-      }).then((r) => r.text());
+      });
+      if (!r.ok) return null;
+      const html = await r.text();
       const ogUrl = OG_IMAGE_RE.exec(html)?.[1];
       if (!ogUrl) return null;
       const img = await fetch(ogUrl, {
@@ -33,14 +35,18 @@ async function fetchAndStore(mlsId: string, redfinUrl: string): Promise<Buffer |
       if (!img.ok) return null;
       const buf = Buffer.from(await img.arrayBuffer());
       if (buf.length < 1000) return null;
+      // The Blob store is configured private; the GET path above re-fetches
+      // via BLOB_READ_WRITE_TOKEN. Cast because @vercel/blob's TS types
+      // only declare "public" but the runtime accepts "private" stores.
       await put(`thumbnails/${mlsId}.jpg`, buf, {
-        access: "public",
+        access: "private",
         contentType: "image/jpeg",
         addRandomSuffix: false,
         allowOverwrite: true,
-      });
+      } as unknown as Parameters<typeof put>[2]);
       return buf;
-    } catch {
+    } catch (e) {
+      console.error(`[thumbnail] ${mlsId} lazy fetch failed:`, e);
       return null;
     }
   })();
