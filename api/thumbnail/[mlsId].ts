@@ -1,10 +1,60 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { head } from "@vercel/blob";
+import { head, put } from "@vercel/blob";
+
+const OG_IMAGE_RE = /og:image"\s+content="([^"]+)"/;
+const UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+const PLACEHOLDER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="240" viewBox="0 0 400 240"><rect width="400" height="240" fill="#f3f4f6"/><text x="200" y="130" text-anchor="middle" font-size="64" font-family="sans-serif" fill="#d1d5db">🏠</text></svg>`;
+
+// Dedupe in-flight lazy fetches within this function instance so a fresh
+// page load (50+ thumbnails at once) doesn't hammer Redfin with duplicate
+// requests. Cross-instance races are tolerated — `put` is idempotent.
+const inflight = new Map<string, Promise<Buffer | null>>();
+
+async function fetchAndStore(mlsId: string, redfinUrl: string): Promise<Buffer | null> {
+  // SSRF guard — only allow Redfin listing URLs.
+  if (!/^https:\/\/www\.redfin\.com\//.test(redfinUrl)) return null;
+
+  const existing = inflight.get(mlsId);
+  if (existing) return existing;
+
+  const task = (async () => {
+    try {
+      const html = await fetch(redfinUrl, {
+        headers: { "User-Agent": UA },
+        signal: AbortSignal.timeout(15000),
+      }).then((r) => r.text());
+      const ogUrl = OG_IMAGE_RE.exec(html)?.[1];
+      if (!ogUrl) return null;
+      const img = await fetch(ogUrl, {
+        headers: { "User-Agent": UA },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!img.ok) return null;
+      const buf = Buffer.from(await img.arrayBuffer());
+      if (buf.length < 1000) return null;
+      await put(`thumbnails/${mlsId}.jpg`, buf, {
+        access: "public",
+        contentType: "image/jpeg",
+        addRandomSuffix: false,
+        allowOverwrite: true,
+      });
+      return buf;
+    } catch {
+      return null;
+    }
+  })();
+
+  inflight.set(mlsId, task);
+  task.finally(() => inflight.delete(mlsId));
+  return task;
+}
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   const url = req.url ?? "";
-  const urlParts = url.split("/");
-  const mlsId = (urlParts[urlParts.length - 1] ?? "").split("?")[0];
+  const [path, queryString = ""] = url.split("?");
+  const urlParts = path.split("/");
+  const mlsId = urlParts[urlParts.length - 1] ?? "";
 
   if (!mlsId) {
     res.writeHead(400);
@@ -12,28 +62,46 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
+  // 1. Try existing Blob first.
   try {
     const blob = await head(`thumbnails/${mlsId}.jpg`);
     const token = process.env.BLOB_READ_WRITE_TOKEN ?? "";
     const imgRes = await fetch(blob.url, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!imgRes.ok) throw new Error(`Blob fetch ${imgRes.status}`);
-    const buf = Buffer.from(await imgRes.arrayBuffer());
-    res.writeHead(200, {
-      "Content-Type": "image/jpeg",
-      "Cache-Control": "public, max-age=604800, immutable",
-    });
-    res.end(buf);
+    if (imgRes.ok) {
+      const buf = Buffer.from(await imgRes.arrayBuffer());
+      res.writeHead(200, {
+        "Content-Type": "image/jpeg",
+        "Cache-Control": "public, max-age=604800, immutable",
+      });
+      res.end(buf);
+      return;
+    }
   } catch {
-    // No thumbnail in Blob or static files — return a placeholder SVG so the
-    // browser never logs a 404. The PropertyCard onError handler won't fire,
-    // but the card still shows a house icon via the SVG.
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="240" viewBox="0 0 400 240"><rect width="400" height="240" fill="#f3f4f6"/><text x="200" y="130" text-anchor="middle" font-size="64" font-family="sans-serif" fill="#d1d5db">🏠</text></svg>`;
-    res.writeHead(200, {
-      "Content-Type": "image/svg+xml",
-      "Cache-Control": "public, max-age=60",
-    });
-    res.end(svg);
+    // not in blob — fall through to lazy fetch
   }
+
+  // 2. Lazy-fetch from Redfin if the client provided the listing URL.
+  const params = new URLSearchParams(queryString);
+  const redfinUrl = params.get("url");
+  if (redfinUrl) {
+    const buf = await fetchAndStore(mlsId, redfinUrl);
+    if (buf) {
+      res.writeHead(200, {
+        "Content-Type": "image/jpeg",
+        "Cache-Control": "public, max-age=604800, immutable",
+      });
+      res.end(buf);
+      return;
+    }
+  }
+
+  // 3. Placeholder. Short cache so the next view picks up a real thumbnail
+  // once it's been backfilled.
+  res.writeHead(200, {
+    "Content-Type": "image/svg+xml",
+    "Cache-Control": "public, max-age=60",
+  });
+  res.end(PLACEHOLDER_SVG);
 }

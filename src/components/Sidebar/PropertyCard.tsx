@@ -3,6 +3,7 @@ import type { Listing, VisitRecord } from "../../types";
 import type { CapRateBreakdown } from "../../utils/capRate";
 import type { ListingAmenities } from "../../utils/cloudSync";
 import { formatPrice, formatBedsBaths, formatTimeRange } from "../../utils/formatters";
+import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import { readRentEstimate } from "../../hooks/useRentEstimates";
 import "./PropertyCard.css";
 
@@ -194,7 +195,7 @@ export function PropertyCard({
       ) : (
         <img
           className="card-thumbnail"
-          src={`/api/thumbnail/${listing.id}${thumbRetry > 0 ? `?r=${thumbRetry}` : ""}`}
+          src={thumbnailUrl(listing.id, listing.url, thumbRetry)}
           alt={listing.address}
           loading="eager"
           onError={() => setThumbError(true)}

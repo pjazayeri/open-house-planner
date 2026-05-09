@@ -3,6 +3,7 @@ import type { Listing, VisitRecord } from "../../types";
 import { calcBuyVsRent, calcTimeSeries, type BuyVsRentResult, type TimeSeriesPoint } from "../../utils/mortgageCalc";
 import { getNeighborhoods } from "../../utils/filterListings";
 import { formatPrice, formatBedsBaths } from "../../utils/formatters";
+import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import "./FinancePage.css";
 import { useRentEstimates, type RentEstimate } from "../../hooks/useRentEstimates";
 
@@ -346,7 +347,7 @@ interface DetailProps {
 function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPct, taxRatePct, appreciationPct, saltHeadroom, includePrincipal, rentOverride, onSetRentOverride, rentEstimate, fetchingEstimate, holdYears, setHoldYears, buyerClosingPct, setBuyerClosingPct, sellerCostPct, setSellerCostPct, rentInflationPct, setRentInflationPct }: DetailProps) {
   const [thumbError, setThumbError] = useState(false);
   const [thumbRetry, setThumbRetry] = useState(0);
-  const thumbSrc = `/api/thumbnail/${listing.id}${thumbRetry > 0 ? `?r=${thumbRetry}` : ""}`;
+  const thumbSrc = thumbnailUrl(listing.id, listing.url, thumbRetry);
 
   const params = useMemo(() => ({
     downPaymentPct: downPct / 100,

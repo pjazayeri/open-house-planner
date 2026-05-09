@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-lea
 import L from "leaflet";
 import type { Listing, VisitRecord } from "../../types";
 import { formatPrice, formatBedsBaths } from "../../utils/formatters";
+import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import { getCities, getNeighborhoods } from "../../utils/filterListings";
 import "./DataView.css";
 
@@ -197,7 +198,7 @@ function DetailPanel({
           {!thumbError ? (
             <img
               className="dv-detail-thumb"
-              src={`/api/thumbnail/${l.id}${thumbRetry > 0 ? `?r=${thumbRetry}` : ""}`}
+              src={thumbnailUrl(l.id, l.url, thumbRetry)}
               alt={l.address}
               onError={() => setThumbError(true)}
             />

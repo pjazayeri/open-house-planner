@@ -1,5 +1,6 @@
 import type { TimeSlotGroup, Listing } from "../types";
 import { formatPrice, formatBedsBaths } from "./formatters";
+import { thumbnailUrl } from "./thumbnailUrl";
 
 function fmt12(date: Date): string {
   return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
@@ -22,7 +23,7 @@ function capBadgeStyle(capRate: number): string {
 }
 
 function cardHtml(listing: Listing, globalIndex: number, thumbOrigin: string): string {
-  const thumbSrc = `${thumbOrigin}/api/thumbnail/${listing.id}`;
+  const thumbSrc = thumbnailUrl(listing.id, listing.url, 0, thumbOrigin);
   const timeLabel = listing.openHouseStart.getTime() > 0
     ? fmtTimeRange(listing.openHouseStart, listing.openHouseEnd)
     : "";
