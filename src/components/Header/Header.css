@@ -296,13 +296,37 @@
 }
 
 @media (max-width: 767px) {
-  /* On phones, the button sits at the right edge; clamp so the dropdown
-     stays fully on-screen even if the inline-computed `right` would push
-     the 260px panel off the left side. */
+  /* On phones, ignore the rect-derived position entirely and render as a
+     centered modal. Mobile Safari has too many ways for position:fixed +
+     getBoundingClientRect to render off-screen (viewport quirks, momentum
+     scroll, address-bar collapse). Centering removes all of them. */
   .share-plan-dropdown--portal {
-    right: 8px !important;
-    left: 8px;
+    top: 50% !important;
+    right: auto !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%);
+    width: calc(100vw - 32px);
+    max-width: 360px;
     min-width: 0;
+    padding: 16px;
+  }
+  .share-plan-dropdown--portal .share-plan-row {
+    padding: 10px 12px;
+  }
+}
+
+/* Backdrop behind the mobile-modal dropdown so it reads as a real dialog
+   and tapping outside dismisses it. Desktop sees no backdrop. */
+.share-plan-backdrop {
+  display: none;
+}
+@media (max-width: 767px) {
+  .share-plan-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 2999;
   }
 }
 

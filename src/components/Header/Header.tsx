@@ -224,18 +224,20 @@ export function Header({
               Share Plan ↗
             </button>
             {shareLinks && createPortal(
-              <div
-                ref={shareDropdownRef}
-                className="share-plan-dropdown share-plan-dropdown--portal"
-                // Fallback to a near-top-right position if pos computation
-                // hasn't run yet — never let the dropdown render off-screen
-                // or with no position at all.
-                style={{
-                  top: shareDropdownPos?.top ?? 64,
-                  right: shareDropdownPos?.right ?? 12,
-                }}
-                data-testid="share-plan-dropdown"
-              >
+              <>
+                {/* Mobile-only backdrop; CSS hides on desktop. Tap-to-close. */}
+                <div className="share-plan-backdrop" onClick={() => setShareLinks(null)} />
+                <div
+                  ref={shareDropdownRef}
+                  className="share-plan-dropdown share-plan-dropdown--portal"
+                  // Inline top/right used on desktop; the mobile media query
+                  // overrides both with !important to center the modal.
+                  style={{
+                    top: shareDropdownPos?.top ?? 64,
+                    right: shareDropdownPos?.right ?? 12,
+                  }}
+                  data-testid="share-plan-dropdown"
+                >
                 <div className="share-plan-row">
                   <span className="share-plan-label">Full plan</span>
                   <a href={shareLinks.planUrl} target="_blank" rel="noopener noreferrer" className="share-plan-link">Open ↗</a>
@@ -254,7 +256,8 @@ export function Header({
                     title="Copy link"
                   >Copy</button>
                 </div>
-              </div>,
+                </div>
+              </>,
               document.body
             )}
           </>
