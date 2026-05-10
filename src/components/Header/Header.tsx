@@ -1,4 +1,5 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import type { TimeSlotGroup } from "../../types";
 import type { SyncStatus } from "../../utils/cloudSync";
 import type { Page } from "../../App";
@@ -79,14 +80,36 @@ export function Header({
   const [toast, setToast] = useState<{ msg: string; kind: "loading" | "ok" | "error" } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [shareLinks, setShareLinks] = useState<{ planUrl: string; mapUrl: string } | null>(null);
-  const shareRef = useRef<HTMLDivElement>(null);
+  const shareBtnRef = useRef<HTMLButtonElement>(null);
+  const shareDropdownRef = useRef<HTMLDivElement>(null);
+  // Dropdown is rendered via portal (out of `.header-nav` which has overflow:auto
+  // on mobile and would clip it). Position is computed from the button's rect.
+  const [shareDropdownPos, setShareDropdownPos] = useState<{ top: number; right: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!shareLinks || !shareBtnRef.current) { setShareDropdownPos(null); return; }
+    function reposition() {
+      const btn = shareBtnRef.current;
+      if (!btn) return;
+      const r = btn.getBoundingClientRect();
+      setShareDropdownPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
+    }
+    reposition();
+    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", reposition, true);
+    return () => {
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
+    };
+  }, [shareLinks]);
 
   useEffect(() => {
     if (!shareLinks) return;
     function onClickOutside(e: MouseEvent) {
-      if (shareRef.current && !shareRef.current.contains(e.target as Node)) {
-        setShareLinks(null);
-      }
+      const target = e.target as Node;
+      const inBtn = shareBtnRef.current?.contains(target);
+      const inDropdown = shareDropdownRef.current?.contains(target);
+      if (!inBtn && !inDropdown) setShareLinks(null);
     }
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
@@ -170,8 +193,9 @@ export function Header({
           Summary
         </button>
         {(page === "planner" || page === "priority") && (
-          <div className="share-plan-wrap" ref={shareRef}>
+          <>
             <button
+              ref={shareBtnRef}
               className="nav-tab nav-tab--share"
               title="Generate shareable links for your open house plan"
               onClick={async () => {
@@ -188,8 +212,13 @@ export function Header({
             >
               Share Plan ↗
             </button>
-            {shareLinks && (
-              <div className="share-plan-dropdown">
+            {shareLinks && shareDropdownPos && createPortal(
+              <div
+                ref={shareDropdownRef}
+                className="share-plan-dropdown share-plan-dropdown--portal"
+                style={{ top: shareDropdownPos.top, right: shareDropdownPos.right }}
+                data-testid="share-plan-dropdown"
+              >
                 <div className="share-plan-row">
                   <span className="share-plan-label">Full plan</span>
                   <a href={shareLinks.planUrl} target="_blank" rel="noopener noreferrer" className="share-plan-link">Open ↗</a>
@@ -208,9 +237,10 @@ export function Header({
                     title="Copy link"
                   >Copy</button>
                 </div>
-              </div>
+              </div>,
+              document.body
             )}
-          </div>
+          </>
         )}
         <input
           ref={fileInputRef}

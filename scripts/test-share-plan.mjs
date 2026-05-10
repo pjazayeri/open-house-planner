@@ -142,15 +142,83 @@ async function run() {
   const methodR = await fetch(`${BASE}/api/share`);
   ok("GET /api/share returns 405", methodR.status === 405, `status=${methodR.status}`);
 
-  // ── 5. Demo bin is accessible ─────────────────────────────────────────────
-  console.log("\n4. Demo bin");
+  // ── 5. Demo bin (the "View Demo" button on AuthScreen) ──────────────────
+  // The AuthScreen demo button opens `/#share?bin=${DEMO_BIN_ID}`, the SPA
+  // reads that hash, and fetches /api/plan?id=${DEMO_BIN_ID}. Verify the
+  // full data contract that path depends on so a renamed/deleted demo bin
+  // or a missing required field breaks CI loudly instead of silently
+  // showing an empty plan.
+  console.log("\n4. Demo bin (View Demo button data contract)");
+  // Must match AuthScreen.tsx's exported DEMO_BIN_ID.
   const DEMO_BIN_ID = "69f8cdb4856a682189a62f92";
   const demoR = await fetch(`${BASE}/api/plan?id=${DEMO_BIN_ID}`);
   ok("Demo plan is readable", demoR.status === 200, `status=${demoR.status}`);
   if (demoR.ok) {
     const demo = await demoR.json();
+    ok("Demo plan is an array", Array.isArray(demo), typeof demo);
     ok("Demo plan has at least one group", Array.isArray(demo) && demo.length > 0);
     ok("Demo group has listings", demo[0]?.listings?.length > 0);
+
+    // PlanView + MapPlanView require these fields per listing. Missing any
+    // would render broken cards / dots-without-coordinates on mobile maps.
+    const REQUIRED_LISTING_FIELDS = [
+      "id", "addr", "city", "price", "beds", "baths",
+      "start", "end", "url", "lat", "lng",
+    ];
+    const allListings = demo.flatMap((g) => g.listings ?? []);
+    ok("Demo has multiple listings to render", allListings.length >= 2, `got ${allListings.length}`);
+
+    const missingField = REQUIRED_LISTING_FIELDS.find((f) =>
+      !allListings.every((l) => l[f] !== undefined && l[f] !== null && l[f] !== "")
+    );
+    ok(
+      `Every demo listing has all required fields (${REQUIRED_LISTING_FIELDS.join(", ")})`,
+      !missingField,
+      missingField ? `missing: ${missingField}` : ""
+    );
+
+    // Lat/lng must be valid numbers — map view filters out malformed coords.
+    const badCoord = allListings.find(
+      (l) => typeof l.lat !== "number" || typeof l.lng !== "number" || isNaN(l.lat) || isNaN(l.lng)
+    );
+    ok("Demo listings have numeric lat/lng for map view", !badCoord, badCoord ? `bad: ${badCoord.id}` : "");
+
+    // start/end must be ISO strings — App.tsx's shiftPlanToFuture parses them.
+    const badTime = allListings.find((l) => isNaN(Date.parse(l.start)) || isNaN(Date.parse(l.end)));
+    ok("Demo listings have parseable start/end timestamps", !badTime, badTime ? `bad: ${badTime.id}` : "");
+  }
+
+  // ── 6. Mobile UA gets identical response (catches UA-sniffing regressions) ─
+  console.log("\n5. Mobile parity");
+  const mobileUA =
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1";
+  const mobilePlanR = await fetch(`${BASE}/api/plan?id=${DEMO_BIN_ID}`, { headers: { "User-Agent": mobileUA } });
+  ok("Mobile UA gets demo plan", mobilePlanR.status === 200, `status=${mobilePlanR.status}`);
+  const mobileSpaR = await fetch(`${BASE}/`, { headers: { "User-Agent": mobileUA } });
+  ok("Mobile UA gets SPA HTML", mobileSpaR.status === 200, `status=${mobileSpaR.status}`);
+  const html = await mobileSpaR.text();
+  ok("Mobile SPA HTML loads the JS bundle", /\/assets\/index-[A-Za-z0-9_-]+\.js/.test(html));
+
+  // ── 7. URL pattern translation: `/#share?bin=ID` must map to /api/plan?id=ID ─
+  // The hash-to-API mapping is parsed in App.tsx; if those param names
+  // diverge, every shared link silently 400s.
+  console.log("\n6. URL pattern translation");
+  // Round-trip: create a share, then verify both `?id=` (API) works.
+  const sharePayload = JSON.stringify(SAMPLE_PLAN);
+  const created = await fetch(`${BASE}/api/share`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: sharePayload,
+  });
+  if (created.ok) {
+    const { id: createdId } = await created.json();
+    const idR = await fetch(`${BASE}/api/plan?id=${createdId}`);
+    ok("New share is fetchable via ?id= (matches App.tsx fetch URL)", idR.status === 200, `status=${idR.status}`);
+    // The client URL is /#share?bin=ID; the param name in the SPA hash is `bin`,
+    // but the API itself only accepts `id`. The SPA does the translation. If
+    // someone changes the API to require `bin`, this guard catches it.
+    const binR = await fetch(`${BASE}/api/plan?bin=${createdId}`);
+    ok("API does not silently accept ?bin= (would mask broken hash parsing)", binR.status === 400, `status=${binR.status}`);
   }
 
   console.log(`\n${"─".repeat(40)}`);

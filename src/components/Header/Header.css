@@ -284,6 +284,25 @@
   gap: 4px;
 }
 
+/* Portal variant: rendered to <body> with computed top/right so it escapes
+   the .header-nav overflow clip on mobile. */
+.share-plan-dropdown--portal {
+  position: fixed;
+  top: auto;  /* overridden via inline style */
+  right: auto;
+}
+
+@media (max-width: 767px) {
+  /* On phones, the button sits at the right edge; clamp so the dropdown
+     stays fully on-screen even if the inline-computed `right` would push
+     the 260px panel off the left side. */
+  .share-plan-dropdown--portal {
+    right: 8px !important;
+    left: 8px;
+    min-width: 0;
+  }
+}
+
 .share-plan-row {
   display: flex;
   align-items: center;
