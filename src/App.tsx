@@ -128,6 +128,7 @@ function buildFilterParams(
 }
 
 import { pointInPolygon } from "./utils/geometry";
+import { cloudFetch, cloudPatch } from "./utils/cloudSync";
 
 function App() {
   const { user, mode: authMode, signInWithGoogle, continueAsGuest, signOut } = useAuth();
@@ -220,6 +221,55 @@ function App() {
       history.replaceState(null, "", "#" + full);
     }
   }, [page, sortKey, activeFilters, searchQuery, selectedAreas, selectedDate, timeFrom, timeTo, statusFilter, priceMin, priceMax, capRateMin, capRateMax, ppsfMin, ppsfMax]);
+
+  // ── Filter persistence ─────────────────────────────────────────────────
+  // Cloud acts as a user-default overlay: shared URLs (which carry their
+  // own ?f=… params) always win; cloud only fills in when the URL has no
+  // filter params yet. Initial hydrate runs once when auth is ready.
+  const filtersHydratedRef = useRef(false);
+  useEffect(() => {
+    if (authMode !== "signed-in") return;
+    if (filtersHydratedRef.current) return;
+    if (isSharedView(window.location.hash)) return;
+    const currentParams = buildFilterParams(sortKey, activeFilters, searchQuery, selectedAreas, selectedDate, timeFrom, timeTo, statusFilter, priceMin, priceMax, capRateMin, capRateMax, ppsfMin, ppsfMax);
+    if (currentParams.length > 0) { filtersHydratedRef.current = true; return; } // URL already has filters; don't override
+    cloudFetch().then((state) => {
+      filtersHydratedRef.current = true;
+      if (!state.filters) return;
+      const sp = new URLSearchParams(state.filters);
+      const sort = sp.get("sort") as SortKey | null;
+      if (sort) setSortKey(sort);
+      const f = sp.get("f")?.split(",").filter((k): k is FilterKey => Boolean(k));
+      if (f && f.length > 0) setActiveFilters(new Set(f));
+      const q = sp.get("q"); if (q) setSearchQuery(q);
+      const hood = sp.get("hood")?.split(",").filter(Boolean);
+      if (hood && hood.length > 0) setSelectedAreas(new Set(hood));
+      const date = sp.get("date"); if (date) setSelectedDate(date);
+      const from = sp.get("from"); if (from !== null) setTimeFrom(Number(from));
+      const to = sp.get("to"); if (to !== null) setTimeTo(Number(to));
+      const status = sp.get("status"); if (status) setStatusFilter(status);
+      const pmin = sp.get("pmin"); if (pmin !== null) setPriceMin(Number(pmin));
+      const pmax = sp.get("pmax"); if (pmax !== null) setPriceMax(Number(pmax));
+      const crmin = sp.get("crmin"); if (crmin !== null) setCapRateMin(Number(crmin));
+      const crmax = sp.get("crmax"); if (crmax !== null) setCapRateMax(Number(crmax));
+      const sfmin = sp.get("sfmin"); if (sfmin !== null) setPpsfMin(Number(sfmin));
+      const sfmax = sp.get("sfmax"); if (sfmax !== null) setPpsfMax(Number(sfmax));
+    }).catch(() => { filtersHydratedRef.current = true; });
+  }, [authMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Debounced write of the current filter state back to cloud — only after
+  // the initial hydrate has run, so we don't overwrite the saved set with
+  // initial empty defaults.
+  useEffect(() => {
+    if (authMode !== "signed-in") return;
+    if (!filtersHydratedRef.current) return;
+    if (isSharedView(window.location.hash)) return;
+    const params = buildFilterParams(sortKey, activeFilters, searchQuery, selectedAreas, selectedDate, timeFrom, timeTo, statusFilter, priceMin, priceMax, capRateMin, capRateMax, ppsfMin, ppsfMax);
+    const handle = setTimeout(() => {
+      cloudPatch({ filters: params }).catch(() => {});
+    }, 1000);
+    return () => clearTimeout(handle);
+  }, [authMode, sortKey, activeFilters, searchQuery, selectedAreas, selectedDate, timeFrom, timeTo, statusFilter, priceMin, priceMax, capRateMin, capRateMax, ppsfMin, ppsfMax]);
 
   // Restore page + filters on browser back/forward
   useEffect(() => {

@@ -67,6 +67,11 @@ export interface CloudState {
   amenities: Record<string, ListingAmenities>;
   rentEstimates: Record<string, unknown>; // typed as RentEstimate in useRentEstimates.ts
   csvUrl?: string; // user's own CSV stored in Vercel Blob
+  // URL-encoded query string of the user's saved Open Houses filter state
+  // (sortKey, activeFilters, search, hood/area, date/time, status, price,
+  // capRate, ppsf). Acts as a user-default overlay: shared URLs always
+  // take precedence; cloud fills in only when the URL has no filter params.
+  filters?: string;
 }
 
 function parseVisitRecord(v: unknown): VisitRecord {
@@ -156,6 +161,7 @@ function parseCloudState(record: unknown): CloudState {
     amenities,
     rentEstimates,
     csvUrl: typeof r.csvUrl === "string" ? r.csvUrl : undefined,
+    filters: typeof r.filters === "string" ? r.filters : undefined,
   };
 }
 
