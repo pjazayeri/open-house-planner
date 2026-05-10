@@ -170,12 +170,24 @@ function TimeChart({ points }: { points: TimeSeriesPoint[] }) {
   const buyPts = points.map((p) => `${xOf(p.year)},${yOf(p.netBuyCost)}`).join(" ");
   const rentPts = points.map((p) => `${xOf(p.year)},${yOf(p.cumulativeRentCost)}`).join(" ");
 
-  // Break-even year: where buy net cost crosses below rent cost
-  const breakEvenYear = points.find((p, i) => {
-    if (i === 0) return false;
-    const prev = points[i - 1];
-    return prev.netBuyCost > prev.cumulativeRentCost && p.netBuyCost <= p.cumulativeRentCost;
-  })?.year ?? null;
+  // Break-even crossover: linearly interpolate between the surrounding
+  // year samples so the marker actually sits at the visual intersection
+  // of the two lines instead of at the next integer-year data point.
+  const breakEven: { year: number; value: number } | null = (() => {
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1];
+      const curr = points[i];
+      const dPrev = prev.netBuyCost - prev.cumulativeRentCost;
+      const dCurr = curr.netBuyCost - curr.cumulativeRentCost;
+      if (dPrev > 0 && dCurr <= 0) {
+        const t = dPrev / (dPrev - dCurr); // fraction between prev and curr
+        const year = prev.year + (curr.year - prev.year) * t;
+        const value = prev.netBuyCost + (curr.netBuyCost - prev.netBuyCost) * t;
+        return { year, value };
+      }
+    }
+    return null;
+  })();
 
   // Y-axis ticks
   const tickCount = 4;
@@ -229,23 +241,22 @@ function TimeChart({ points }: { points: TimeSeriesPoint[] }) {
       <polyline points={rentPts} fill="none" stroke="#f59e0b" strokeWidth={2} />
       {/* Buy net cost line (purple) */}
       <polyline points={buyPts} fill="none" stroke="#a78bfa" strokeWidth={2} />
-      {/* Break-even marker */}
-      {breakEvenYear !== null && (() => {
-        const p = points.find((pt) => pt.year === breakEvenYear)!;
-        return (
-          <g>
-            <circle cx={xOf(p.year)} cy={yOf(p.netBuyCost)} r={4} fill="#22c55e" />
-            <text x={xOf(p.year) + 6} y={yOf(p.netBuyCost) - 4} fontSize={9} fill="#22c55e">yr{p.year}</text>
-          </g>
-        );
-      })()}
+      {/* Break-even marker — at the interpolated line intersection */}
+      {breakEven !== null && (
+        <g>
+          <circle cx={xOf(breakEven.year)} cy={yOf(breakEven.value)} r={4} fill="#22c55e" />
+          <text x={xOf(breakEven.year) + 6} y={yOf(breakEven.value) - 4} fontSize={9} fill="#22c55e">
+            yr{breakEven.year.toFixed(1)}
+          </text>
+        </g>
+      )}
       {/* Legend */}
       <g>
         <line x1={PAD_L + 4} y1={PAD_T + 6} x2={PAD_L + 18} y2={PAD_T + 6} stroke="#a78bfa" strokeWidth={2} />
         <text x={PAD_L + 22} y={PAD_T + 10} fontSize={9} fill="#a78bfa">Buy net cost</text>
         <line x1={PAD_L + 90} y1={PAD_T + 6} x2={PAD_L + 104} y2={PAD_T + 6} stroke="#f59e0b" strokeWidth={2} />
         <text x={PAD_L + 108} y={PAD_T + 10} fontSize={9} fill="#f59e0b">Rent</text>
-        {breakEvenYear !== null && (
+        {breakEven !== null && (
           <>
             <circle cx={PAD_L + 158} cy={PAD_T + 6} r={3} fill="#22c55e" />
             <text x={PAD_L + 164} y={PAD_T + 10} fontSize={9} fill="#22c55e">Break-even</text>
