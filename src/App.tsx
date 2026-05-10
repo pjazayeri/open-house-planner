@@ -297,8 +297,6 @@ function App() {
     startGeo,
     syncStatus,
     saveFailed,
-    finFavoriteIds,
-    toggleFinFavorite,
     amenities,
     setAmenity,
   } = useListings(authMode);
@@ -638,8 +636,7 @@ function App() {
           priorityIds={priorityIds}
           hiddenIds={hiddenIds}
           initialSelectedId={financeInitId ?? idFromHash()}
-          finFavoriteIds={finFavoriteIds}
-          toggleFinFavorite={toggleFinFavorite}
+          togglePriority={togglePriority}
           zones={zones}
         />
       )}

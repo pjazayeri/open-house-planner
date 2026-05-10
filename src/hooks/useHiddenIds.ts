@@ -37,7 +37,19 @@ export function useHiddenIds(authMode: "loading" | "signed-in" | "guest" | "sign
     cloudFetch()
       .then((state) => {
         setHiddenIds(new Set(state.hiddenIds));
-        setPriorityOrder(state.priorityIds);
+        // One-shot migration: Finance used to have its own `finFavoriteIds`
+        // set, separate from priority. Unify into priorityIds so a single
+        // star tracks across Planner + Finance. Writes the merged set and
+        // an empty finFavoriteIds back to the cloud, then it's irrelevant.
+        const legacyFinFavs = state.finFavoriteIds ?? [];
+        let mergedPriority = state.priorityIds;
+        if (legacyFinFavs.length > 0) {
+          const merged = new Set(state.priorityIds);
+          for (const id of legacyFinFavs) merged.add(id);
+          mergedPriority = Array.from(merged);
+          cloudPatch({ priorityIds: mergedPriority, finFavoriteIds: [] }).catch(() => {});
+        }
+        setPriorityOrder(mergedPriority);
         setSkippedForDay(state.skippedForDay ?? {});
         setSyncStatus("ok");
       })

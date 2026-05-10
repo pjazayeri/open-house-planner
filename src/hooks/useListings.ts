@@ -9,7 +9,6 @@ import { useGeolocation } from "./useGeolocation";
 import type { SyncStatus } from "../utils/cloudSync";
 import { cloudFetch, cloudPatch, getAuthHeaders } from "../utils/cloudSync";
 import { useListingSnapshots } from "./useListingSnapshots";
-import { useFinFavorites } from "./useFinFavorites";
 import { useAmenities } from "./useAmenities";
 import type { ListingAmenities } from "../utils/cloudSync";
 
@@ -64,9 +63,6 @@ interface UseListingsResult {
   toggleWantOffer: (id: string) => void;
   clearVisit: (id: string) => void;
   importData: (hiddenIds: string[], priorityIds: string[], visits: Record<string, VisitRecord>) => void;
-  // Finance favorites
-  finFavoriteIds: Set<string>;
-  toggleFinFavorite: (id: string) => void;
   // Amenities (parking, in-unit W/D)
   amenities: Record<string, ListingAmenities>;
   setAmenity: (id: string, field: "parking" | "laundry", value: boolean | undefined) => void;
@@ -95,7 +91,6 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "signe
   const { hiddenIds, hide, unhide, clearHidden, priorityIds, priorityOrder, togglePriority, reorderPriority, importHiddenAndPriority, skippedForDay, skipForDay, restoreSkippedForDay, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds(authMode);
   const { saveSnapshots, archivedListings } = useListingSnapshots();
   const { visits, markVisited, setLiked, setRating, setNoteField, toggleWantOffer, clearVisit, importVisits, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits(authMode);
-  const { finFavoriteIds, toggleFinFavorite } = useFinFavorites(authMode);
   const { amenities, setAmenity } = useAmenities();
 
   const syncStatus: SyncStatus =
@@ -224,8 +219,6 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "signe
     toggleWantOffer,
     setNoteField,
     clearVisit,
-    finFavoriteIds,
-    toggleFinFavorite,
     amenities,
     setAmenity,
     importData: (h: string[], p: string[], v: Record<string, VisitRecord>) => {

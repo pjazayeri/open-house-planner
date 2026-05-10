@@ -15,8 +15,7 @@ interface FinancePageProps {
   priorityIds: Set<string>;
   hiddenIds: Set<string>;
   initialSelectedId?: string | null;
-  finFavoriteIds: Set<string>;
-  toggleFinFavorite: (id: string) => void;
+  togglePriority: (id: string) => void;
   zones: MapZone[];
 }
 
@@ -828,7 +827,7 @@ function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, term
 }
 
 // ── Page ─────────────────────────────────────────────────────────
-export function FinancePage({ allListings, initialSelectedId, finFavoriteIds, toggleFinFavorite, zones }: FinancePageProps) {
+export function FinancePage({ allListings, initialSelectedId, priorityIds, togglePriority, zones }: FinancePageProps) {
   const [downPct, setDownPct] = useState(() => readLs(LS_DOWN, 20));
   const [ratePct, setRatePct] = useState(() => readLs(LS_RATE, 6.75));
   const [oppReturnPct, setOppReturnPct] = useState(() => readLs(LS_OPP, 7));
@@ -939,7 +938,7 @@ export function FinancePage({ allListings, initialSelectedId, finFavoriteIds, to
   const sorted = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const filtered = listingsWithResults.filter(({ listing: l }) => {
-      if (showFavoritesOnly && !finFavoriteIds.has(l.id)) return false;
+      if (showFavoritesOnly && !priorityIds.has(l.id)) return false;
       if (selectedZone && !pointInPolygon(l.lat, l.lng, selectedZone.polygon)) return false;
       if (q && !l.address.toLowerCase().includes(q) && !l.city.toLowerCase().includes(q) && !l.location.toLowerCase().includes(q)) return false;
       return true;
@@ -959,7 +958,7 @@ export function FinancePage({ allListings, initialSelectedId, finFavoriteIds, to
         default:        return a.result.monthlyBuyPremium - b.result.monthlyBuyPremium;
       }
     });
-  }, [listingsWithResults, sortKey, searchQuery, selectedZone, showFavoritesOnly, finFavoriteIds]);
+  }, [listingsWithResults, sortKey, searchQuery, selectedZone, showFavoritesOnly, priorityIds]);
 
   // Keep selection valid; fall back to first item only if current selection is gone
   useEffect(() => {
@@ -1113,7 +1112,7 @@ export function FinancePage({ allListings, initialSelectedId, finFavoriteIds, to
             onClick={() => setShowFavoritesOnly((v) => !v)}
             title="Show only favorited listings"
           >
-            {showFavoritesOnly ? "★" : "☆"} Favorites{finFavoriteIds.size > 0 ? ` (${finFavoriteIds.size})` : ""}
+            {showFavoritesOnly ? "★" : "☆"} Favorites{priorityIds.size > 0 ? ` (${priorityIds.size})` : ""}
           </button>
           <span className="fp-sort-label">Sort:</span>
           {(
@@ -1147,8 +1146,8 @@ export function FinancePage({ allListings, initialSelectedId, finFavoriteIds, to
               result={result}
               effectiveCapRate={effectiveCapRate}
               selected={listing.id === selectedId}
-              isFavorite={finFavoriteIds.has(listing.id)}
-              onToggleFavorite={() => toggleFinFavorite(listing.id)}
+              isFavorite={priorityIds.has(listing.id)}
+              onToggleFavorite={() => togglePriority(listing.id)}
               onClick={() => setSelectedId(listing.id)}
             />
           ))}
