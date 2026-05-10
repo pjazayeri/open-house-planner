@@ -3,7 +3,7 @@ import Papa from "papaparse";
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import type { Listing, VisitRecord } from "../../types";
-import { formatPrice, formatBedsBaths } from "../../utils/formatters";
+import { formatPrice, formatBedsBaths, hasOpenHouse } from "../../utils/formatters";
 import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import { getCities, getNeighborhoods } from "../../utils/filterListings";
 import "./DataView.css";
@@ -261,9 +261,13 @@ function DetailPanel({
             )}
           </div>
 
-          <div className="dv-detail-time">
-            Open: {fmtDate(l.openHouseStart)} · {fmtTime(l.openHouseStart)}–{fmtTime(l.openHouseEnd)}
-          </div>
+          {hasOpenHouse(l.openHouseStart, l.openHouseEnd) ? (
+            <div className="dv-detail-time">
+              Open: {fmtDate(l.openHouseStart)} · {fmtTime(l.openHouseStart)}–{fmtTime(l.openHouseEnd)}
+            </div>
+          ) : (
+            <div className="dv-detail-time dv-detail-time--none">No upcoming open house</div>
+          )}
 
           <div className="dv-detail-controls">
             <button
@@ -667,8 +671,12 @@ export function DataView({
           l.sqft ?? "",
           l.capRate.toFixed(2),
           esc(l.propertyType),
-          esc(l.openHouseStart.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })),
-          esc(`${fmtTime(l.openHouseStart)}–${fmtTime(l.openHouseEnd)}`),
+          hasOpenHouse(l.openHouseStart, l.openHouseEnd)
+            ? esc(l.openHouseStart.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }))
+            : "",
+          hasOpenHouse(l.openHouseStart, l.openHouseEnd)
+            ? esc(`${fmtTime(l.openHouseStart)}–${fmtTime(l.openHouseEnd)}`)
+            : "",
           priorityIds.has(l.id) ? "yes" : "no",
           hiddenIds.has(l.id) ? "yes" : "no",
           v ? "yes" : "no",

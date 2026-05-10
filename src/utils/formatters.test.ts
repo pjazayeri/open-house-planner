@@ -1,5 +1,33 @@
 import { describe, it, expect } from "vitest";
-import { parseRedfinDate, formatPrice, formatBedsBaths, parseNum } from "./formatters";
+import { parseRedfinDate, formatPrice, formatBedsBaths, parseNum, hasOpenHouse, formatTimeRange } from "./formatters";
+
+describe("hasOpenHouse (regression: epoch-0 dates render as 'Wed, Dec 31 4:00 PM')", () => {
+  it("returns true for real future dates", () => {
+    const future = new Date(Date.now() + 86_400_000);
+    expect(hasOpenHouse(future)).toBe(true);
+    expect(hasOpenHouse(future, new Date(future.getTime() + 7200_000))).toBe(true);
+  });
+
+  it("returns false for epoch-0 (the placeholder transformAll uses for missing open houses)", () => {
+    expect(hasOpenHouse(new Date(0))).toBe(false);
+    expect(hasOpenHouse(new Date(0), new Date(0))).toBe(false);
+  });
+
+  it("returns false for null/undefined", () => {
+    expect(hasOpenHouse(null)).toBe(false);
+    expect(hasOpenHouse(undefined)).toBe(false);
+  });
+
+  it("returns false if either start or end is epoch-0", () => {
+    const real = new Date(Date.now() + 86_400_000);
+    expect(hasOpenHouse(real, new Date(0))).toBe(false);
+    expect(hasOpenHouse(new Date(0), real)).toBe(false);
+  });
+
+  it("formatTimeRange returns empty string for epoch-0 dates", () => {
+    expect(formatTimeRange(new Date(0), new Date(0))).toBe("");
+  });
+});
 
 describe("parseRedfinDate", () => {
   it("parses a valid Redfin date string", () => {

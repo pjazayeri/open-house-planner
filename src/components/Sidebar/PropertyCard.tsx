@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Listing, VisitRecord } from "../../types";
 import type { CapRateBreakdown } from "../../utils/capRate";
 import type { ListingAmenities } from "../../utils/cloudSync";
-import { formatPrice, formatBedsBaths, formatTimeRange } from "../../utils/formatters";
+import { formatPrice, formatBedsBaths, formatTimeRange, hasOpenHouse } from "../../utils/formatters";
 import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import { readRentEstimate } from "../../hooks/useRentEstimates";
 import "./PropertyCard.css";
@@ -256,9 +256,11 @@ export function PropertyCard({
       )}
 
       <div className="card-meta">
-        <span className="card-time">
-          {formatTimeRange(listing.openHouseStart, listing.openHouseEnd)}
-        </span>
+        {hasOpenHouse(listing.openHouseStart, listing.openHouseEnd) && (
+          <span className="card-time">
+            {formatTimeRange(listing.openHouseStart, listing.openHouseEnd)}
+          </span>
+        )}
         {listing.daysOnMarket !== null && (
           <span className="card-dom">{listing.daysOnMarket}d on market</span>
         )}

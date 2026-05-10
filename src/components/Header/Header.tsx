@@ -86,15 +86,18 @@ export function Header({
   // on mobile and would clip it). Position is computed from the button's rect.
   const [shareDropdownPos, setShareDropdownPos] = useState<{ top: number; right: number } | null>(null);
 
+  // Position is set synchronously by the click handler before setShareLinks
+  // so the very first render with a non-null `shareLinks` already has a
+  // valid position — avoids a one-frame "invisible dropdown" flash on
+  // mobile that was confusing users into thinking nothing happened.
   useLayoutEffect(() => {
-    if (!shareLinks || !shareBtnRef.current) { setShareDropdownPos(null); return; }
+    if (!shareLinks) { setShareDropdownPos(null); return; }
     function reposition() {
       const btn = shareBtnRef.current;
       if (!btn) return;
       const r = btn.getBoundingClientRect();
-      setShareDropdownPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
+      setShareDropdownPos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
     }
-    reposition();
     window.addEventListener("resize", reposition);
     window.addEventListener("scroll", reposition, true);
     return () => {
@@ -102,6 +105,13 @@ export function Header({
       window.removeEventListener("scroll", reposition, true);
     };
   }, [shareLinks]);
+
+  function computeDropdownPos() {
+    const btn = shareBtnRef.current;
+    if (!btn) return null;
+    const r = btn.getBoundingClientRect();
+    return { top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) };
+  }
 
   useEffect(() => {
     if (!shareLinks) return;
@@ -204,6 +214,9 @@ export function Header({
                 try {
                   const links = await onSharePlan();
                   setToast(null);
+                  // Compute position FIRST so the dropdown is visible on its
+                  // very first render — no in-between "no position yet" frame.
+                  setShareDropdownPos(computeDropdownPos());
                   setShareLinks(links);
                 } catch {
                   showToast("Failed to create plan link", "error", true);

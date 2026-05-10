@@ -625,7 +625,7 @@ function App() {
       />
       {page === "analytics" && (
         <AnalyticsPage
-          allListings={[...augmentedAllListings, ...augmentedArchivedListings.filter(a => !augmentedAllListings.some(l => l.id === a.id))]}
+          allListings={[...augmentedAllFavoritesListings, ...augmentedArchivedListings.filter(a => !augmentedAllFavoritesListings.some(l => l.id === a.id))]}
           visits={visits}
           hiddenIds={hiddenIds}
           priorityIds={priorityIds}
@@ -633,7 +633,7 @@ function App() {
       )}
       {page === "finance" && (
         <FinancePage
-          allListings={[...augmentedAllListings, ...augmentedArchivedListings.filter(a => !augmentedAllListings.some(l => l.id === a.id))]}
+          allListings={[...augmentedAllFavoritesListings, ...augmentedArchivedListings.filter(a => !augmentedAllFavoritesListings.some(l => l.id === a.id))]}
           visits={visits}
           priorityIds={priorityIds}
           hiddenIds={hiddenIds}
@@ -644,7 +644,7 @@ function App() {
       )}
       {page === "data" && (
         <DataView
-          allListings={[...augmentedAllListings, ...augmentedArchivedListings.filter(a => !augmentedAllListings.some(l => l.id === a.id))]}
+          allListings={[...augmentedAllFavoritesListings, ...augmentedArchivedListings.filter(a => !augmentedAllFavoritesListings.some(l => l.id === a.id))]}
           hiddenIds={hiddenIds}
           visits={visits}
           priorityIds={priorityIds}
