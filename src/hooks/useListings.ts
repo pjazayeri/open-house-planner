@@ -95,7 +95,7 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "signe
   const { hiddenIds, hide, unhide, clearHidden, priorityIds, priorityOrder, togglePriority, reorderPriority, importHiddenAndPriority, skippedForDay, skipForDay, restoreSkippedForDay, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds(authMode);
   const { saveSnapshots, archivedListings } = useListingSnapshots();
   const { visits, markVisited, setLiked, setRating, setNoteField, toggleWantOffer, clearVisit, importVisits, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits(authMode);
-  const { finFavoriteIds, toggleFinFavorite } = useFinFavorites();
+  const { finFavoriteIds, toggleFinFavorite } = useFinFavorites(authMode);
   const { amenities, setAmenity } = useAmenities();
 
   const syncStatus: SyncStatus =

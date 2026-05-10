@@ -214,8 +214,6 @@ export function Header({
                 try {
                   const links = await onSharePlan();
                   setToast(null);
-                  // Compute position FIRST so the dropdown is visible on its
-                  // very first render — no in-between "no position yet" frame.
                   setShareDropdownPos(computeDropdownPos());
                   setShareLinks(links);
                 } catch {
@@ -225,11 +223,17 @@ export function Header({
             >
               Share Plan ↗
             </button>
-            {shareLinks && shareDropdownPos && createPortal(
+            {shareLinks && createPortal(
               <div
                 ref={shareDropdownRef}
                 className="share-plan-dropdown share-plan-dropdown--portal"
-                style={{ top: shareDropdownPos.top, right: shareDropdownPos.right }}
+                // Fallback to a near-top-right position if pos computation
+                // hasn't run yet — never let the dropdown render off-screen
+                // or with no position at all.
+                style={{
+                  top: shareDropdownPos?.top ?? 64,
+                  right: shareDropdownPos?.right ?? 12,
+                }}
                 data-testid="share-plan-dropdown"
               >
                 <div className="share-plan-row">

@@ -285,11 +285,14 @@
 }
 
 /* Portal variant: rendered to <body> with computed top/right so it escapes
-   the .header-nav overflow clip on mobile. */
+   the .header-nav overflow clip on mobile. z-index must exceed both
+   .header (z:1000) and .ingest-toast (z:2000) since those are siblings
+   once the dropdown is portaled outside the header tree. */
 .share-plan-dropdown--portal {
   position: fixed;
   top: auto;  /* overridden via inline style */
   right: auto;
+  z-index: 3000;
 }
 
 @media (max-width: 767px) {
