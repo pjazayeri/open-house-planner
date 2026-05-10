@@ -150,7 +150,7 @@ async function run() {
   // showing an empty plan.
   console.log("\n4. Demo bin (View Demo button data contract)");
   // Must match AuthScreen.tsx's exported DEMO_BIN_ID.
-  const DEMO_BIN_ID = "69f8cdb4856a682189a62f92";
+  const DEMO_BIN_ID = "6a00dfd7c0954111d804071d";
   const demoR = await fetch(`${BASE}/api/plan?id=${DEMO_BIN_ID}`);
   ok("Demo plan is readable", demoR.status === 200, `status=${demoR.status}`);
   if (demoR.ok) {
@@ -186,6 +186,23 @@ async function run() {
     // start/end must be ISO strings — App.tsx's shiftPlanToFuture parses them.
     const badTime = allListings.find((l) => isNaN(Date.parse(l.start)) || isNaN(Date.parse(l.end)));
     ok("Demo listings have parseable start/end timestamps", !badTime, badTime ? `bad: ${badTime.id}` : "");
+
+    // Open houses happen on weekends — this catches the "demo links me to
+    // Tuesday May 12" regression. Anything that lands on a weekday in the
+    // source plan will shift forward by full weeks (via shiftPlanToFuture)
+    // and stay on a weekday for viewers.
+    const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const weekdayGroups = demo.filter((g) => {
+      const day = new Date(g.start).getUTCDay();
+      return day !== 0 && day !== 6; // 0 = Sun, 6 = Sat
+    });
+    ok(
+      "Every demo group falls on a weekend (Sat/Sun)",
+      weekdayGroups.length === 0,
+      weekdayGroups.length
+        ? `weekday groups: ${weekdayGroups.map((g) => WEEKDAYS[new Date(g.start).getUTCDay()] + " " + g.label.slice(0, 30)).join("; ")}`
+        : ""
+    );
   }
 
   // ── 6. Mobile UA gets identical response (catches UA-sniffing regressions) ─

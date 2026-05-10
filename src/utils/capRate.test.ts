@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeCapRateBreakdown } from "./capRate";
+import { computeCapRateBreakdown, recalcCapRateWithRent } from "./capRate";
 
 const BASE = {
   price: 1_000_000,
@@ -97,5 +97,32 @@ describe("computeCapRateBreakdown", () => {
   it("NOI equals annualGrossRent minus totalExpenses", () => {
     const b = computeCapRateBreakdown(BASE);
     expect(b.noi).toBeCloseTo(b.annualGrossRent - b.totalExpenses);
+  });
+});
+
+describe("recalcCapRateWithRent (regression: cap rate must update when rent override changes)", () => {
+  it("matches computeCapRateBreakdown when the override equals the derived rent", () => {
+    const b = computeCapRateBreakdown(BASE);
+    const recalced = recalcCapRateWithRent(b, b.monthlyRent, BASE.price);
+    expect(recalced).toBeCloseTo(b.capRate, 4);
+  });
+
+  it("higher rent yields a higher cap rate (rent scales NOI faster than rent-linked expenses)", () => {
+    const b = computeCapRateBreakdown(BASE);
+    const higher = recalcCapRateWithRent(b, b.monthlyRent * 1.5, BASE.price);
+    expect(higher).toBeGreaterThan(b.capRate);
+  });
+
+  it("lower rent yields a lower cap rate", () => {
+    const b = computeCapRateBreakdown(BASE);
+    const lower = recalcCapRateWithRent(b, b.monthlyRent * 0.5, BASE.price);
+    expect(lower).toBeLessThan(b.capRate);
+  });
+
+  it("zero or negative inputs are clamped to 0", () => {
+    const b = computeCapRateBreakdown(BASE);
+    expect(recalcCapRateWithRent(b, 0, BASE.price)).toBe(0);
+    expect(recalcCapRateWithRent(b, b.monthlyRent, 0)).toBe(0);
+    expect(recalcCapRateWithRent(b, -100, BASE.price)).toBe(0);
   });
 });

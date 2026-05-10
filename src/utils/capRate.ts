@@ -229,3 +229,44 @@ export function computeCapRateBreakdown(input: CapRateInput): CapRateBreakdown {
 export function estimateCapRate(input: CapRateInput): number {
   return computeCapRateBreakdown(input).capRate;
 }
+
+/**
+ * Re-derive cap rate when the user overrides monthly rent.
+ *
+ * Vacancy, maintenance, and management are all linear in annualGrossRent
+ * (rate × AGR, with maintenance picking up an HOA-reduction multiplier
+ * that's already baked into `breakdown.maintenance`). Scaling those by the
+ * new/old rent ratio gives the same numbers we'd get from re-running the
+ * full computation, without needing to know which multipliers were applied.
+ *
+ * Fixed costs (propertyTax, insurance, annualHoa) are unchanged.
+ */
+export function recalcCapRateWithRent(
+  breakdown: CapRateBreakdown,
+  monthlyRent: number,
+  price: number
+): number {
+  if (price <= 0) return 0;
+  if (monthlyRent <= 0) return 0;
+  const annualGrossRent = monthlyRent * 12;
+  const oldAGR = breakdown.annualGrossRent;
+  let vacancy: number;
+  let maintenance: number;
+  let management: number;
+  if (oldAGR > 0) {
+    const ratio = annualGrossRent / oldAGR;
+    vacancy = breakdown.vacancy * ratio;
+    maintenance = breakdown.maintenance * ratio;
+    management = breakdown.management * ratio;
+  } else {
+    // Original AGR was zero (sqft missing or rent psf zero) — fall back to
+    // re-deriving from rates so we don't blow up with NaN.
+    vacancy = annualGrossRent * 0.05;
+    maintenance = annualGrossRent * breakdown.maintenanceRate;
+    management = 0;
+  }
+  const totalExpenses =
+    breakdown.propertyTax + breakdown.insurance + vacancy + maintenance + management + breakdown.annualHoa;
+  const noi = annualGrossRent - totalExpenses;
+  return Math.max(0, (noi / price) * 100);
+}

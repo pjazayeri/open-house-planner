@@ -640,6 +640,7 @@ function App() {
           initialSelectedId={financeInitId ?? idFromHash()}
           finFavoriteIds={finFavoriteIds}
           toggleFinFavorite={toggleFinFavorite}
+          zones={zones}
         />
       )}
       {page === "data" && (

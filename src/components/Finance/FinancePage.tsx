@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import type { Listing, VisitRecord } from "../../types";
+import type { Listing, VisitRecord, MapZone } from "../../types";
 import { calcBuyVsRent, calcTimeSeries, type BuyVsRentResult, type TimeSeriesPoint } from "../../utils/mortgageCalc";
-import { getNeighborhoods } from "../../utils/filterListings";
+import { recalcCapRateWithRent } from "../../utils/capRate";
+import { pointInPolygon } from "../../utils/geometry";
 import { formatPrice, formatBedsBaths } from "../../utils/formatters";
+import { navigationUrl } from "../../utils/mapsUrl";
 import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import "./FinancePage.css";
 import { useRentEstimates, type RentEstimate } from "../../hooks/useRentEstimates";
@@ -15,6 +17,7 @@ interface FinancePageProps {
   initialSelectedId?: string | null;
   finFavoriteIds: Set<string>;
   toggleFinFavorite: (id: string) => void;
+  zones: MapZone[];
 }
 
 type SortKey = "price" | "cost" | "premium" | "capRate" | "ppsf" | "coc";
@@ -275,6 +278,7 @@ function TimeChart({ points }: { points: TimeSeriesPoint[] }) {
 interface ListItemProps {
   listing: Listing;
   result: BuyVsRentResult;
+  effectiveCapRate: number;
   selected: boolean;
   isFavorite: boolean;
   onToggleFavorite: () => void;
@@ -287,8 +291,8 @@ function cocClass(coc: number): string {
   return "coc-bad";
 }
 
-function ListItem({ listing, result, selected, isFavorite, onToggleFavorite, onClick }: ListItemProps) {
-  const accent = accentClass(result.monthlyBuyPremium, listing.capRate);
+function ListItem({ listing, result, effectiveCapRate, selected, isFavorite, onToggleFavorite, onClick }: ListItemProps) {
+  const accent = accentClass(result.monthlyBuyPremium, effectiveCapRate);
   const coc = result.cashOnCashReturnPct;
   return (
     <div className={`fp-list-item ${accent} ${selected ? "selected" : ""}`} onClick={onClick}>
@@ -321,6 +325,7 @@ function ListItem({ listing, result, selected, isFavorite, onToggleFavorite, onC
 interface DetailProps {
   listing: Listing;
   result: BuyVsRentResult;
+  effectiveCapRate: number;
   downPct: number;
   ratePct: number;
   termYears: number;
@@ -344,7 +349,7 @@ interface DetailProps {
   setRentInflationPct: (n: number) => void;
 }
 
-function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPct, taxRatePct, appreciationPct, saltHeadroom, includePrincipal, rentOverride, onSetRentOverride, rentEstimate, fetchingEstimate, holdYears, setHoldYears, buyerClosingPct, setBuyerClosingPct, sellerCostPct, setSellerCostPct, rentInflationPct, setRentInflationPct }: DetailProps) {
+function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, termYears, oppReturnPct, taxRatePct, appreciationPct, saltHeadroom, includePrincipal, rentOverride, onSetRentOverride, rentEstimate, fetchingEstimate, holdYears, setHoldYears, buyerClosingPct, setBuyerClosingPct, sellerCostPct, setSellerCostPct, rentInflationPct, setRentInflationPct }: DetailProps) {
   const [thumbError, setThumbError] = useState(false);
   const [thumbRetry, setThumbRetry] = useState(0);
   const thumbSrc = thumbnailUrl(listing.id, listing.url, thumbRetry);
@@ -367,7 +372,7 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
     { holdYears, buyerClosingCostPct: buyerClosingPct, sellerCostPct, rentInflationPct },
     rentOverride ?? undefined,
   ), [listing, params, holdYears, buyerClosingPct, sellerCostPct, rentInflationPct, rentOverride]);
-  const accent = accentClass(result.monthlyBuyPremium, listing.capRate);
+  const accent = accentClass(result.monthlyBuyPremium, effectiveCapRate);
   const b = listing.capRateBreakdown;
 
   // ── Tooltip text per row ──────────────────────────────────────
@@ -523,7 +528,15 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
           <img className="fp-detail-thumb" src={thumbSrc} alt="" onError={() => setThumbError(true)} />
         )}
         <div className="fp-detail-meta">
-          <div className="fp-detail-address">{listing.address}</div>
+          <a
+            className="fp-detail-address fp-detail-address--link"
+            href={navigationUrl(listing.lat, listing.lng, listing.address, listing.city)}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open directions in Maps"
+          >
+            {listing.address}
+          </a>
           <div className="fp-detail-sub">
             {formatPrice(listing.price)}
             {listing.sqft ? ` · ${listing.sqft.toLocaleString()} sqft` : ""}
@@ -531,8 +544,8 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
             {listing.pricePerSqft ? ` · $${Math.round(listing.pricePerSqft).toLocaleString()}/sqft` : ""}
           </div>
           <div className="fp-detail-badges">
-            <span className={`fp-cap-badge ${capBadgeClass(listing.capRate)}`}>
-              {listing.capRate.toFixed(2)}% cap
+            <span className={`fp-cap-badge ${capBadgeClass(effectiveCapRate)}`}>
+              {effectiveCapRate.toFixed(2)}% cap
             </span>
             <a
               className="fp-redfin-link"
@@ -815,7 +828,7 @@ function DetailPanel({ listing, result, downPct, ratePct, termYears, oppReturnPc
 }
 
 // ── Page ─────────────────────────────────────────────────────────
-export function FinancePage({ allListings, initialSelectedId, finFavoriteIds, toggleFinFavorite }: FinancePageProps) {
+export function FinancePage({ allListings, initialSelectedId, finFavoriteIds, toggleFinFavorite, zones }: FinancePageProps) {
   const [downPct, setDownPct] = useState(() => readLs(LS_DOWN, 20));
   const [ratePct, setRatePct] = useState(() => readLs(LS_RATE, 6.75));
   const [oppReturnPct, setOppReturnPct] = useState(() => readLs(LS_OPP, 7));
@@ -832,10 +845,14 @@ export function FinancePage({ allListings, initialSelectedId, finFavoriteIds, to
   const [fetchingRate, setFetchingRate] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>("premium");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedNeighborhood, setSelectedNeighborhood] = useState("");
+  const [selectedZoneId, setSelectedZoneId] = useState("");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
-  const neighborhoods = useMemo(() => getNeighborhoods(allListings), [allListings]);
+  const drawnZones = useMemo(() => zones.filter((z) => z.polygon.length >= 3), [zones]);
+  const selectedZone = useMemo(
+    () => drawnZones.find((z) => z.id === selectedZoneId),
+    [drawnZones, selectedZoneId]
+  );
   const [rentOverrides, setRentOverrides] = useState<Record<string, number>>(() => {
     try {
       const v = localStorage.getItem(LS_RENT_OVERRIDES);
@@ -908,24 +925,29 @@ export function FinancePage({ allListings, initialSelectedId, finFavoriteIds, to
   );
 
   const listingsWithResults = useMemo(() => {
-    return allListings.map((l) => ({
-      listing: l,
-      result: calcBuyVsRent(l, params, rentOverrides[l.id]),
-    }));
+    return allListings.map((l) => {
+      const result = calcBuyVsRent(l, params, rentOverrides[l.id]);
+      // Effective cap rate uses the user's rent override when present so the
+      // badge tracks the rent input field. Falls back to listing.capRate.
+      const effectiveCapRate = rentOverrides[l.id] !== undefined
+        ? recalcCapRateWithRent(l.capRateBreakdown, rentOverrides[l.id], l.price)
+        : l.capRate;
+      return { listing: l, result, effectiveCapRate };
+    });
   }, [allListings, params, rentOverrides]);
 
   const sorted = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const filtered = listingsWithResults.filter(({ listing: l }) => {
       if (showFavoritesOnly && !finFavoriteIds.has(l.id)) return false;
-      if (selectedNeighborhood && l.location !== selectedNeighborhood) return false;
+      if (selectedZone && !pointInPolygon(l.lat, l.lng, selectedZone.polygon)) return false;
       if (q && !l.address.toLowerCase().includes(q) && !l.city.toLowerCase().includes(q) && !l.location.toLowerCase().includes(q)) return false;
       return true;
     });
     return [...filtered].sort((a, b) => {
       switch (sortKey) {
         case "price":   return a.listing.price - b.listing.price;
-        case "capRate": return b.listing.capRate - a.listing.capRate;
+        case "capRate": return b.effectiveCapRate - a.effectiveCapRate;
         case "ppsf": {
           const pa = a.listing.pricePerSqft ?? Infinity;
           const pb = b.listing.pricePerSqft ?? Infinity;
@@ -937,7 +959,7 @@ export function FinancePage({ allListings, initialSelectedId, finFavoriteIds, to
         default:        return a.result.monthlyBuyPremium - b.result.monthlyBuyPremium;
       }
     });
-  }, [listingsWithResults, sortKey, searchQuery, selectedNeighborhood, showFavoritesOnly, finFavoriteIds]);
+  }, [listingsWithResults, sortKey, searchQuery, selectedZone, showFavoritesOnly, finFavoriteIds]);
 
   // Keep selection valid; fall back to first item only if current selection is gone
   useEffect(() => {
@@ -1063,17 +1085,17 @@ export function FinancePage({ allListings, initialSelectedId, finFavoriteIds, to
           </div>
         </div>
 
-        {neighborhoods.length > 1 && (
+        {drawnZones.length > 0 && (
           <div className="fp-sort-row">
-            <span className="fp-sort-label">Hood:</span>
+            <span className="fp-sort-label">Zone:</span>
             <select
               className="fp-filter-select"
-              value={selectedNeighborhood}
-              onChange={(e) => setSelectedNeighborhood(e.target.value)}
+              value={selectedZoneId}
+              onChange={(e) => setSelectedZoneId(e.target.value)}
             >
-              <option value="">All neighborhoods</option>
-              {neighborhoods.map((n) => (
-                <option key={n} value={n}>{n}</option>
+              <option value="">All zones</option>
+              {drawnZones.map((z) => (
+                <option key={z.id} value={z.id}>{z.name}</option>
               ))}
             </select>
           </div>
@@ -1118,11 +1140,12 @@ export function FinancePage({ allListings, initialSelectedId, finFavoriteIds, to
       {/* ── Body: list + detail ── */}
       <div className="fp-body">
         <div className="fp-list-panel">
-          {sorted.map(({ listing, result }) => (
+          {sorted.map(({ listing, result, effectiveCapRate }) => (
             <ListItem
               key={listing.id}
               listing={listing}
               result={result}
+              effectiveCapRate={effectiveCapRate}
               selected={listing.id === selectedId}
               isFavorite={finFavoriteIds.has(listing.id)}
               onToggleFavorite={() => toggleFinFavorite(listing.id)}
@@ -1136,6 +1159,7 @@ export function FinancePage({ allListings, initialSelectedId, finFavoriteIds, to
             <DetailPanel
               listing={selectedEntry.listing}
               result={selectedEntry.result}
+              effectiveCapRate={selectedEntry.effectiveCapRate}
               downPct={downPct}
               ratePct={ratePct}
               termYears={termYears}

@@ -211,6 +211,14 @@
   color: #475569;
   margin-bottom: 4px;
 }
+/* Address acts as a Maps link on mobile — inherit color so it doesn't look
+   like a generic blue link, but show underline on hover for affordance. */
+.card-address--link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+.card-address--link:hover { text-decoration: underline; }
 
 .card-details {
   font-size: 12px;

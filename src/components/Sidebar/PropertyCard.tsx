@@ -4,6 +4,7 @@ import type { CapRateBreakdown } from "../../utils/capRate";
 import type { ListingAmenities } from "../../utils/cloudSync";
 import { formatPrice, formatBedsBaths, formatTimeRange, hasOpenHouse } from "../../utils/formatters";
 import { thumbnailUrl } from "../../utils/thumbnailUrl";
+import { navigationUrl } from "../../utils/mapsUrl";
 import { readRentEstimate } from "../../hooks/useRentEstimates";
 import "./PropertyCard.css";
 
@@ -202,7 +203,16 @@ export function PropertyCard({
         />
       )}
 
-      <div className="card-address">{listing.address}</div>
+      <a
+        className="card-address card-address--link"
+        href={navigationUrl(listing.lat, listing.lng, listing.address, listing.city)}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        title="Open directions in Maps"
+      >
+        {listing.address}
+      </a>
       <div className="card-details">
         <span>{formatBedsBaths(listing.beds, listing.baths)}</span>
         {listing.sqft && <span>&middot; {listing.sqft.toLocaleString()} sqft</span>}

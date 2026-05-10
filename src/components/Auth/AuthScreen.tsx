@@ -2,8 +2,10 @@ import { useState } from "react";
 import "./AuthScreen.css";
 
 // Set this to a JSONBin share ID after creating a demo plan.
-// Leave empty to hide the "View Demo" button.
-export const DEMO_BIN_ID = "69f8cdb4856a682189a62f92";
+// Leave empty to hide the "View Demo" button. To regenerate the bin with
+// fresh weekend data, run `node scripts/create-demo-bin.mjs` and paste the
+// new id here.
+export const DEMO_BIN_ID = "6a00dfd7c0954111d804071d";
 
 function GoogleIcon() {
   return (
