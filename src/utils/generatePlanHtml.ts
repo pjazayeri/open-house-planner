@@ -1,6 +1,7 @@
 import type { TimeSlotGroup, Listing } from "../types";
 import { formatPrice, formatBedsBaths } from "./formatters";
 import { thumbnailUrl } from "./thumbnailUrl";
+import { navigationUrl } from "./mapsUrl";
 
 function fmt12(date: Date): string {
   return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
@@ -38,6 +39,8 @@ function cardHtml(listing: Listing, globalIndex: number, thumbOrigin: string): s
 
   const neighborhood = [listing.location, listing.city].filter(Boolean).join(" · ");
 
+  const mapsHref = navigationUrl(listing.lat, listing.lng, listing.address, listing.city);
+
   return `
 <div class="card">
   <div class="card-thumb-wrap">
@@ -53,7 +56,7 @@ function cardHtml(listing: Listing, globalIndex: number, thumbOrigin: string): s
     <div class="card-badge card-badge--num">${globalIndex}</div>
   </div>
   <div class="card-body">
-    <div class="card-address">${listing.address}</div>
+    <a class="card-address card-address--link" href="${mapsHref}" target="_blank" rel="noopener noreferrer" title="Open directions in Maps">${listing.address}</a>
     ${neighborhood ? `<div class="card-location">${neighborhood}</div>` : ""}
     <div class="card-chips">${chips.join("")}</div>
     <a class="redfin-btn" href="${listing.url}" target="_blank" rel="noopener noreferrer">
@@ -255,6 +258,15 @@ export function generatePlanHtml(groups: TimeSlotGroup[], origin: string): strin
       line-height: 1.3;
       margin-bottom: 5px;
       letter-spacing: -0.2px;
+    }
+    .card-address--link {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+    }
+    .card-address--link:hover,
+    .card-address--link:focus {
+      text-decoration: underline;
     }
     .card-location {
       font-size: 13px;

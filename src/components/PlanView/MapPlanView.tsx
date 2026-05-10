@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { TimeSlotGroup } from "../../types";
 import { formatPrice, formatBedsBaths, formatTimeRange } from "../../utils/formatters";
+import { navigationUrl } from "../../utils/mapsUrl";
 import "leaflet/dist/leaflet.css";
 
 function makeIcon(label: string, color: string) {
@@ -80,7 +81,17 @@ export function MapPlanView({ groups }: { groups: TimeSlotGroup[] }) {
               onClick={() => setActiveId(null)}
               style={{ position: "absolute", top: 8, right: 10, background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#64748b" }}
             >✕</button>
-            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{active.listing.address}</div>
+            <a
+              href={navigationUrl(active.listing.lat, active.listing.lng, active.listing.address, active.listing.city)}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open directions in Maps"
+              style={{ fontWeight: 700, fontSize: 14, marginBottom: 2, display: "block", color: "inherit", textDecoration: "none" }}
+              onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+              onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+            >
+              {active.listing.address}
+            </a>
             <div style={{ color: "#475569", fontSize: 13, marginBottom: 4 }}>
               {formatPrice(active.listing.price)} · {formatBedsBaths(active.listing.beds, active.listing.baths)}
               {active.listing.sqft ? ` · ${active.listing.sqft.toLocaleString()} sqft` : ""}
