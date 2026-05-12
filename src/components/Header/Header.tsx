@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
+import { useTheme } from "../../hooks/useTheme";
 import type { TimeSlotGroup } from "../../types";
 import type { SyncStatus } from "../../utils/cloudSync";
 import type { Page } from "../../App";
@@ -77,6 +78,7 @@ export function Header({
   onSharePlan,
 }: HeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { theme, toggleTheme } = useTheme();
   const [toast, setToast] = useState<{ msg: string; kind: "loading" | "ok" | "error" } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [shareLinks, setShareLinks] = useState<{ planUrl: string; mapUrl: string } | null>(null);
@@ -201,6 +203,15 @@ export function Header({
         </button>
         <button className="nav-tab nav-tab--summary" onClick={onShowSummary}>
           Summary
+        </button>
+        <button
+          className="nav-tab nav-tab--theme"
+          onClick={toggleTheme}
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          data-testid="theme-toggle"
+        >
+          {theme === "dark" ? "☀" : "☾"}
         </button>
         {(page === "planner" || page === "priority") && (
           <>

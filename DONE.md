@@ -12,6 +12,10 @@ History of shipped work. New entries go on top. When a `[PENDING VERIFICATION]` 
   Hover the three bold totals on the Finance detail panel — each itemizes the components that sum to it. Builders in `src/utils/financeTooltips.ts` + 7 unit tests covering the principal-toggle / HOA-zero / zero-deduction branches.
   *Verify:* hover the three rows on the Finance detail panel, breakdowns read correctly.
 
+- **Sun/moon toggle in Header (subtask 2/6 of light/dark mode toggle)** *(shipped 2026-05-12)*
+  Added `useTheme()` hook (`src/hooks/useTheme.ts`) that owns `Theme = "dark" | "light"`, writes `data-theme` on `<html>`, mirrors to `localStorage`, defaults from `prefers-color-scheme` when no stored value. Header.tsx renders a small ☀ / ☾ button right after the Summary tab. 5 unit tests in `useTheme.test.tsx` cover default-from-OS, default-from-storage, toggle round-trip, direct setTheme, and data-theme attribute updates.
+  *Verify:* tap the sun/moon icon — it should change, persist across refresh, and `<html data-theme="…">` should flip in dev tools. No visible color change yet because component CSS hasn't been migrated to the variables (next subtask).
+
 - **Light/dark theme tokens defined** *(shipped 2026-05-12, subtask 1/6 of light/dark mode toggle)*
   Added a `:root` block in `src/index.css` with the 17 theme variables the app uses (surfaces, text, borders, accents, shadow) plus a `:root[data-theme="light"]` override block. Default values match the existing dark palette so this is a visual no-op until subsequent commits migrate component CSS to consume the variables.
   *Verify:* site still renders identical to before — `vercel --prod` deploy. No theme switch is wired up yet (next subtask).
