@@ -15,11 +15,11 @@
     - ~~Sun/moon toggle in Header that flips `data-theme` + writes localStorage.~~ *(done — see DONE.md)*
     - ~~Persist `theme` field on `CloudState` (signed-in only) + rehydrate.~~ *(done — see DONE.md)*
     - ~~Migrate `src/App.css` + `src/components/Header/Header.css` to theme tokens.~~ *(done — see DONE.md)*
-    - **[EASY]** Migrate `src/components/Sidebar/PropertyCard.css` to theme tokens.
-    - **[EASY]** Migrate `src/components/Sidebar/Sidebar.css` to theme tokens.
-    - **[EASY]** Migrate `src/components/Finance/FinancePage.css` to theme tokens.
-    - **[EASY]** Migrate `src/components/DataView/DataView.css` to theme tokens.
-    - **[EASY]** Migrate `src/components/Map/MapView.css` + `src/components/Auth/AuthScreen.css` + any other remaining `*.css`.
+    - **[NEEDS DISCUSSION]** Migrate the rest of the CSS to theme tokens.
+      *Blocker:* PropertyCard / FinancePage / DataView / Sidebar were built as light-theme cards embedded inside the dark app (white card bg, dark text, pastel chip bgs `#fee2e2`, `#eff6ff`, `#d1fae5`). Mapping `#f1f5f9` → `var(--surface)` flips cards to dark in dark mode — that's a real design change, not a no-op. Two paths:
+      (a) Keep cards always-light (introduce `--card-bg`, `--card-text` tokens that don't flip between themes — light theme has white card on light page bg, dark theme has white card on dark page bg, status quo preserved).
+      (b) Truly themed cards (cards flip to dark slate in dark mode; chip background tints need dark-mode variants).
+      Pick a path, then this becomes ~4 EASY per-file migrations.
     - ~~Unit test the toggle component.~~ *(done as part of subtask 2 — `useTheme.test.tsx`)*
 
 - **[MEDIUM]** Rework Demo Mode: it shouldn't be a shared "plan" — it should be the same experience as Guest Mode but with pre-seeded listings/visits/priorities so users can explore the full app.
