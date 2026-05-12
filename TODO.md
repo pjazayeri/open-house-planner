@@ -11,7 +11,7 @@
 
 - **[MEDIUM]** Add a light/dark mode toggle (persist as a user setting).
   - Subtasks:
-    - **[EASY]** Pick a CSS-variable naming scheme (`--bg`, `--surface`, `--text`, `--text-muted`, `--border`, `--accent`, `--accent-fg`, `--good`, `--warn`, `--bad`) and add a `:root` block with current dark values + a `:root[data-theme="light"]` override block. Add nothing else — just the variable definitions.
+    - ~~Pick a CSS-variable naming scheme + add `:root` + `[data-theme="light"]` blocks.~~ *(done — see DONE.md)*
     - **[EASY]** Add a sun/moon toggle button in `Header.tsx` that flips `document.documentElement.dataset.theme` and writes to `localStorage`. Default initial value reads `localStorage` → falls back to `prefers-color-scheme`.
     - **[EASY]** Persist `theme` field on `CloudState` (signed-in only) and rehydrate on auth-ready, with the same debounce-write pattern as the filter persistence. Guest mode stays in localStorage.
     - **[MEDIUM]** Migrate one CSS file at a time to use the variables. Start with `Header.css` and `PropertyCard.css` (highest visibility). Each migration is its own commit + visual diff.

@@ -1,1 +1,63 @@
-/* Reset only — all app styles are in component CSS files */
+/* ── Theme tokens ────────────────────────────────────────────────────
+   Default `:root` values match the current dark theme so this commit is
+   a visual no-op — variables exist but no CSS file references them yet.
+   Subsequent commits migrate Header.css, PropertyCard.css, etc. one at a
+   time. Toggling `data-theme="light"` on <html> swaps to the light
+   palette once those migrations are in place. */
+
+:root {
+  /* Surfaces */
+  --bg:            #0f172a;   /* page background */
+  --surface:       #1e293b;   /* cards, panels, modals */
+  --surface-alt:   #16213e;   /* subtle alternation / nested */
+  --surface-hover: #334155;   /* hover state on rows / chips */
+
+  /* Text */
+  --text:          #f1f5f9;   /* primary, high contrast */
+  --text-muted:    #cbd5e1;   /* secondary copy */
+  --text-dim:      #94a3b8;   /* tertiary, captions */
+  --text-faint:    #64748b;   /* placeholders, deep muted */
+  --text-on-accent: #ffffff;  /* text painted on accent surfaces */
+
+  /* Borders */
+  --border:        #334155;
+  --border-strong: #475569;
+  --border-faint:  #1e293b;
+
+  /* Accents */
+  --accent:        #3b82f6;   /* primary blue — links, actions */
+  --accent-fg:     #ffffff;   /* text/icon on --accent */
+  --accent-2:      #7c3aed;   /* purple — priority, share */
+  --good:          #22c55e;   /* green — positive, success */
+  --warn:          #f59e0b;   /* orange — caution */
+  --bad:           #ef4444;   /* red — error, negative */
+
+  /* Shadow */
+  --shadow:        0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme="light"] {
+  --bg:            #f1f5f9;
+  --surface:       #ffffff;
+  --surface-alt:   #f8fafc;
+  --surface-hover: #e2e8f0;
+
+  --text:          #0f172a;
+  --text-muted:    #334155;
+  --text-dim:      #475569;
+  --text-faint:    #64748b;
+  --text-on-accent: #ffffff;
+
+  --border:        #e2e8f0;
+  --border-strong: #cbd5e1;
+  --border-faint:  #f1f5f9;
+
+  --accent:        #2563eb;
+  --accent-fg:     #ffffff;
+  --accent-2:      #7c3aed;
+  --good:          #15803d;
+  --warn:          #c2410c;
+  --bad:           #dc2626;
+
+  --shadow:        0 4px 16px rgba(15, 23, 42, 0.10);
+}

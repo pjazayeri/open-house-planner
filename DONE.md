@@ -12,6 +12,10 @@ History of shipped work. New entries go on top. When a `[PENDING VERIFICATION]` 
   Hover the three bold totals on the Finance detail panel — each itemizes the components that sum to it. Builders in `src/utils/financeTooltips.ts` + 7 unit tests covering the principal-toggle / HOA-zero / zero-deduction branches.
   *Verify:* hover the three rows on the Finance detail panel, breakdowns read correctly.
 
+- **Light/dark theme tokens defined** *(shipped 2026-05-12, subtask 1/6 of light/dark mode toggle)*
+  Added a `:root` block in `src/index.css` with the 17 theme variables the app uses (surfaces, text, borders, accents, shadow) plus a `:root[data-theme="light"]` override block. Default values match the existing dark palette so this is a visual no-op until subsequent commits migrate component CSS to consume the variables.
+  *Verify:* site still renders identical to before — `vercel --prod` deploy. No theme switch is wired up yet (next subtask).
+
 ## Verified shipped
 
 - **Apple Maps URL fix** *(2026-05-11)* — address links use `daddr=<lat>,<lng>&q=<label>` instead of the broken `daddr=<address>&ll=<lat>,<lng>` combo (Apple Maps was ignoring `daddr` when `ll` was present and opening with an empty destination). Confirmed by user.
