@@ -13,3 +13,5 @@
 - Rework Demo Mode: it shouldn't be a shared "plan" — it should be the same experience as Guest Mode but with pre-seeded listings/visits/priorities so users can explore the full app.
 - Add a light/dark mode toggle (persist as a user setting).
 - On the Finance page, make computed numbers (Total Own Cost, and ideally any derived figure) show a hover/tooltip breakdown of the components that add up to the value.
+  - **Work done:** Added hover tooltips on the three derived totals — `Total own cost`, `Effective cost`, `Net cost` — each itemizing the components that sum to it. Tooltip builders extracted to `src/utils/financeTooltips.ts` for testability (P&I-vs-interest-only branch on includePrincipal, HOA hidden when zero, deductions hidden when zero). 7 unit tests in `financeTooltips.test.ts`.
+  - **Verification blocked by:** can't drive the UI from this session. To verify: hover the "Total own cost", "Effective cost", "Net cost" values on the Finance detail panel and confirm the breakdown reads correctly.

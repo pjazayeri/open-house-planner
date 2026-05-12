@@ -5,6 +5,7 @@ import { recalcCapRateWithRent } from "../../utils/capRate";
 import { pointInPolygon } from "../../utils/geometry";
 import { formatPrice, formatBedsBaths } from "../../utils/formatters";
 import { navigationUrl } from "../../utils/mapsUrl";
+import { totalOwnCostTooltip, effectiveCostTooltip, netCostTooltip } from "../../utils/financeTooltips";
 import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import "./FinancePage.css";
 import { useRentEstimates, type RentEstimate } from "../../hooks/useRentEstimates";
@@ -500,6 +501,11 @@ function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, term
       : `Negative = buying is cheaper than renting`,
   ].join("\n");
 
+  // ── Totals tooltips: itemized component breakdown ──────────────
+  const tipTotalOwn = totalOwnCostTooltip(result, includePrincipal);
+  const tipEffective = effectiveCostTooltip(result, oppReturnPct);
+  const tipNetCost = netCostTooltip(result);
+
   const tipCoC = [
     `Cash-on-cash return — annual pre-tax cash flow`,
     `divided by total cash invested.`,
@@ -611,7 +617,7 @@ function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, term
         <hr className="fp-divider" />
         <div className="fp-bd-row total">
           <span className="fp-bd-label">Total own cost</span>
-          <span className="fp-bd-val">{fmtMo(result.totalMonthlyOwnershipCost)}</span>
+          <Tip tip={tipTotalOwn}>{fmtMo(result.totalMonthlyOwnershipCost)}</Tip>
         </div>
         <div className="fp-bd-row muted">
           <span className="fp-bd-label">+ Opp. cost</span>
@@ -619,7 +625,7 @@ function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, term
         </div>
         <div className="fp-bd-row effective">
           <span className="fp-bd-label">Effective cost</span>
-          <span className="fp-bd-val">{fmtMo(result.effectiveMonthlyOwnershipCost)}</span>
+          <Tip tip={tipEffective}>{fmtMo(result.effectiveMonthlyOwnershipCost)}</Tip>
         </div>
         {result.monthlyTaxSavings > 0 && (
           <div className="fp-bd-row benefit">
@@ -642,7 +648,7 @@ function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, term
         {(result.monthlyTaxSavings > 0 || result.monthlyPropertyTaxSavings > 0 || result.monthlyAppreciation > 0) && (
           <div className="fp-bd-row net-cost">
             <span className="fp-bd-label">Net cost</span>
-            <span className="fp-bd-val">{fmtMo(result.netMonthlyOwnershipCost)}</span>
+            <Tip tip={tipNetCost}>{fmtMo(result.netMonthlyOwnershipCost)}</Tip>
           </div>
         )}
         <div className="fp-bd-row fp-bd-row--rent">
