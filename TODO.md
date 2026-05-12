@@ -14,8 +14,12 @@
     - ~~Pick a CSS-variable naming scheme + add `:root` + `[data-theme="light"]` blocks.~~ *(done — see DONE.md)*
     - ~~Sun/moon toggle in Header that flips `data-theme` + writes localStorage.~~ *(done — see DONE.md)*
     - ~~Persist `theme` field on `CloudState` (signed-in only) + rehydrate.~~ *(done — see DONE.md)*
-    - **[MEDIUM]** Migrate one CSS file at a time to use the variables. Start with `Header.css` and `PropertyCard.css` (highest visibility). Each migration is its own commit + visual diff.
-    - **[MEDIUM]** Repeat the per-file CSS migration for the rest (`FinancePage.css`, `DataView.css`, `MapView.css`, `AuthScreen.css`, etc.).
+    - ~~Migrate `src/App.css` + `src/components/Header/Header.css` to theme tokens.~~ *(done — see DONE.md)*
+    - **[EASY]** Migrate `src/components/Sidebar/PropertyCard.css` to theme tokens.
+    - **[EASY]** Migrate `src/components/Sidebar/Sidebar.css` to theme tokens.
+    - **[EASY]** Migrate `src/components/Finance/FinancePage.css` to theme tokens.
+    - **[EASY]** Migrate `src/components/DataView/DataView.css` to theme tokens.
+    - **[EASY]** Migrate `src/components/Map/MapView.css` + `src/components/Auth/AuthScreen.css` + any other remaining `*.css`.
     - ~~Unit test the toggle component.~~ *(done as part of subtask 2 — `useTheme.test.tsx`)*
 
 - **[MEDIUM]** Rework Demo Mode: it shouldn't be a shared "plan" — it should be the same experience as Guest Mode but with pre-seeded listings/visits/priorities so users can explore the full app.

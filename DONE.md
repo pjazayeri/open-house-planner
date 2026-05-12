@@ -12,6 +12,10 @@ History of shipped work. New entries go on top. When a `[PENDING VERIFICATION]` 
   Hover the three bold totals on the Finance detail panel — each itemizes the components that sum to it. Builders in `src/utils/financeTooltips.ts` + 7 unit tests covering the principal-toggle / HOA-zero / zero-deduction branches.
   *Verify:* hover the three rows on the Finance detail panel, breakdowns read correctly.
 
+- **CSS migration: App.css + Header.css → theme tokens (light/dark subtask)** *(shipped 2026-05-12)*
+  Replaced chrome colors (backgrounds, text scale, borders, accents) in `src/App.css` and `src/components/Header/Header.css` with `var(--bg)`, `var(--surface)`, `var(--text)`, `var(--text-muted/dim/faint)`, `var(--border)`, `var(--border-strong)`, `var(--border-faint)`, `var(--accent)`, `var(--good/warn/bad)`, `var(--shadow)`. Brand colors (Redfin orange, Share purple, Upload green, Restore red, theme-toggle yellow) and semantic toast bg/borders left hardcoded.
+  *Verify:* Header + CSV-upload screen + mobile tab bar + loading screens + drop overlay now respect the theme toggle. Dark looks unchanged; flip the sun/moon to confirm light. Share-plan dropdown was deliberately not migrated yet (intentional white-card-in-dark styling).
+
 - **Theme persistence on CloudState (subtask 3/6 of light/dark mode toggle)** *(shipped 2026-05-12)*
   `theme?: "dark" | "light"` field added to `CloudState`. App.tsx now owns the `useTheme()` state (lifted from Header) and passes `theme` + `onToggleTheme` down. Two effects mirror the filter-persistence pattern: hydrate-once on `authMode === "signed-in"` calls `setTheme(state.theme)` if present, and a debounce-write (1s) ships the current theme on change. Guest/loading/signed-out modes stay localStorage-only. Header.test.tsx baseProps updated; all 121 tests still green.
   *Verify:* sign in, toggle theme, refresh — sticks. Open on a second device signed into the same Google account — same theme. Sign out and back in as guest — theme persists via localStorage only.

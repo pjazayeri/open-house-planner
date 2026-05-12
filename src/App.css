@@ -29,19 +29,19 @@ html, body, #root {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0f172a;
+  background: var(--bg);
   padding: 24px;
 }
 
 .csv-prompt-card {
-  background: #1a1a2e;
-  border: 1px solid #1e293b;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 40px 36px;
   width: 100%;
   max-width: 420px;
   text-align: center;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow);
 }
 
 .csv-prompt-icon { font-size: 36px; margin-bottom: 14px; }
@@ -50,14 +50,14 @@ html, body, #root {
   margin: 0 0 12px;
   font-size: 22px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: var(--text);
   letter-spacing: -0.3px;
 }
 
 .csv-prompt-body {
   margin: 0 0 28px;
   font-size: 14px;
-  color: #94a3b8;
+  color: var(--text-dim);
   line-height: 1.6;
 }
 
@@ -83,19 +83,19 @@ html, body, #root {
 }
 
 .csv-prompt-btn--primary {
-  background: #3b82f6;
-  color: #fff;
-  border-color: #2563eb;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
 }
-.csv-prompt-btn--primary:hover:not(:disabled) { background: #2563eb; }
+.csv-prompt-btn--primary:hover:not(:disabled) { filter: brightness(0.9); }
 .csv-prompt-btn--primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .csv-prompt-btn--secondary {
-  background: #1e293b;
+  background: var(--surface);
   color: #f97316;
-  border-color: #334155;
+  border-color: var(--border);
 }
-.csv-prompt-btn--secondary:hover { background: #263347; border-color: #f97316; }
+.csv-prompt-btn--secondary:hover { filter: brightness(1.08); border-color: #f97316; }
 
 .csv-prompt-spinner {
   width: 14px;
@@ -110,7 +110,7 @@ html, body, #root {
 .csv-prompt-signout {
   margin: 20px 0 0;
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-faint);
 }
 
 .csv-prompt-signout-btn {
@@ -170,15 +170,15 @@ html, body, #root {
   justify-content: center;
   height: 100vh;
   gap: 16px;
-  color: #475569;
+  color: var(--text-dim);
   font-size: 15px;
 }
 
 .loading-spinner {
   width: 36px;
   height: 36px;
-  border: 3px solid #e2e8f0;
-  border-top-color: #3b82f6;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -201,8 +201,8 @@ html, body, #root {
 }
 
 .error-screen code {
-  background: #1e293b;
-  color: #94a3b8;
+  background: var(--surface);
+  color: var(--text-dim);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 13px;
@@ -245,8 +245,8 @@ html, body, #root {
   /* Tab bar */
   .mobile-tab-bar {
     display: flex;
-    background: #1a1a2e;
-    border-top: 1px solid #16213e;
+    background: var(--bg);
+    border-top: 1px solid var(--border-faint);
     flex-shrink: 0;
     /* Safe area for iPhone home bar */
     padding-bottom: env(safe-area-inset-bottom);
@@ -262,7 +262,7 @@ html, body, #root {
     padding: 10px 0;
     background: none;
     border: none;
-    color: #64748b;
+    color: var(--text-faint);
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.02em;
@@ -272,7 +272,7 @@ html, body, #root {
   }
 
   .tab-btn.active {
-    color: #3b82f6;
+    color: var(--accent);
   }
 
   /* Show/hide panels based on active tab */
@@ -307,7 +307,7 @@ html, body, #root {
   position: fixed;
   inset: 0;
   background: rgba(59, 130, 246, 0.15);
-  border: 3px dashed #3b82f6;
+  border: 3px dashed var(--accent);
   z-index: 3000;
   display: flex;
   align-items: center;
@@ -316,9 +316,9 @@ html, body, #root {
 }
 
 .drop-overlay-inner {
-  background: #1e293b;
-  color: #93c5fd;
-  border: 2px solid #3b82f6;
+  background: var(--surface);
+  color: var(--accent);
+  border: 2px solid var(--accent);
   border-radius: 12px;
   padding: 24px 48px;
   font-size: 20px;

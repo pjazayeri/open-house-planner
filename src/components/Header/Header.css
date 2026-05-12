@@ -3,9 +3,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
-  background: #1a1a2e;
-  color: #fff;
-  border-bottom: 2px solid #16213e;
+  background: var(--bg);
+  color: var(--text);
+  border-bottom: 2px solid var(--border-faint);
   flex-shrink: 0;
   position: relative;
   z-index: 1000;
@@ -30,7 +30,7 @@
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
-  color: #64748b;
+  color: var(--text-faint);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -38,9 +38,9 @@
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
 }
-.nav-tab:hover { color: #cbd5e1; border-color: #334155; }
-.nav-tab.active { color: #f1f5f9; border-color: #475569; background: #1e293b; }
-.nav-tab--summary { color: #94a3b8; }
+.nav-tab:hover { color: var(--text-muted); border-color: var(--border); }
+.nav-tab.active { color: var(--text); border-color: var(--border-strong); background: var(--surface); }
+.nav-tab--summary { color: var(--text-dim); }
 .nav-tab--theme {
   color: #fbbf24;
   font-size: 16px;
@@ -74,15 +74,15 @@
   cursor: pointer;
   animation: toast-in 0.2s ease;
 }
-.ingest-toast--loading { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+.ingest-toast--loading { background: var(--surface); color: var(--text-dim); border: 1px solid var(--border); }
 .ingest-toast--ok      { background: #14532d; color: #86efac; border: 1px solid #166534; }
 .ingest-toast--error   { background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; }
 
 .ingest-toast-spinner {
   width: 12px;
   height: 12px;
-  border: 2px solid #475569;
-  border-top-color: #94a3b8;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--text-dim);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
   flex-shrink: 0;
@@ -101,7 +101,7 @@
 
 .header-stats {
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-dim);
 }
 
 .header-right {
@@ -111,10 +111,10 @@
 
 .city-select {
   padding: 5px 10px;
-  border: 1px solid #334155;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #1e293b;
-  color: #e2e8f0;
+  background: var(--surface);
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -124,7 +124,7 @@
 
 .city-select:hover,
 .city-select:focus {
-  border-color: #3b82f6;
+  border-color: var(--accent);
 }
 
 .restore-btn {
@@ -148,10 +148,10 @@
 
 .summary-btn {
   padding: 4px 12px;
-  border: 1px solid #475569;
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
   background: transparent;
-  color: #94a3b8;
+  color: var(--text-dim);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -162,8 +162,8 @@
 }
 
 .summary-btn:hover {
-  border-color: #94a3b8;
-  color: #e2e8f0;
+  border-color: var(--text-dim);
+  color: var(--text-muted);
 }
 
 .sync-badge {
@@ -174,10 +174,10 @@
   align-self: center;
 }
 
-.sync-badge--ok    { background: #22c55e; }
-.sync-badge--warn  { background: #f59e0b; }
-.sync-badge--error { background: #ef4444; }
-.sync-badge--grey  { background: #64748b; }
+.sync-badge--ok    { background: var(--good); }
+.sync-badge--warn  { background: var(--warn); }
+.sync-badge--error { background: var(--bad); }
+.sync-badge--grey  { background: var(--text-faint); }
 
 /* ── Mobile header ────────────────────────────── */
 @media (max-width: 767px) {
@@ -239,7 +239,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 1px solid #334155;
+  border: 1px solid var(--border);
   flex-shrink: 0;
 }
 
@@ -247,18 +247,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #1e293b;
-  color: #94a3b8;
+  background: var(--surface);
+  color: var(--text-dim);
   font-size: 13px;
   font-weight: 600;
 }
 
 .user-signout {
   padding: 3px 10px;
-  border: 1px solid #334155;
+  border: 1px solid var(--border);
   border-radius: 6px;
   background: transparent;
-  color: #64748b;
+  color: var(--text-faint);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -267,8 +267,8 @@
 }
 
 .user-signout:hover {
-  border-color: #475569;
-  color: #94a3b8;
+  border-color: var(--border-strong);
+  color: var(--text-dim);
 }
 
 
