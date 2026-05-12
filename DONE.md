@@ -12,6 +12,10 @@ History of shipped work. New entries go on top. When a `[PENDING VERIFICATION]` 
   Hover the three bold totals on the Finance detail panel — each itemizes the components that sum to it. Builders in `src/utils/financeTooltips.ts` + 7 unit tests covering the principal-toggle / HOA-zero / zero-deduction branches.
   *Verify:* hover the three rows on the Finance detail panel, breakdowns read correctly.
 
+- **Theme persistence on CloudState (subtask 3/6 of light/dark mode toggle)** *(shipped 2026-05-12)*
+  `theme?: "dark" | "light"` field added to `CloudState`. App.tsx now owns the `useTheme()` state (lifted from Header) and passes `theme` + `onToggleTheme` down. Two effects mirror the filter-persistence pattern: hydrate-once on `authMode === "signed-in"` calls `setTheme(state.theme)` if present, and a debounce-write (1s) ships the current theme on change. Guest/loading/signed-out modes stay localStorage-only. Header.test.tsx baseProps updated; all 121 tests still green.
+  *Verify:* sign in, toggle theme, refresh — sticks. Open on a second device signed into the same Google account — same theme. Sign out and back in as guest — theme persists via localStorage only.
+
 - **Sun/moon toggle in Header (subtask 2/6 of light/dark mode toggle)** *(shipped 2026-05-12)*
   Added `useTheme()` hook (`src/hooks/useTheme.ts`) that owns `Theme = "dark" | "light"`, writes `data-theme` on `<html>`, mirrors to `localStorage`, defaults from `prefers-color-scheme` when no stored value. Header.tsx renders a small ☀ / ☾ button right after the Summary tab. 5 unit tests in `useTheme.test.tsx` cover default-from-OS, default-from-storage, toggle round-trip, direct setTheme, and data-theme attribute updates.
   *Verify:* tap the sun/moon icon — it should change, persist across refresh, and `<html data-theme="…">` should flip in dev tools. No visible color change yet because component CSS hasn't been migrated to the variables (next subtask).

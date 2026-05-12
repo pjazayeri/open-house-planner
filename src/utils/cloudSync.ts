@@ -72,6 +72,9 @@ export interface CloudState {
   // capRate, ppsf). Acts as a user-default overlay: shared URLs always
   // take precedence; cloud fills in only when the URL has no filter params.
   filters?: string;
+  // Saved UI theme ("dark" | "light"). Per-user, cross-device. Guest mode
+  // is local-only (localStorage). Falls back to OS preference if absent.
+  theme?: string;
 }
 
 function parseVisitRecord(v: unknown): VisitRecord {
@@ -162,6 +165,7 @@ function parseCloudState(record: unknown): CloudState {
     rentEstimates,
     csvUrl: typeof r.csvUrl === "string" ? r.csvUrl : undefined,
     filters: typeof r.filters === "string" ? r.filters : undefined,
+    theme: r.theme === "dark" || r.theme === "light" ? r.theme : undefined,
   };
 }
 

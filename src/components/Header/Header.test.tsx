@@ -27,6 +27,8 @@ const baseProps = {
   onSignOut: vi.fn().mockResolvedValue(undefined),
   onShowSummary: vi.fn(),
   onUploadCsv: vi.fn().mockResolvedValue(0),
+  theme: "dark" as const,
+  onToggleTheme: vi.fn(),
 };
 
 describe("Header share-plan dropdown (regression: dropdown invisible on mobile)", () => {

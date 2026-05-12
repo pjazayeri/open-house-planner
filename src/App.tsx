@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useListings } from "./hooks/useListings";
 import { useMapZones } from "./hooks/useMapZones";
 import { useAuth } from "./hooks/useAuth";
+import { useTheme } from "./hooks/useTheme";
 import { AuthScreen } from "./components/Auth/AuthScreen";
 import { CsvUploadPrompt } from "./components/CsvUploadPrompt";
 import { Header } from "./components/Header/Header";
@@ -132,6 +133,7 @@ import { cloudFetch, cloudPatch } from "./utils/cloudSync";
 
 function App() {
   const { user, mode: authMode, signInWithGoogle, continueAsGuest, signOut } = useAuth();
+  const { theme, toggleTheme, setTheme } = useTheme();
 
   // If user signs in from guest mode, remount the whole app to reload cloud state
   const prevAuthMode = useRef(authMode);
@@ -270,6 +272,26 @@ function App() {
     }, 1000);
     return () => clearTimeout(handle);
   }, [authMode, sortKey, activeFilters, searchQuery, selectedAreas, selectedDate, timeFrom, timeTo, statusFilter, priceMin, priceMax, capRateMin, capRateMax, ppsfMin, ppsfMax]);
+
+  // ── Theme persistence (same hydrate-once + debounced-write pattern) ────
+  const themeHydratedRef = useRef(false);
+  useEffect(() => {
+    if (authMode !== "signed-in") return;
+    if (themeHydratedRef.current) return;
+    cloudFetch().then((state) => {
+      themeHydratedRef.current = true;
+      if (state.theme === "dark" || state.theme === "light") setTheme(state.theme);
+    }).catch(() => { themeHydratedRef.current = true; });
+  }, [authMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (authMode !== "signed-in") return;
+    if (!themeHydratedRef.current) return;
+    const handle = setTimeout(() => {
+      cloudPatch({ theme }).catch(() => {});
+    }, 1000);
+    return () => clearTimeout(handle);
+  }, [authMode, theme]);
 
   // Restore page + filters on browser back/forward
   useEffect(() => {
@@ -670,6 +692,8 @@ function App() {
             mapUrl: `${origin}/#map?bin=${id}`,
           };
         }}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
       {page === "analytics" && (
         <AnalyticsPage
