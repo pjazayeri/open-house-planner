@@ -277,11 +277,22 @@
   width: 100%;
 }
 
+.priority-item-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .priority-item-price {
   font-size: 12px;
   font-weight: 600;
   color: #b45309;
-  flex-shrink: 0;
+}
+
+.priority-item-sqft {
+  font-size: 11px;
+  color: #92400e;
 }
 
 .priority-item-time {

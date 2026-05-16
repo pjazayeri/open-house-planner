@@ -812,6 +812,7 @@ function App() {
           hoveredId={hoveredId}
           visits={visits}
           priorityOrder={priorityOrder}
+          showPriorityNumbers={page === "priority"}
           showRoute={page !== "home"}
           onSelect={(id) => {
             setSelectedId(id);

@@ -257,7 +257,12 @@ export function PrioritySection({
                 >
                   <span className="priority-item-heading">
                     <span className="priority-item-address">{listing.address}</span>
-                    <span className="priority-item-price">{formatPrice(listing.price)}</span>
+                    <span className="priority-item-meta">
+                      <span className="priority-item-price">{formatPrice(listing.price)}</span>
+                      {listing.sqft ? (
+                        <span className="priority-item-sqft">{listing.sqft.toLocaleString()} sqft</span>
+                      ) : null}
+                    </span>
                   </span>
                   <span className="priority-item-time">
                     {dayLabel} · {formatTimeRange(listing.openHouseStart, listing.openHouseEnd)}

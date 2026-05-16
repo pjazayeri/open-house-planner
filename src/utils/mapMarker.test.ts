@@ -31,4 +31,16 @@ describe("computeMarkerSpec — regression: duplicate '1' markers", () => {
     const n = computeMarkerSpec(1, 0, false);
     expect(p.num).not.toBe(n.num);
   });
+
+  it("uses priority rank in priority-only mode when requested", () => {
+    const spec = computeMarkerSpec(5, 4, true, 2, true);
+    expect(spec.num).toBe(2);
+    expect(spec.isPriority).toBe(true);
+  });
+
+  it("ignores priority-rank mode for non-priority listings", () => {
+    const spec = computeMarkerSpec(5, 4, false, 2, true);
+    expect(spec.num).toBe(5);
+    expect(spec.isPriority).toBe(false);
+  });
 });

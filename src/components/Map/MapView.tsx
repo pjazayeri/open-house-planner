@@ -25,6 +25,7 @@ interface MapViewProps {
   hoveredId: string | null;
   visits: Record<string, VisitRecord>;
   priorityOrder: string[];
+  showPriorityNumbers?: boolean;
   showRoute?: boolean;
   onSelect: (id: string) => void;
   onDeselect: () => void;
@@ -501,6 +502,7 @@ export function MapView({
   hoveredId,
   visits,
   priorityOrder,
+  showPriorityNumbers = false,
   showRoute = true,
   onSelect,
   onDeselect,
@@ -753,6 +755,7 @@ export function MapView({
         {(() => {
           const visibleIds = new Set(timeSlotGroups.flatMap((g) => g.listings.map((l) => l.id)));
           const filteredPriorityOrder = priorityOrder.filter((id) => visibleIds.has(id));
+          const priorityRankById = new Map(filteredPriorityOrder.map((id, idx) => [id, idx + 1]));
           let coordIdx = 0;
           return timeSlotGroups.flatMap((group, groupIdx) => {
             const color = SLOT_COLORS[groupIdx % SLOT_COLORS.length];
@@ -767,7 +770,13 @@ export function MapView({
                 visit.liked === false ? "disliked" :
                 "visited";
               const isPriority = filteredPriorityOrder.includes(listing.id);
-              const { num: markerNum } = computeMarkerSpec(listing.visitOrder, coordIdx - 1, isPriority);
+              const { num: markerNum } = computeMarkerSpec(
+                listing.visitOrder,
+                coordIdx - 1,
+                isPriority,
+                priorityRankById.get(listing.id),
+                showPriorityNumbers
+              );
               const markerColor = isPriority ? "#f59e0b" : color;
               return (
                 <Marker
