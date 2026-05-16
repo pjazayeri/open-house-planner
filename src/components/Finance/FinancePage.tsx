@@ -576,6 +576,7 @@ function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, term
       </div>
 
       <div className="fp-breakdown">
+        <div className="fp-bd-section">Loan</div>
         <div className="fp-bd-row">
           <span className="fp-bd-label">Down payment</span>
           <span className="fp-bd-val">{fmtDollar(result.downPayment)} ({downPct}%)</span>
@@ -584,14 +585,15 @@ function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, term
           <span className="fp-bd-label">Loan amount</span>
           <span className="fp-bd-val">{fmtDollar(result.loanAmount)}</span>
         </div>
-        <hr className="fp-divider" />
+
+        <div className="fp-bd-section">Monthly cash costs</div>
         <div className="fp-bd-row">
-          <span className="fp-bd-label">Interest / mo</span>
+          <span className="fp-bd-label">Interest</span>
           <Tip tip={tipInterest}>{fmtMo(result.monthlyInterest)}</Tip>
         </div>
         <div className={`fp-bd-row${includePrincipal ? "" : " muted"}`}>
           <span className="fp-bd-label">
-            Principal / mo
+            Principal
             {!includePrincipal && <span className="fp-excluded-tag"> (excluded)</span>}
           </span>
           <Tip tip={tipPrincipal}>{fmtMo(result.monthlyPrincipal)}</Tip>
@@ -614,19 +616,24 @@ function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, term
           <span className="fp-bd-label">Maintenance</span>
           <Tip tip={tipMaint}>{fmtMo(result.monthlyMaintenance)}</Tip>
         </div>
-        <hr className="fp-divider" />
         <div className="fp-bd-row total">
           <span className="fp-bd-label">Total own cost</span>
           <Tip tip={tipTotalOwn}>{fmtMo(result.totalMonthlyOwnershipCost)}</Tip>
         </div>
-        <div className="fp-bd-row muted">
-          <span className="fp-bd-label">+ Opp. cost</span>
+
+        <div className="fp-bd-section">Plus opportunity cost</div>
+        <div className="fp-bd-row soft">
+          <span className="fp-bd-label">+ Opportunity cost</span>
           <Tip tip={tipOpp}>{fmtMo(result.opportunityCostMonthly)}</Tip>
         </div>
         <div className="fp-bd-row effective">
           <span className="fp-bd-label">Effective cost</span>
           <Tip tip={tipEffective}>{fmtMo(result.effectiveMonthlyOwnershipCost)}</Tip>
         </div>
+
+        {(result.monthlyTaxSavings > 0 || result.monthlyPropertyTaxSavings > 0 || result.monthlyAppreciation > 0) && (
+          <div className="fp-bd-section">Less tax &amp; equity offsets</div>
+        )}
         {result.monthlyTaxSavings > 0 && (
           <div className="fp-bd-row benefit">
             <span className="fp-bd-label">− Mortgage interest deduction ({taxRatePct}%)</span>
