@@ -231,8 +231,8 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 1px;
-  padding: 8px 12px;
+  gap: 3px;
+  padding: 9px 12px;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -264,29 +264,26 @@
 }
 
 .priority-item-address {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   color: #1e293b;
-}
-
-.priority-item-heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
+  text-wrap: balance;
 }
 
 .priority-item-meta {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  flex-shrink: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
 }
 
 .priority-item-price {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   color: #b45309;
 }
 
@@ -300,9 +297,17 @@
   color: #a16207;
 }
 
+.priority-item-sqft::before,
+.priority-item-ppsf::before {
+  content: "•";
+  color: #d6a24a;
+  margin-right: 6px;
+}
+
 .priority-item-time {
   font-size: 11px;
   color: #78350f;
+  line-height: 1.2;
 }
 
 /* ── Day planning banner ────────────────────── */

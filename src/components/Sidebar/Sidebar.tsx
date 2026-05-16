@@ -255,17 +255,15 @@ export function PrioritySection({
                   className="priority-item-main"
                   onClick={() => onSelect(listing.id)}
                 >
-                  <span className="priority-item-heading">
-                    <span className="priority-item-address">{listing.address}</span>
-                    <span className="priority-item-meta">
-                      <span className="priority-item-price">{formatPrice(listing.price)}</span>
-                      {listing.sqft ? (
-                        <span className="priority-item-sqft">{listing.sqft.toLocaleString()} sqft</span>
-                      ) : null}
-                      {listing.pricePerSqft ? (
-                        <span className="priority-item-ppsf">${Math.round(listing.pricePerSqft).toLocaleString()}/sqft</span>
-                      ) : null}
-                    </span>
+                  <span className="priority-item-address">{listing.address}</span>
+                  <span className="priority-item-meta">
+                    <span className="priority-item-price">{formatPrice(listing.price)}</span>
+                    {listing.sqft ? (
+                      <span className="priority-item-sqft">{listing.sqft.toLocaleString()} sqft</span>
+                    ) : null}
+                    {listing.pricePerSqft ? (
+                      <span className="priority-item-ppsf">${Math.round(listing.pricePerSqft).toLocaleString()}/sqft</span>
+                    ) : null}
                   </span>
                   <span className="priority-item-time">
                     {dayLabel} · {formatTimeRange(listing.openHouseStart, listing.openHouseEnd)}
