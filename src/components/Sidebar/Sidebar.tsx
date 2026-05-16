@@ -3,6 +3,7 @@ import type { TimeSlotGroup as TimeSlotGroupType, Listing, VisitRecord, MapZone 
 import type { ListingAmenities } from "../../utils/cloudSync";
 import { TimeSlotGroup } from "./TimeSlotGroup";
 import { formatTimeRange } from "../../utils/formatters";
+import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import "./Sidebar.css";
 
 interface SidebarProps {
@@ -118,18 +119,22 @@ export function matchesFilter(id: string, key: FilterKey, visits: Record<string,
   }
 }
 
-function PrioritySection({
+export function PrioritySection({
   priorityOrder,
   timeSlotGroups,
   initialCollapsed,
+  hoveredId,
   onSelect,
+  onHover,
   onTogglePriority,
   onReorderPriority,
 }: {
   priorityOrder: string[];
   timeSlotGroups: TimeSlotGroupType[];
   initialCollapsed: boolean;
+  hoveredId: string | null;
   onSelect: (id: string) => void;
+  onHover: (id: string | null) => void;
   onTogglePriority: (id: string) => void;
   onReorderPriority: (newOrder: string[]) => void;
 }) {
@@ -217,34 +222,52 @@ function PrioritySection({
       </div>
       {!collapsed && (
         <div className="priority-list">
-          {priorityListings.map(({ listing, dayLabel }, idx) => (
-            <div
-              key={listing.id}
-              className={`priority-item${dragIdx === idx ? " priority-item--dragging" : ""}${dragOverIdx === idx && dragIdx !== idx ? " priority-item--drag-over" : ""}`}
-              draggable
-              onDragStart={(e) => handleDragStart(e, idx)}
-              onDragOver={(e) => handleDragOver(e, idx)}
-              onDrop={(e) => handleDrop(e, idx)}
-              onDragEnd={handleDragEnd}
-            >
-              <span className="priority-item-drag" title="Drag to reorder">⠿</span>
-              <span className="priority-item-num">{idx + 1}</span>
-              <button
-                className="priority-item-main"
-                onClick={() => onSelect(listing.id)}
+          {priorityListings.map(({ listing, dayLabel }, idx) => {
+            const isHovered = hoveredId === listing.id;
+            return (
+              <div
+                key={listing.id}
+                data-testid={`priority-item-${listing.id}`}
+                className={
+                  `priority-item` +
+                  (dragIdx === idx ? " priority-item--dragging" : "") +
+                  (dragOverIdx === idx && dragIdx !== idx ? " priority-item--drag-over" : "") +
+                  (isHovered ? " priority-item--hovered" : "")
+                }
+                draggable
+                onDragStart={(e) => handleDragStart(e, idx)}
+                onDragOver={(e) => handleDragOver(e, idx)}
+                onDrop={(e) => handleDrop(e, idx)}
+                onDragEnd={handleDragEnd}
+                onMouseEnter={() => onHover(listing.id)}
+                onMouseLeave={() => onHover(null)}
               >
-                <span className="priority-item-address">{listing.address}</span>
-                <span className="priority-item-time">
-                  {dayLabel} · {formatTimeRange(listing.openHouseStart, listing.openHouseEnd)}
-                </span>
-              </button>
-              <button
-                className="priority-item-remove"
-                onClick={() => onTogglePriority(listing.id)}
-                title="Remove from priority"
-              >★</button>
-            </div>
-          ))}
+                <span className="priority-item-drag" title="Drag to reorder">⠿</span>
+                <span className="priority-item-num">{idx + 1}</span>
+                <img
+                  className="priority-item-thumb"
+                  src={thumbnailUrl(listing.id, listing.url)}
+                  alt=""
+                  loading="lazy"
+                  data-testid={`priority-thumb-${listing.id}`}
+                />
+                <button
+                  className="priority-item-main"
+                  onClick={() => onSelect(listing.id)}
+                >
+                  <span className="priority-item-address">{listing.address}</span>
+                  <span className="priority-item-time">
+                    {dayLabel} · {formatTimeRange(listing.openHouseStart, listing.openHouseEnd)}
+                  </span>
+                </button>
+                <button
+                  className="priority-item-remove"
+                  onClick={() => onTogglePriority(listing.id)}
+                  title="Remove from priority"
+                >★</button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -565,7 +588,9 @@ export function Sidebar({
             priorityOrder={priorityOrder}
             timeSlotGroups={timeSlotGroups}
             initialCollapsed={showOnlyPriority}
+            hoveredId={hoveredId}
             onSelect={onSelect}
+            onHover={onHover}
             onTogglePriority={onTogglePriority}
             onReorderPriority={onReorderPriority}
           />

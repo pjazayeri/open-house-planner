@@ -177,6 +177,22 @@
   background: #fde68a;
 }
 
+/* Hover state — mirrors the map marker highlight (sidebar ↔ map sync). */
+.priority-item--hovered {
+  background: #fef3c7;
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+.priority-item-thumb {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  object-fit: cover;
+  margin-right: 8px;
+  background: #fde68a;
+}
+
 .priority-item-drag {
   flex-shrink: 0;
   padding: 8px 6px 8px 10px;

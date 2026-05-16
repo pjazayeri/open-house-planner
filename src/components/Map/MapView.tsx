@@ -9,6 +9,7 @@ import {
 import L from "leaflet";
 import type { Listing, TimeSlotGroup, VisitRecord, MapZone } from "../../types";
 import { SLOT_COLORS } from "../Sidebar/TimeSlotGroup";
+import { computeMarkerSpec } from "../../utils/mapMarker";
 import { formatPrice, formatBedsBaths, formatTimeRange } from "../../utils/formatters";
 import { pointInPolygon } from "../../utils/geometry";
 import "./MapView.css";
@@ -53,12 +54,16 @@ const userLocationIcon = L.divIcon({
 
 type VisitStatus = "unvisited" | "visited" | "liked" | "disliked";
 
-/** Create a numbered circle marker icon with an optional visit-status badge */
+/** Create a numbered circle marker icon with an optional visit-status badge.
+ *  When `isPriority` is true, a small ★ badge is drawn on the top-left so
+ *  priority listings are visually distinct from slot-2 (which shares the
+ *  amber slot color #f59e0b). */
 function createNumberedIcon(
   num: number,
   color: string,
   isActive: boolean,
-  status: VisitStatus
+  status: VisitStatus,
+  isPriority: boolean
 ): L.DivIcon {
   const size = isActive ? 32 : 26;
   const badgeBase = `position:absolute;bottom:-3px;right:-3px;width:14px;height:14px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:900;line-height:1;`;
@@ -67,6 +72,9 @@ function createNumberedIcon(
     status === "disliked" ? `<div style="${badgeBase}background:#ef4444;color:#fff">✕</div>` :
     status === "visited"  ? `<div style="${badgeBase}background:#94a3b8;color:#fff;font-size:10px">·</div>` :
     "";
+  const priorityStar = isPriority
+    ? `<div style="position:absolute;top:-5px;left:-5px;width:14px;height:14px;border-radius:50%;background:#fef3c7;border:1.5px solid #d97706;color:#d97706;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;line-height:1;">★</div>`
+    : "";
   return L.divIcon({
     className: "numbered-marker",
     html: `<div style="position:relative;width:${size}px;height:${size}px;">
@@ -79,6 +87,7 @@ function createNumberedIcon(
         color:#fff;font-size:${isActive ? 13 : 11}px;font-weight:700;
         box-shadow:${isActive ? "0 0 0 3px " + color + ",0 2px 8px rgba(0,0,0,0.3)" : "0 1px 4px rgba(0,0,0,0.3)"};
       ">${num}</div>
+      ${priorityStar}
       ${badge}
     </div>`,
     iconSize: [size + 3, size + 3],
@@ -757,14 +766,14 @@ export function MapView({
                 visit.liked === true ? "liked" :
                 visit.liked === false ? "disliked" :
                 "visited";
-              const priorityIdx = filteredPriorityOrder.indexOf(listing.id);
-              const markerNum = priorityIdx >= 0 ? priorityIdx + 1 : (listing.visitOrder ?? coordIdx);
-              const markerColor = priorityIdx >= 0 ? "#f59e0b" : color;
+              const isPriority = filteredPriorityOrder.includes(listing.id);
+              const { num: markerNum } = computeMarkerSpec(listing.visitOrder, coordIdx - 1, isPriority);
+              const markerColor = isPriority ? "#f59e0b" : color;
               return (
                 <Marker
                   key={`${listing.id}-${markerNum}`}
                   position={pos}
-                  icon={createNumberedIcon(markerNum, markerColor, isActive, visitStatus)}
+                  icon={createNumberedIcon(markerNum, markerColor, isActive, visitStatus, isPriority)}
                   eventHandlers={{
                     click: () => onSelect(listing.id),
                     mouseover: () => onHover(listing.id),
