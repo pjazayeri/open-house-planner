@@ -70,6 +70,7 @@ describe("PrioritySection — thumbnail + hover sync", () => {
     expect(t1.src).toContain("/api/thumbnail/L1");
     expect(t1.src).toContain("url=");
     expect(t2.src).toContain("/api/thumbnail/L2");
+    expect(screen.getAllByText("$1,000,000")).toHaveLength(2);
   });
 
   it("hovering a row calls onHover(id); leaving calls onHover(null) (drives map marker highlight)", () => {

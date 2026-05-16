@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import type { TimeSlotGroup as TimeSlotGroupType, Listing, VisitRecord, MapZone } from "../../types";
 import type { ListingAmenities } from "../../utils/cloudSync";
 import { TimeSlotGroup } from "./TimeSlotGroup";
-import { formatTimeRange } from "../../utils/formatters";
+import { formatPrice, formatTimeRange } from "../../utils/formatters";
 import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import "./Sidebar.css";
 
@@ -255,7 +255,10 @@ export function PrioritySection({
                   className="priority-item-main"
                   onClick={() => onSelect(listing.id)}
                 >
-                  <span className="priority-item-address">{listing.address}</span>
+                  <span className="priority-item-heading">
+                    <span className="priority-item-address">{listing.address}</span>
+                    <span className="priority-item-price">{formatPrice(listing.price)}</span>
+                  </span>
                   <span className="priority-item-time">
                     {dayLabel} · {formatTimeRange(listing.openHouseStart, listing.openHouseEnd)}
                   </span>

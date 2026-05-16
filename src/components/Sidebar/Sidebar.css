@@ -269,6 +269,21 @@
   color: #1e293b;
 }
 
+.priority-item-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.priority-item-price {
+  font-size: 12px;
+  font-weight: 600;
+  color: #b45309;
+  flex-shrink: 0;
+}
+
 .priority-item-time {
   font-size: 11px;
   color: #78350f;
