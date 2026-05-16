@@ -6,6 +6,7 @@ import { pointInPolygon } from "../../utils/geometry";
 import { formatPrice, formatBedsBaths } from "../../utils/formatters";
 import { navigationUrl } from "../../utils/mapsUrl";
 import { totalOwnCostTooltip, effectiveCostTooltip, netCostTooltip } from "../../utils/financeTooltips";
+import { matchesListingSearch } from "../../utils/listingSearch";
 import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import "./FinancePage.css";
 import { useRentEstimates, type RentEstimate } from "../../hooks/useRentEstimates";
@@ -960,11 +961,10 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
   }, [allListings, params, rentOverrides]);
 
   const sorted = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
     const filtered = listingsWithResults.filter(({ listing: l }) => {
       if (showFavoritesOnly && !priorityIds.has(l.id)) return false;
       if (selectedZone && !pointInPolygon(l.lat, l.lng, selectedZone.polygon)) return false;
-      if (q && !l.address.toLowerCase().includes(q) && !l.city.toLowerCase().includes(q) && !l.location.toLowerCase().includes(q)) return false;
+      if (!matchesListingSearch(l, searchQuery)) return false;
       return true;
     });
     return [...filtered].sort((a, b) => {
@@ -1127,7 +1127,7 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
           <input
             className="fp-search"
             type="text"
-            placeholder="Search address or neighborhood…"
+            placeholder="Search address, neighborhood, zip, MLS…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
