@@ -12,6 +12,7 @@ import { SLOT_COLORS } from "../Sidebar/TimeSlotGroup";
 import { computeMarkerSpec } from "../../utils/mapMarker";
 import { formatPrice, formatBedsBaths, formatTimeRange } from "../../utils/formatters";
 import { pointInPolygon } from "../../utils/geometry";
+import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import "./MapView.css";
 
 const ZONE_COLORS = ["#ef4444", "#f97316", "#22c55e", "#3b82f6", "#a855f7", "#ec4899", "#06b6d4"];
@@ -479,6 +480,12 @@ function SelectedPreview({
         onClick={(e) => { e.stopPropagation(); onDismiss(); }}
         aria-label="Close"
       >✕</button>
+      <img
+        className="preview-thumb"
+        src={thumbnailUrl(listing.id, listing.url)}
+        alt=""
+        loading="lazy"
+      />
       <div className="preview-info">
         <div className="preview-address">
           <span className="preview-num">#{listing.visitOrder ?? '?'}</span>
@@ -486,6 +493,10 @@ function SelectedPreview({
         </div>
         <div className="preview-sub">
           {formatPrice(listing.price)} &middot; {formatBedsBaths(listing.beds, listing.baths)}
+        </div>
+        <div className="preview-meta">
+          {listing.sqft ? `${listing.sqft.toLocaleString()} sqft` : "Sqft n/a"}
+          {listing.pricePerSqft ? ` · $${Math.round(listing.pricePerSqft).toLocaleString()}/sqft` : ""}
         </div>
         <div className="preview-time">
           {formatTimeRange(listing.openHouseStart, listing.openHouseEnd)}

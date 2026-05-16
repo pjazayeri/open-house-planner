@@ -262,6 +262,9 @@ export function PrioritySection({
                       {listing.sqft ? (
                         <span className="priority-item-sqft">{listing.sqft.toLocaleString()} sqft</span>
                       ) : null}
+                      {listing.pricePerSqft ? (
+                        <span className="priority-item-ppsf">${Math.round(listing.pricePerSqft).toLocaleString()}/sqft</span>
+                      ) : null}
                     </span>
                   </span>
                   <span className="priority-item-time">
