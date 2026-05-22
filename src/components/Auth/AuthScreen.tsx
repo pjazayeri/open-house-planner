@@ -1,10 +1,9 @@
 import { useState } from "react";
 import "./AuthScreen.css";
 
-// Set this to a JSONBin share ID after creating a demo plan.
-// Leave empty to hide the "View Demo" button. To regenerate the bin with
-// fresh weekend data, run `node scripts/create-demo-bin.mjs` and paste the
-// new id here.
+// Legacy shared-plan bin id; no longer used now that "View Demo" enters an
+// in-memory demo mode (see continueAsDemo in useAuth). Kept exported so any
+// older deep-linked `/#share?bin=…` URL still resolves to the same bin.
 export const DEMO_BIN_ID = "6a00dfd7c0954111d804071d";
 
 function GoogleIcon() {
@@ -21,9 +20,10 @@ function GoogleIcon() {
 interface AuthScreenProps {
   onSignIn: () => Promise<void>;
   onGuest: () => void;
+  onDemo: () => void;
 }
 
-export function AuthScreen({ onSignIn, onGuest }: AuthScreenProps) {
+export function AuthScreen({ onSignIn, onGuest, onDemo }: AuthScreenProps) {
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,15 +64,10 @@ export function AuthScreen({ onSignIn, onGuest }: AuthScreenProps) {
             <span className="auth-btn-sub">Data saved locally only</span>
           </button>
 
-          {DEMO_BIN_ID && (
-            <button
-              className="auth-btn auth-btn--demo"
-              onClick={() => window.open(`/#share?bin=${DEMO_BIN_ID}`, "_blank")}
-            >
-              <span className="auth-btn-main">View Demo</span>
-              <span className="auth-btn-sub">See a sample SF tour plan</span>
-            </button>
-          )}
+          <button className="auth-btn auth-btn--demo" onClick={onDemo}>
+            <span className="auth-btn-main">View Demo</span>
+            <span className="auth-btn-sub">Explore sample SF listings — no account needed</span>
+          </button>
         </div>
 
         {error && <p className="auth-error">{error}</p>}

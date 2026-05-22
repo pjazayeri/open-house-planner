@@ -1,30 +1,33 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 
-import { AuthScreen, DEMO_BIN_ID } from "./AuthScreen";
+import { AuthScreen } from "./AuthScreen";
 
-describe("AuthScreen demo button (regression: 'demo doesn't pull up share plan')", () => {
-  it("opens the share plan URL with the exact bin-id format the SPA hash router expects", () => {
+describe("AuthScreen demo button (regression: was opening a shared-plan window)", () => {
+  it("clicking View Demo invokes onDemo() — NOT window.open / share-plan URL", () => {
     const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
+    const onDemo = vi.fn();
     try {
-      render(<AuthScreen onSignIn={vi.fn()} onGuest={vi.fn()} />);
+      render(<AuthScreen onSignIn={vi.fn()} onGuest={vi.fn()} onDemo={onDemo} />);
       fireEvent.click(screen.getByText(/View Demo/i));
-
-      expect(openSpy).toHaveBeenCalledTimes(1);
-      const [url] = openSpy.mock.calls[0];
-      // App.tsx's hash router only matches '#share?bin=...' — any other shape
-      // (e.g. '?id=', '#demo=', a different prefix) routes to the auth gate
-      // instead of the share view, which is exactly the "doesn't pull up
-      // share plan" symptom.
-      expect(url).toBe(`/#share?bin=${DEMO_BIN_ID}`);
+      expect(onDemo).toHaveBeenCalledTimes(1);
+      // The old behavior was window.open(`/#share?bin=…`, "_blank"). It must
+      // not fire under any code path — demo mode is in-app now.
+      expect(openSpy).not.toHaveBeenCalled();
     } finally {
       openSpy.mockRestore();
+      cleanup();
     }
   });
 
-  it("DEMO_BIN_ID is a non-empty string (otherwise the button is hidden entirely)", () => {
-    expect(typeof DEMO_BIN_ID).toBe("string");
-    expect(DEMO_BIN_ID.length).toBeGreaterThan(0);
+  it("clicking Continue as Guest invokes onGuest() and not onDemo()", () => {
+    const onGuest = vi.fn();
+    const onDemo = vi.fn();
+    render(<AuthScreen onSignIn={vi.fn()} onGuest={onGuest} onDemo={onDemo} />);
+    fireEvent.click(screen.getByText(/Continue as Guest/i));
+    expect(onGuest).toHaveBeenCalledTimes(1);
+    expect(onDemo).not.toHaveBeenCalled();
+    cleanup();
   });
 });

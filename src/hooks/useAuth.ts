@@ -10,13 +10,20 @@ import {
 import { auth, googleProvider } from "../lib/firebase";
 import { setAuthContext, setGuestMode, clearAuthContext } from "../utils/cloudSync";
 
-export type AuthMode = "loading" | "signed-in" | "guest" | "signed-out";
+export type AuthMode = "loading" | "signed-in" | "guest" | "demo" | "signed-out";
+
+/** True when the app should run fully in-memory with no cloud reads/writes:
+ *  guest mode AND demo mode behave identically from the cloud's perspective. */
+export function isLocalOnly(mode: AuthMode): boolean {
+  return mode === "guest" || mode === "demo";
+}
 
 interface AuthResult {
   user: User | null;
   mode: AuthMode;
   signInWithGoogle: () => Promise<void>;
   continueAsGuest: () => void;
+  continueAsDemo: () => void;
   signOut: () => Promise<void>;
 }
 
@@ -83,6 +90,9 @@ export function useAuth(): AuthResult {
         }
         setUser(u);
         setMode("signed-in");
+      } else if (sessionStorage.getItem("demo-mode")) {
+        setGuestMode();
+        setMode("demo");
       } else if (sessionStorage.getItem("guest-mode")) {
         setGuestMode();
         setMode("guest");
@@ -108,9 +118,17 @@ export function useAuth(): AuthResult {
   };
 
   const continueAsGuest = () => {
+    sessionStorage.removeItem("demo-mode");
     sessionStorage.setItem("guest-mode", "1");
     setGuestMode();
     setMode("guest");
+  };
+
+  const continueAsDemo = () => {
+    sessionStorage.removeItem("guest-mode");
+    sessionStorage.setItem("demo-mode", "1");
+    setGuestMode(); // same in-memory behavior as guest
+    setMode("demo");
   };
 
   const signOut = async () => {
@@ -118,11 +136,12 @@ export function useAuth(): AuthResult {
       await firebaseSignOut(auth);
     }
     sessionStorage.removeItem("guest-mode");
+    sessionStorage.removeItem("demo-mode");
     localStorage.removeItem("auth-bin-cache");
     clearAuthContext();
     setUser(null);
     setMode("signed-out");
   };
 
-  return { user, mode, signInWithGoogle, continueAsGuest, signOut };
+  return { user, mode, signInWithGoogle, continueAsGuest, continueAsDemo, signOut };
 }

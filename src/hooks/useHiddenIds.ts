@@ -19,7 +19,7 @@ interface UseHiddenIdsResult {
   saveFailed: boolean;
 }
 
-export function useHiddenIds(authMode: "loading" | "signed-in" | "guest" | "signed-out" = "signed-in"): UseHiddenIdsResult {
+export function useHiddenIds(authMode: "loading" | "signed-in" | "guest" | "demo" | "signed-out" = "signed-in"): UseHiddenIdsResult {
   const [hiddenIds, setHiddenIds] = useState<Set<string> | null>(null);
   const [priorityOrder, setPriorityOrder] = useState<string[]>([]);
   const [skippedForDay, setSkippedForDay] = useState<Record<string, string[]>>({});
@@ -30,7 +30,7 @@ export function useHiddenIds(authMode: "loading" | "signed-in" | "guest" | "sign
 
   useEffect(() => {
     if (authMode === "loading" || authMode === "signed-out") return;
-    if (!USE_CLOUD || authMode === "guest") {
+    if (!USE_CLOUD || authMode === "guest" || authMode === "demo") {
       setHiddenIds(new Set());
       return;
     }

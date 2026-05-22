@@ -16,7 +16,7 @@ interface UseVisitsResult {
   saveFailed: boolean;
 }
 
-export function useVisits(authMode: "loading" | "signed-in" | "guest" | "signed-out" = "signed-in"): UseVisitsResult {
+export function useVisits(authMode: "loading" | "signed-in" | "guest" | "demo" | "signed-out" = "signed-in"): UseVisitsResult {
   const [visits, setVisits] = useState<Record<string, VisitRecord> | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(
     USE_CLOUD ? "loading" : "unconfigured"

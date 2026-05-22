@@ -15,6 +15,13 @@ function parseCsvText(text: string): Promise<RawListing[]> {
 
 declare const __LATEST_CSV__: string;
 
+/** Demo-mode CSV: bundled in public/ so it loads with no auth or Blob. */
+export async function loadDemoCsv(): Promise<RawListing[]> {
+  const r = await fetch("/demo-listings.csv");
+  if (!r.ok) return [];
+  return parseCsvText(await r.text());
+}
+
 export async function loadCsv(csvUrl?: string, authHeaders?: Record<string, string>): Promise<RawListing[]> {
   // 1. User's own CSV from cloud (served via /api/csv with auth headers)
   if (csvUrl) {

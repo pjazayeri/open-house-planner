@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import type { Listing, TimeSlotGroup, VisitRecord } from "../types";
-import { loadCsv, uploadCsvText } from "../utils/parseCsv";
+import { loadCsv, loadDemoCsv, uploadCsvText } from "../utils/parseCsv";
 import { filterAndTransform, transformAll, getCities } from "../utils/filterListings";
+import { shiftListingsToFuture } from "../utils/demoSeed";
 import { optimizeRoute } from "../utils/routeOptimizer";
 import { useHiddenIds } from "./useHiddenIds";
 import { useVisits } from "./useVisits";
@@ -78,7 +79,7 @@ interface UseListingsResult {
   saveFailed: boolean;
 }
 
-export function useListings(authMode: "loading" | "signed-in" | "guest" | "signed-out" = "signed-in"): UseListingsResult {
+export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo" | "signed-out" = "signed-in"): UseListingsResult {
   const [allListings, setAllListings] = useState<Listing[]>([]);
   const [allFavoritesListings, setAllFavoritesListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,21 +110,33 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "signe
 
     (async () => {
       try {
-        // Fire cloudFetch and getAuthHeaders in parallel — no need to wait for
-        // cloud state before starting the auth header fetch.
-        const [stateResult, authHeaders] = await Promise.all([
-          cloudFetch().catch((e) => { console.warn("[useListings] cloudFetch failed:", e); return null; }),
-          getAuthHeaders(),
-        ]);
-        // csvUrl from cloud state; for signed-in users it's always "/api/csv"
-        const csvUrl = stateResult?.csvUrl;
-        const rows = await loadCsv(csvUrl, Object.keys(authHeaders).length ? authHeaders : undefined);
+        let rows;
+        if (authMode === "demo") {
+          // Demo mode: bundled CSV, no cloud, dates rolled forward so the
+          // Planner has visible open houses.
+          rows = await loadDemoCsv();
+        } else {
+          // Fire cloudFetch and getAuthHeaders in parallel — no need to wait for
+          // cloud state before starting the auth header fetch.
+          const [stateResult, authHeaders] = await Promise.all([
+            cloudFetch().catch((e) => { console.warn("[useListings] cloudFetch failed:", e); return null; }),
+            getAuthHeaders(),
+          ]);
+          // csvUrl from cloud state; for signed-in users it's always "/api/csv"
+          const csvUrl = stateResult?.csvUrl;
+          rows = await loadCsv(csvUrl, Object.keys(authHeaders).length ? authHeaders : undefined);
+        }
         if (rows.length === 0) {
           setNeedsCsvUpload(true);
         } else {
-          const filtered = filterAndTransform(rows);
+          let filtered = filterAndTransform(rows);
+          let all = transformAll(rows);
+          if (authMode === "demo") {
+            filtered = shiftListingsToFuture(filtered);
+            all = shiftListingsToFuture(all);
+          }
           setAllListings(filtered);
-          setAllFavoritesListings(transformAll(rows));
+          setAllFavoritesListings(all);
           const cities = getCities(filtered);
           if (cities.length > 0) setSelectedCity(cities[0]);
         }

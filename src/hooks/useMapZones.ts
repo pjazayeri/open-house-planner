@@ -17,7 +17,7 @@ export function useMapZones(authMode: AuthMode): UseMapZonesResult {
 
   useEffect(() => {
     if (authMode === "loading" || authMode === "signed-out") return;
-    if (!USE_CLOUD || authMode === "guest") {
+    if (!USE_CLOUD || authMode === "guest" || authMode === "demo") {
       setZones([]);
       setLoaded(true);
       return;

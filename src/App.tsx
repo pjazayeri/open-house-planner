@@ -132,7 +132,7 @@ import { pointInPolygon } from "./utils/geometry";
 import { cloudFetch, cloudPatch } from "./utils/cloudSync";
 
 function App() {
-  const { user, mode: authMode, signInWithGoogle, continueAsGuest, signOut } = useAuth();
+  const { user, mode: authMode, signInWithGoogle, continueAsGuest, continueAsDemo, signOut } = useAuth();
   const { theme, toggleTheme, setTheme } = useTheme();
 
   // If user signs in from guest mode, remount the whole app to reload cloud state
@@ -622,7 +622,7 @@ function App() {
     </div>
   );
   if (authMode === "signed-out") return (
-    <AuthScreen onSignIn={signInWithGoogle} onGuest={continueAsGuest} />
+    <AuthScreen onSignIn={signInWithGoogle} onGuest={continueAsGuest} onDemo={continueAsDemo} />
   );
 
   if (syncStatus === "loading" || loading) {
@@ -654,11 +654,17 @@ function App() {
   }
 
   return (
-    <div className={`app${authMode === "guest" ? " app--guest" : ""}`}>
+    <div className={`app${authMode === "guest" ? " app--guest" : ""}${authMode === "demo" ? " app--demo" : ""}`}>
       {authMode === "guest" && (
         <div className="guest-banner">
           Guest mode &mdash; data is not synced.{" "}
           <button className="guest-banner-signin" onClick={signInWithGoogle}>Sign in</button>
+        </div>
+      )}
+      {authMode === "demo" && (
+        <div className="guest-banner guest-banner--demo">
+          Demo mode &mdash; exploring sample SF listings. Changes don&rsquo;t save.{" "}
+          <button className="guest-banner-signin" onClick={signInWithGoogle}>Sign in with your own data</button>
         </div>
       )}
       <Header

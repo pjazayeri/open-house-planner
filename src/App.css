@@ -161,6 +161,15 @@ html, body, #root {
   color: #93c5fd;
 }
 
+/* Demo-mode variant: amber so it's distinct from the dark guest banner. */
+.guest-banner--demo {
+  background: #78350f;
+  border-bottom: 1px solid #92400e;
+  color: #fef3c7;
+}
+.guest-banner--demo .guest-banner-signin { color: #fde68a; }
+.guest-banner--demo .guest-banner-signin:hover { color: #fffbeb; }
+
 /* Loading and error states */
 .loading-screen,
 .error-screen {
