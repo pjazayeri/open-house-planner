@@ -32,6 +32,9 @@ export function useHiddenIds(authMode: "loading" | "signed-in" | "guest" | "demo
     if (authMode === "loading" || authMode === "signed-out") return;
     if (!USE_CLOUD || authMode === "guest" || authMode === "demo") {
       setHiddenIds(new Set());
+      // Mark sync as "unconfigured" so the parent loading gate
+      // (`syncStatus === "loading"`) doesn't keep us on the spinner forever.
+      setSyncStatus("unconfigured");
       return;
     }
     cloudFetch()

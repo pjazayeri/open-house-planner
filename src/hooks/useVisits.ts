@@ -25,8 +25,10 @@ export function useVisits(authMode: "loading" | "signed-in" | "guest" | "demo" |
 
   useEffect(() => {
     if (authMode === "loading" || authMode === "signed-out") return;
-    if (!USE_CLOUD || authMode === "guest") {
+    if (!USE_CLOUD || authMode === "guest" || authMode === "demo") {
       setVisits({});
+      // Flip status off "loading" so the parent App loading gate clears.
+      setSyncStatus("unconfigured");
       return;
     }
     cloudFetch()
