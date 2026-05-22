@@ -4,6 +4,7 @@ import type { ListingAmenities } from "../../utils/cloudSync";
 import { TimeSlotGroup } from "./TimeSlotGroup";
 import { formatPrice, formatTimeRange } from "../../utils/formatters";
 import { thumbnailUrl } from "../../utils/thumbnailUrl";
+import { FilterPane } from "./filters/FilterPane";
 import "./Sidebar.css";
 
 interface SidebarProps {
@@ -74,23 +75,6 @@ interface SidebarProps {
 
 export type SortKey = "time" | "price" | "capRate" | "ppsf";
 export type FilterKey = "liked" | "disliked" | "visited" | "unvisited" | "priority" | "notPriority" | "rated";
-
-const SORT_LABELS: Record<SortKey, string> = {
-  time: "Time",
-  price: "Price",
-  capRate: "Cap Rate",
-  ppsf: "$/sqft",
-};
-
-const FILTER_LABELS: Record<FilterKey, string> = {
-  liked: "👍 Liked",
-  disliked: "👎 Disliked",
-  visited: "Visited",
-  unvisited: "Unvisited",
-  rated: "★ Rated",
-  priority: "⭐ Priority",
-  notPriority: "Not priority",
-};
 
 export function sortListings(listings: Listing[], key: SortKey): Listing[] {
   if (key === "time") return listings; // already in visit order
@@ -347,20 +331,6 @@ export function Sidebar({
   onStatusFilterChange,
   statusCounts,
 }: SidebarProps) {
-  function fmtHour(h: number): string {
-    if (h === 12) return "12pm";
-    if (h === 0) return "12am";
-    return h < 12 ? `${h}am` : `${h - 12}pm`;
-  }
-  function fmtPrice(v: number): string {
-    return v >= 1_000_000 ? `$${v / 1_000_000}M` : `$${v / 1_000}K`;
-  }
-  function toggleFilter(k: FilterKey) {
-    const next = new Set(activeFilters);
-    if (next.has(k)) next.delete(k); else next.add(k);
-    onFiltersChange(next);
-  }
-
   const totalVisible = timeSlotGroups.reduce((s, g) => s + g.listings.length, 0);
 
   return (
@@ -410,179 +380,47 @@ export function Sidebar({
           </div>
         )}
 
-        {/* ── Filter + Sort bar ── */}
-        <div className="sidebar-controls">
-          <div className="sb-search-row">
-            <input
-              className="sb-search-input"
-              type="text"
-              placeholder="Search address, zip, city…"
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-            />
-            {searchQuery && (
-              <button className="sb-search-clear" onClick={() => onSearchChange("")}>✕</button>
-            )}
-          </div>
-          {zones.length > 0 && (
-            <div className="sb-control-row">
-              <span className="sb-control-label">Area</span>
-              <div className="sb-chips">
-                {selectedAreas.size > 0 && (
-                  <button className="sb-chip sb-chip-clear" onClick={() => onAreaChange("")}>Clear</button>
-                )}
-                {zones.map((z) => (
-                  <button
-                    key={z.id}
-                    className={`sb-chip sb-zone-chip${selectedAreas.has(z.id) ? " active" : ""}`}
-                    style={{ "--zone-color": z.color } as React.CSSProperties}
-                    onClick={() => onAreaChange(z.id)}
-                  >
-                    <span className="sb-zone-dot" style={{ background: z.color }} />
-                    {z.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {/* date filter moved to top banner */}
-          {mode === "planner" && (
-            <div className="sb-control-row">
-              <span className="sb-control-label">Time</span>
-              <div className="sb-time-range">
-                <select
-                  className="sb-select sb-select--sm"
-                  value={timeFrom ?? ""}
-                  onChange={(e) => onTimeFromChange(e.target.value !== "" ? parseInt(e.target.value) : null)}
-                >
-                  <option value="">Any</option>
-                  {[8,9,10,11,12,13,14,15,16].map((h) => (
-                    <option key={h} value={h}>{fmtHour(h)}</option>
-                  ))}
-                </select>
-                <span className="sb-time-sep">–</span>
-                <select
-                  className="sb-select sb-select--sm"
-                  value={timeTo ?? ""}
-                  onChange={(e) => onTimeToChange(e.target.value !== "" ? parseInt(e.target.value) : null)}
-                >
-                  <option value="">Any</option>
-                  {[9,10,11,12,13,14,15,16,17].map((h) => (
-                    <option key={h} value={h}>{fmtHour(h)}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
-          {mode === "browse" && (() => {
-            const statuses = ["Active", "Pending", "Contingent", "Sold"];
-            const visibleStatuses = statuses.filter((s) => (statusCounts[s] ?? 0) > 0 || s === "Active");
-            if (visibleStatuses.length <= 1) return null;
-            return (
-              <div className="sb-control-row">
-                <span className="sb-control-label">Status</span>
-                <div className="sb-chips">
-                  {visibleStatuses.map((s) => (
-                    <button
-                      key={s}
-                      className={`sb-chip sb-status-chip sb-status-chip--${s.toLowerCase()} ${statusFilter === s ? "active" : ""}`}
-                      onClick={() => onStatusFilterChange(statusFilter === s ? "Active" : s)}
-                    >
-                      {s}{statusCounts[s] != null ? ` (${statusCounts[s]})` : ""}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-          <div className="sb-control-row">
-            <span className="sb-control-label">Price</span>
-            <div className="sb-time-range">
-              <select className="sb-select sb-select--sm" value={priceMin ?? ""} onChange={(e) => onPriceMinChange(e.target.value !== "" ? Number(e.target.value) : null)}>
-                <option value="">Min</option>
-                {[500_000,750_000,1_000_000,1_250_000,1_500_000,1_750_000,2_000_000,2_500_000,3_000_000].map((v) => (
-                  <option key={v} value={v}>{fmtPrice(v)}</option>
-                ))}
-              </select>
-              <span className="sb-time-sep">–</span>
-              <select className="sb-select sb-select--sm" value={priceMax ?? ""} onChange={(e) => onPriceMaxChange(e.target.value !== "" ? Number(e.target.value) : null)}>
-                <option value="">Max</option>
-                {[750_000,1_000_000,1_250_000,1_500_000,1_750_000,2_000_000,2_500_000,3_000_000,4_000_000].map((v) => (
-                  <option key={v} value={v}>{fmtPrice(v)}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="sb-control-row">
-            <span className="sb-control-label">Cap Rate</span>
-            <div className="sb-time-range">
-              <select className="sb-select sb-select--sm" value={capRateMin ?? ""} onChange={(e) => onCapRateMinChange(e.target.value !== "" ? Number(e.target.value) : null)}>
-                <option value="">Min</option>
-                {[1,2,3,4,5,6].map((v) => <option key={v} value={v}>{v}%</option>)}
-              </select>
-              <span className="sb-time-sep">–</span>
-              <select className="sb-select sb-select--sm" value={capRateMax ?? ""} onChange={(e) => onCapRateMaxChange(e.target.value !== "" ? Number(e.target.value) : null)}>
-                <option value="">Max</option>
-                {[2,3,4,5,6,8].map((v) => <option key={v} value={v}>{v}%</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="sb-control-row">
-            <span className="sb-control-label">$/sqft</span>
-            <div className="sb-time-range">
-              <select className="sb-select sb-select--sm" value={ppsfMin ?? ""} onChange={(e) => onPpsfMinChange(e.target.value !== "" ? Number(e.target.value) : null)}>
-                <option value="">Min</option>
-                {[400,600,800,1000,1200,1500].map((v) => <option key={v} value={v}>${v}</option>)}
-              </select>
-              <span className="sb-time-sep">–</span>
-              <select className="sb-select sb-select--sm" value={ppsfMax ?? ""} onChange={(e) => onPpsfMaxChange(e.target.value !== "" ? Number(e.target.value) : null)}>
-                <option value="">Max</option>
-                {[600,800,1000,1200,1500,2000].map((v) => <option key={v} value={v}>${v}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="sb-control-row">
-            <span className="sb-control-label">Sort</span>
-            <div className="sb-chips">
-              {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
-                <button
-                  key={k}
-                  className={`sb-chip ${sortKey === k ? "active" : ""}`}
-                  onClick={() => onSortChange(k)}
-                >
-                  {SORT_LABELS[k]}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="sb-control-row">
-            <span className="sb-control-label">Filter</span>
-            <div className="sb-chips">
-              {activeFilters.size > 0 && (
-                <button
-                  className="sb-chip sb-chip-clear"
-                  onClick={() => onFiltersChange(new Set())}
-                >
-                  Clear
-                </button>
-              )}
-              {(Object.keys(FILTER_LABELS) as FilterKey[]).map((k) => (
-                <button
-                  key={k}
-                  className={`sb-chip ${activeFilters.has(k) ? "active" : ""}`}
-                  onClick={() => toggleFilter(k)}
-                >
-                  {FILTER_LABELS[k]}
-                </button>
-              ))}
-            </div>
-          </div>
-          {(activeFilters.size > 0 || sortKey !== "time" || searchQuery.trim() || selectedAreas.size > 0 || selectedDate || timeFrom !== null || timeTo !== null || priceMin !== null || priceMax !== null || capRateMin !== null || capRateMax !== null || ppsfMin !== null || ppsfMax !== null || (mode === "browse" && statusFilter !== "Active")) && (
-            <div className="sb-count">
-              {totalVisible} of {totalListings} shown
-            </div>
-          )}
-        </div>
+        {/* ── Filter + Sort pane ───────────────────────────
+         * Primary controls (search, Area, Status, Sort) are
+         * always visible. Advanced controls (Time window,
+         * Price/Cap Rate/$ per sqft ranges, reaction/visit/tag
+         * chips) live behind "More filters ▾" so the pane
+         * doesn't dominate the sidebar.
+         */}
+        <FilterPane
+          mode={mode}
+          searchQuery={searchQuery}
+          onSearchChange={onSearchChange}
+          zones={zones}
+          selectedAreas={selectedAreas}
+          onAreaChange={onAreaChange}
+          statusFilter={statusFilter}
+          statusCounts={statusCounts}
+          onStatusFilterChange={onStatusFilterChange}
+          sortKey={sortKey}
+          onSortChange={onSortChange}
+          activeFilters={activeFilters}
+          onFiltersChange={onFiltersChange}
+          priceMin={priceMin}
+          priceMax={priceMax}
+          onPriceMinChange={onPriceMinChange}
+          onPriceMaxChange={onPriceMaxChange}
+          capRateMin={capRateMin}
+          capRateMax={capRateMax}
+          onCapRateMinChange={onCapRateMinChange}
+          onCapRateMaxChange={onCapRateMaxChange}
+          ppsfMin={ppsfMin}
+          ppsfMax={ppsfMax}
+          onPpsfMinChange={onPpsfMinChange}
+          onPpsfMaxChange={onPpsfMaxChange}
+          timeFrom={timeFrom}
+          timeTo={timeTo}
+          onTimeFromChange={onTimeFromChange}
+          onTimeToChange={onTimeToChange}
+          selectedDate={selectedDate}
+          totalVisible={totalVisible}
+          totalListings={totalListings}
+        />
 
         {mode === "planner" && priorityIds.size > 0 && (
           <button

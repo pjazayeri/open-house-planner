@@ -1,0 +1,206 @@
+/* ── Filter primitives ───────────────────────────────────────────
+ * Shared tokens + component styles for Chip, RangeFilter,
+ * ActiveFiltersSummary. Replaces the ad-hoc .sb-chip / .sb-zone-chip
+ * / .sb-status-chip jungle.
+ *
+ * Selected-state contrast is the headline fix: solid filled chip
+ * with white text — readable at a glance, not the old "blue text
+ * on light-blue ring" that was nearly invisible.
+ */
+
+:root {
+  --chip-bg:           #ffffff;
+  --chip-border:       #cbd5e1;
+  --chip-fg:           #475569;
+
+  --chip-bg-hover:     #f8fafc;
+  --chip-border-hover: #94a3b8;
+  --chip-fg-hover:     #1e293b;
+
+  /* Selected = solid fill, white text. The whole point. */
+  --chip-bg-selected:    #1e293b;
+  --chip-border-selected:#1e293b;
+  --chip-fg-selected:    #ffffff;
+
+  /* Accented variant (used by zone chips + selected status semantic
+   * colors). Driven by inline --chip-accent. */
+  --chip-bg-accent:      color-mix(in srgb, var(--chip-accent, #7c3aed) 10%, transparent);
+  --chip-border-accent:  var(--chip-accent, #7c3aed);
+  --chip-fg-accent:      var(--chip-accent, #7c3aed);
+}
+
+/* ── Eyebrow label sitting above a control group ─────────────── */
+.filter-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-bottom: 4px;
+  user-select: none;
+}
+
+/* ── Chip ─────────────────────────────────────────────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--chip-border);
+  background: var(--chip-bg);
+  color: var(--chip-fg);
+  border-radius: 14px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+.chip:hover:not(.chip--selected):not(:disabled) {
+  background: var(--chip-bg-hover);
+  border-color: var(--chip-border-hover);
+  color: var(--chip-fg-hover);
+}
+.chip:disabled { opacity: 0.5; cursor: default; }
+
+.chip--selected {
+  background: var(--chip-bg-selected);
+  border-color: var(--chip-border-selected);
+  color: var(--chip-fg-selected);
+  font-weight: 600;
+}
+
+/* Accent (used by zone chips and any semantic-colored selected chip). */
+.chip--accent.chip--selected {
+  background: var(--chip-accent);
+  border-color: var(--chip-accent);
+  color: #ffffff;
+}
+.chip--accent:not(.chip--selected) .chip-dot {
+  /* dot is the accent color even when chip is unselected */
+}
+
+.chip--clear {
+  border-style: dashed;
+}
+.chip--clear:hover:not(:disabled) {
+  border-color: #ef4444;
+  color: #ef4444;
+  background: #fef2f2;
+}
+
+.chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #94a3b8;
+}
+
+.chip-count {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-left: 1px;
+  font-variant-numeric: tabular-nums;
+}
+.chip--selected .chip-count { opacity: 0.9; }
+
+/* ── RangeFilter ─────────────────────────────────────────────── */
+.range-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.range-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.range-select {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1e293b;
+  font-size: 12px;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.range-select:hover { border-color: #94a3b8; }
+.range-select:focus { outline: 2px solid #3b82f6; outline-offset: -1px; }
+.range-sep {
+  color: #94a3b8;
+  font-size: 12px;
+  user-select: none;
+}
+
+/* ── Active filters summary bar ──────────────────────────────── */
+.active-filters-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #475569;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+.afs-count strong {
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+.afs-sep { color: #cbd5e1; }
+.afs-active { color: #64748b; }
+.afs-clear {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.afs-clear:hover { text-decoration: underline; }
+
+/* ── Disclosure / "More filters" toggle ──────────────────────── */
+.filter-disclosure {
+  border: none;
+  background: none;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 0;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  -webkit-tap-highlight-color: transparent;
+}
+.filter-disclosure:hover { color: #0f172a; }
+.filter-disclosure-chevron {
+  font-size: 10px;
+  transition: transform 0.15s ease;
+}
+.filter-disclosure[aria-expanded="true"] .filter-disclosure-chevron {
+  transform: rotate(180deg);
+}
+
+/* ── Filter section grouping ─────────────────────────────────── */
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.filter-group-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
