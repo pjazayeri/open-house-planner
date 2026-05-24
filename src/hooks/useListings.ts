@@ -3,6 +3,7 @@ import type { Listing, TimeSlotGroup, VisitRecord } from "../types";
 import { loadCsv, loadDemoCsv, uploadCsvText } from "../utils/parseCsv";
 import { filterAndTransform, transformAll, getCities } from "../utils/filterListings";
 import { shiftListingsToFuture } from "../utils/demoSeed";
+import { relinkIds, relinkIdSet } from "../utils/relinkIds";
 import { optimizeRoute } from "../utils/routeOptimizer";
 import { useHiddenIds } from "./useHiddenIds";
 import { useVisits } from "./useVisits";
@@ -175,6 +176,29 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
     const visited = allListings.filter((l) => visits[l.id]);
     if (visited.length > 0) saveSnapshots(visited);
   }, [allListings, visits]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Self-heal priorityOrder + hiddenIds when Redfin re-lists a property
+  // with a new MLS#. Without this, starring a property and then re-uploading
+  // a CSV where that property has a new MLS# silently drops the star.
+  // Matches orphaned ids to current listings by address+city via archived
+  // snapshots.
+  useEffect(() => {
+    if (allFavoritesListings.length === 0) return;
+    if (hiddenIds === null) return; // still loading
+    if (priorityOrder.length === 0 && hiddenIds.size === 0) return;
+    if (authMode !== "signed-in") return; // guest/demo have no cloud to update
+
+    const p = relinkIds(priorityOrder, allFavoritesListings, archivedListings);
+    const h = relinkIdSet(hiddenIds, allFavoritesListings, archivedListings);
+    const total = Object.keys(p.remappings).length + Object.keys(h.remappings).length;
+    if (total === 0) return;
+
+    console.info(
+      `[relinkIds] Re-linked ${total} ids after MLS# change ` +
+      `(priorities: ${Object.keys(p.remappings).length}, hidden: ${Object.keys(h.remappings).length})`
+    );
+    importHiddenAndPriority(Array.from(h.ids), p.ids);
+  }, [allFavoritesListings, archivedListings, priorityOrder, hiddenIds, authMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Wrap markVisited to immediately snapshot the listing — avoids data loss
   // if the CSV is later updated to exclude this listing before the effect fires.
