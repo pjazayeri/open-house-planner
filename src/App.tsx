@@ -28,9 +28,12 @@ import "./App.css";
 type MobileTab = "map" | "list";
 export type Page = "home" | "planner" | "priority" | "data" | "finance" | "analytics" | "admin" | "design";
 
-// Client-side visibility gate for the Admin nav link. The real authorization is
-// enforced server-side (ADMIN_UIDS) by /api/admin-stats.
+// The sole admin account. This gates UI visibility/navigation only; real
+// authorization is enforced server-side by /api/admin-stats (ADMIN_EMAILS env,
+// same default).
 export const ADMIN_EMAILS = ["pauljazayeri@gmail.com"];
+export const isAdminEmail = (email?: string | null): boolean =>
+  !!email && ADMIN_EMAILS.includes(email.toLowerCase());
 
 function MapIcon() {
   return (
@@ -139,6 +142,7 @@ import { cloudFetch, cloudPatch } from "./utils/cloudSync";
 
 function App() {
   const { user, mode: authMode, signInWithGoogle, continueAsGuest, continueAsDemo, signOut } = useAuth();
+  const isAdmin = isAdminEmail(user?.email);
   const { theme, toggleTheme, setTheme } = useTheme();
 
   // If user signs in from guest mode, remount the whole app to reload cloud state
@@ -323,6 +327,13 @@ function App() {
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
+
+  // Admin-only pages (Admin, Design) are hidden from nav for non-admins; if one
+  // is reached directly (typed URL / stale link), bounce to home once auth resolves.
+  useEffect(() => {
+    if (authMode === "loading") return;
+    if ((page === "admin" || page === "design") && !isAdmin) setPageState("home");
+  }, [page, isAdmin, authMode]);
 
   function setPage(p: Page) {
     setPageState(p);
@@ -687,7 +698,7 @@ function App() {
         saveFailed={saveFailed}
         authMode={authMode}
         user={user ? { displayName: user.displayName, email: user.email, photoURL: user.photoURL } : null}
-        isAdmin={!!user?.email && ADMIN_EMAILS.includes(user.email)}
+        isAdmin={isAdmin}
         onSignOut={signOut}
         onShowSummary={() => setShowSummary(true)}
         onUploadCsv={uploadListings}
@@ -716,8 +727,8 @@ function App() {
           priorityIds={priorityIds}
         />
       )}
-      {page === "admin" && <AdminPage />}
-      {page === "design" && <DesignPage />}
+      {page === "admin" && isAdmin && <AdminPage />}
+      {page === "design" && isAdmin && <DesignPage />}
       {page === "finance" && (
         <FinancePage
           allListings={[...augmentedAllFavoritesListings, ...augmentedArchivedListings.filter(a => !augmentedAllFavoritesListings.some(l => l.id === a.id))]}

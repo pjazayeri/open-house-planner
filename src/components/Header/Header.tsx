@@ -214,12 +214,14 @@ export function Header({
             Admin
           </button>
         )}
-        <button
-          className={`nav-tab ${page === "design" ? "active" : ""}`}
-          onClick={() => onNavigate("design")}
-        >
-          Design
-        </button>
+        {isAdmin && (
+          <button
+            className={`nav-tab ${page === "design" ? "active" : ""}`}
+            onClick={() => onNavigate("design")}
+          >
+            Design
+          </button>
+        )}
         <button className="nav-tab nav-tab--summary" onClick={onShowSummary}>
           Summary
         </button>

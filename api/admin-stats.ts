@@ -47,8 +47,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
-  // --- auth: valid token + uid in ADMIN_UIDS ---
-  const adminUids = (process.env.ADMIN_UIDS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  // --- auth: valid token + email in the admin allowlist ---
+  // Keyed by email (matches the client gate and how admins are reasoned about).
+  // Defaults to the sole owner even if ADMIN_EMAILS isn't set, so the dashboard
+  // works without extra env wiring.
+  const adminEmails = (process.env.ADMIN_EMAILS ?? "pauljazayeri@gmail.com")
+    .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
   const authHeader = (req.headers["authorization"] as string) ?? "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
   if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON && process.env.SKIP_AUTH_VERIFY !== "true") {
@@ -57,17 +61,17 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       res.end(JSON.stringify({ error: "Authentication required" }));
       return;
     }
-    let uid: string;
+    let email: string;
     try {
       const admin = await getFirebaseAdmin();
       if (!admin) throw new Error("admin unavailable");
-      uid = (await admin.auth().verifyIdToken(token)).uid;
+      email = ((await admin.auth().verifyIdToken(token)).email ?? "").toLowerCase();
     } catch {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Invalid token" }));
       return;
     }
-    if (adminUids.length > 0 && !adminUids.includes(uid)) {
+    if (!adminEmails.includes(email)) {
       res.writeHead(403, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Not an admin" }));
       return;
