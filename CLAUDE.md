@@ -11,15 +11,16 @@ npm run lint       # ESLint
 npm run preview    # Preview production build
 
 vercel --prod      # Deploy to production manually
-node scripts/test-jsonbin.mjs  # Validate JSONBin credentials in .env.local
+npx vitest run     # Run the test suite (also runs on pre-push)
+node scripts/neon-init.mjs     # Create the user_state table in Neon (reads DATABASE_URL)
 python3 scripts/fetch-thumbnails.py  # Download listing thumbnails from Redfin
 ```
 
-No test framework is configured.
+Tests run on Vitest (happy-dom). A pre-push git hook runs `vitest` before every push.
 
 ## Architecture
 
-Single-page React + TypeScript app (Vite) hosted on Vercel for planning open house visits. Reads a Redfin CSV export, displays listings on a map with a sidebar, and persists user state to JSONBin.io via a server-side proxy.
+Single-page React + TypeScript app (Vite) hosted on Vercel for planning open house visits. Reads a Redfin CSV export, displays listings on a map with a sidebar, and persists user state to Neon Postgres via a server-side proxy (Firebase auth).
 
 ### Data pipeline
 
@@ -59,24 +60,32 @@ Both hooks are composed in **`useListings.ts`**, which merges `syncStatus` value
 
 ### Cloud sync
 
-Secrets never reach the client. The browser calls `/api/sync` (GET/PUT) and `/api/insights` (POST streaming), which are Vercel serverless functions in `api/` that proxy to JSONBin and Anthropic respectively.
+Secrets never reach the client. The browser calls `/api/sync` (GET/PUT) and `/api/insights` (POST streaming), which are Vercel serverless functions in `api/` backed by **Neon Postgres** and Anthropic respectively.
 
-`src/utils/cloudSync.ts` calls `/api/sync`. Every write is a GET-then-PUT merge. A module-level `_pendingFetch` deduplicates React StrictMode double-invocation.
+Each user's state is a single JSONB row in the `user_state` table keyed by Firebase `uid`:
+```sql
+CREATE TABLE user_state (uid TEXT PRIMARY KEY, state JSONB NOT NULL DEFAULT '{}', updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
+```
+`api/sync.ts` verifies the Firebase ID token (via `firebase-admin`), derives the `uid` from it (never from the client), and:
+- **GET** → `SELECT state FROM user_state WHERE uid=$1`, returns `{ record: state }`.
+- **PUT** → `INSERT … ON CONFLICT (uid) DO UPDATE SET state = user_state.state || $patch::jsonb`. The JSONB `||` is an **atomic shallow-merge**: only the top-level keys present in the patch are replaced, in one statement. This is why `cloudPatch` no longer does a client-side GET-then-PUT — concurrent writes to different keys can't clobber each other.
+
+`src/utils/cloudSync.ts` calls `/api/sync`, sending only the changed keys (`cloudPatch(patch)`). A module-level `_pendingFetch` deduplicates React StrictMode double-invocation. The client tracks no storage id — the server keys everything by the token's uid (so there's no `/api/user` registry; that endpoint was removed).
 
 `SyncStatus`: `"loading" | "ok" | "error" | "unconfigured" | "degraded"`
-- `"degraded"` — 401 from JSONBin (stale key). App loads with empty in-memory state.
+- `"degraded"` — 401 from `/api/sync` (bad/expired token). App loads with empty in-memory state.
 - Set `VITE_SYNC_DISABLED=true` in `.env.local` to run fully offline.
 
 **Required env vars** — stored in Vercel dashboard (not baked into the bundle):
 ```
-JSONBIN_API_KEY    # JSONBin master key
-JSONBIN_BIN_ID     # JSONBin bin ID
-ANTHROPIC_API_KEY  # enables AI insights in SummaryModal
+DATABASE_URL                  # Neon Postgres connection string (Vercel Marketplace integration)
+FIREBASE_SERVICE_ACCOUNT_JSON # server-side token verification (base64 or raw JSON)
+ANTHROPIC_API_KEY             # enables AI insights in SummaryModal
 ```
 
-For local dev, `vercel env pull .env.local` pulls these down. The Vite dev server (`npm run dev`) implements `/api/sync` as a middleware in `vite.config.ts`, reading `.env.local` directly via `fs.readFileSync` — **do not use `loadEnv` or `process.env` to read these secrets** because Vite's env loader interpolates `$` characters in values, corrupting bcrypt-format keys like `$2a$10$...`. Always read `.env.local` with the raw file parser in `vite.config.ts`.
+For local dev, `vercel env pull .env.local` pulls these down. The Vite dev server (`npm run dev`) implements `/api/sync` as a middleware in `vite.config.ts`, reading `.env.local` directly via `fs.readFileSync` — **do not use `loadEnv` or `process.env` to read these secrets** because Vite's env loader interpolates `$` characters in values, corrupting connection strings / keys. The raw parser also strips a trailing literal `\n` that `vercel env pull` can leave on values. Always read `.env.local` with the raw file parser in `vite.config.ts`.
 
-Run `node scripts/test-jsonbin.mjs` to verify credentials work before debugging sync issues.
+`scripts/neon-init.mjs` creates the table; `scripts/migrate-jsonbin-to-neon.mjs` was the one-shot JSONBin→Neon migration (`--env <path>` to target a pulled prod env, `--dry` to preview).
 
 ### Key types (`src/types.ts`)
 

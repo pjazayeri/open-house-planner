@@ -1,11 +1,12 @@
 /**
- * Shared JSONBin.io sync for all cross-device state.
+ * Shared cloud sync for all cross-device state, backed by Neon Postgres.
  *
- * The bin stores a single JSON object:
- *   { hiddenIds: string[], visits: Record<string, VisitRecord> }
+ * Each user's state is one JSONB row in `user_state` keyed by Firebase uid:
+ *   { hiddenIds: string[], priorityIds: string[], visits: {...}, ... }
  *
- * Every write does a GET-then-PUT so that two hooks writing different
- * fields never clobber each other's data.
+ * Writes send only the changed top-level keys; the server applies them with
+ * an atomic JSONB `||` merge, so two hooks writing different keys never
+ * clobber each other (no client-side GET-then-PUT round-trip).
  */
 import type { VisitRecord, MapZone } from "../types";
 
@@ -17,36 +18,34 @@ export type SyncStatus = "unconfigured" | "loading" | "ok" | "error" | "degraded
 
 // Auth context — set by useAuth before the main app mounts.
 // getToken() returns a fresh Firebase ID token (auto-refreshed by the SDK).
+// The server derives the per-user row key (uid) from this token; the client
+// no longer tracks a storage id.
 let _getToken: (() => Promise<string>) | null = null;
-let _binId: string | null = null;
 let _guestMode = false;
 
-export function setAuthContext(getToken: () => Promise<string>, binId: string) {
+export function setAuthContext(getToken: () => Promise<string>) {
   _getToken = getToken;
-  _binId = binId || null;
   _guestMode = false;
   // Invalidate any cached fetch made before auth was set so the next
-  // cloudFetch() uses the correct authenticated bin.
+  // cloudFetch() runs with the authenticated token.
   _pendingFetch = null;
 }
 
 export function setGuestMode() {
   _guestMode = true;
   _getToken = null;
-  _binId = null;
 }
 
 export function clearAuthContext() {
   _getToken = null;
-  _binId = null;
   _guestMode = false;
   _pendingFetch = null;
 }
 
 export async function getAuthHeaders(): Promise<Record<string, string>> {
-  if (!_getToken || !_binId) return {};
+  if (!_getToken) return {};
   const token = await _getToken();
-  return { Authorization: `Bearer ${token}`, "X-Bin-Id": _binId };
+  return { Authorization: `Bearer ${token}` };
 }
 
 const BIN_URL = `/api/sync`;
@@ -177,18 +176,15 @@ export async function cloudFetch(): Promise<CloudState> {
   if (_pendingFetch) return _pendingFetch;
 
   _pendingFetch = (async () => {
-    if (!_getToken || !_binId) {
+    if (!_getToken) {
       throw Object.assign(new Error("Auth context not ready"), { authError: true });
     }
-    const headers = {
-      "Authorization": `Bearer ${await _getToken()}`,
-      "X-Bin-Id": _binId,
-    };
+    const headers = { "Authorization": `Bearer ${await _getToken()}` };
     const res = await fetch(BIN_URL, { headers });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       console.error(`[cloudSync] fetch failed ${res.status}:`, body.slice(0, 200));
-      const err = Object.assign(new Error(`JSONBin ${res.status}`), {
+      const err = Object.assign(new Error(`sync ${res.status}`), {
         authError: res.status === 401,
       });
       throw err;
@@ -202,24 +198,24 @@ export async function cloudFetch(): Promise<CloudState> {
 }
 
 /**
- * Merge `patch` into the current cloud state and write back.
+ * Persist a partial state update. Only the changed top-level keys are sent;
+ * the server applies them with an atomic JSONB merge, so concurrent writes to
+ * different keys can't clobber each other (no read-modify-write here).
  */
 export async function cloudPatch(patch: Partial<CloudState>): Promise<void> {
   if (_guestMode) return;
-  const current = await cloudFetch();
-  const merged: CloudState = { ...current, ...patch };
-  const putHeaders: Record<string, string> = { "Content-Type": "application/json" };
-  if (!_getToken || !_binId) return;
-  putHeaders["Authorization"] = `Bearer ${await _getToken()}`;
-  putHeaders["X-Bin-Id"] = _binId;
+  if (!_getToken) return;
   const res = await fetch(BIN_URL, {
     method: "PUT",
-    headers: putHeaders,
-    body: JSON.stringify(merged),
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${await _getToken()}`,
+    },
+    body: JSON.stringify(patch),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     console.error(`[cloudSync] patch failed ${res.status}:`, body.slice(0, 200));
-    throw new Error(`JSONBin ${res.status}`);
+    throw new Error(`sync ${res.status}`);
   }
 }

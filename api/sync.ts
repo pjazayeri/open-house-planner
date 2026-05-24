@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createRequire } from "module";
+import { neon } from "@neondatabase/serverless";
 const require = createRequire(import.meta.url);
 
 let adminInitialized = false;
@@ -24,9 +25,20 @@ async function getFirebaseAdmin() {
   return admin;
 }
 
+/** Decode a JWT's `uid` WITHOUT verifying the signature. Only used when
+ *  SKIP_AUTH_VERIFY=true or Firebase isn't configured (local/dev paths). */
+function decodeUidUnsafe(token: string): string | null {
+  try {
+    const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64").toString("utf8"));
+    return (payload.user_id as string) || (payload.sub as string) || null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
-  const API_KEY = process.env.JSONBIN_API_KEY;
-  if (!API_KEY) {
+  const DATABASE_URL = process.env.DATABASE_URL;
+  if (!DATABASE_URL) {
     res.writeHead(503, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Sync not configured" }));
     return;
@@ -35,45 +47,40 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const authHeader = (req.headers["authorization"] as string) ?? "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
 
-  // When Firebase is configured, every sync request must carry a valid ID token.
-  // Without this, any client that knows a bin ID can read/write it freely.
+  // Resolve the per-user key (uid). In production every request must carry a
+  // valid Firebase ID token; the uid comes from the verified token — never
+  // from a client-supplied value — so one user can't read another's row.
+  let uid: string | null = null;
   if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
     if (!token) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Authentication required" }));
       return;
     }
-    if (process.env.SKIP_AUTH_VERIFY !== "true") {
+    if (process.env.SKIP_AUTH_VERIFY === "true") {
+      uid = decodeUidUnsafe(token);
+    } else {
       try {
         const admin = await getFirebaseAdmin();
-        if (admin) await admin.auth().verifyIdToken(token);
+        uid = admin ? (await admin.auth().verifyIdToken(token)).uid : decodeUidUnsafe(token);
       } catch {
         res.writeHead(401, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Invalid token" }));
         return;
       }
     }
+  } else {
+    // No Firebase configured (pure local dev) — best-effort uid from the token.
+    uid = token ? decodeUidUnsafe(token) : null;
   }
+  if (!uid) uid = "local-dev"; // dev-only fallback; unreachable in prod (verified above)
 
-  // Authenticated requests send X-Bin-Id; fall back to env var only in local dev
-  // (when FIREBASE_SERVICE_ACCOUNT_JSON is not set, any X-Bin-Id would be untrusted anyway)
-  const binIdHeader = (req.headers["x-bin-id"] as string) ?? "";
-  const BIN_ID = binIdHeader || process.env.JSONBIN_BIN_ID;
-
-  if (!BIN_ID) {
-    res.writeHead(503, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Sync not configured" }));
-    return;
-  }
-
-  const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
-  const authHeaders = { "X-Master-Key": API_KEY };
+  const sql = neon(DATABASE_URL);
 
   if (req.method === "GET") {
-    const r = await fetch(`${BIN_URL}/latest`, { headers: authHeaders });
-    const body = await r.text();
-    res.writeHead(r.status, { "Content-Type": "application/json" });
-    res.end(body);
+    const rows = (await sql`SELECT state FROM user_state WHERE uid = ${uid}`) as { state: unknown }[];
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ record: rows[0]?.state ?? {} }));
     return;
   }
 
@@ -84,14 +91,27 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       req.on("end", () => resolve(data));
       req.on("error", reject);
     });
-    const r = await fetch(BIN_URL, {
-      method: "PUT",
-      headers: { ...authHeaders, "Content-Type": "application/json" },
-      body: rawBody,
-    });
-    const body = await r.text();
-    res.writeHead(r.status, { "Content-Type": "application/json" });
-    res.end(body);
+    let patch: unknown;
+    try {
+      patch = JSON.parse(rawBody || "{}");
+    } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON body" }));
+      return;
+    }
+    // Atomic JSONB shallow-merge: replaces only the top-level keys present in
+    // `patch`, in a single statement. This eliminates the GET-then-PUT race
+    // that JSONBin forced (two hooks writing different keys no longer clobber).
+    const patchJson = JSON.stringify(patch);
+    const rows = (await sql`
+      INSERT INTO user_state (uid, state) VALUES (${uid}, ${patchJson}::jsonb)
+      ON CONFLICT (uid) DO UPDATE
+        SET state = user_state.state || ${patchJson}::jsonb,
+            updated_at = now()
+      RETURNING state
+    `) as { state: unknown }[];
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ record: rows[0]?.state ?? {} }));
     return;
   }
 

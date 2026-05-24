@@ -30,3 +30,4 @@ public/thumbnails/
 public/redfin-favorites_*.csv
 data/redfin-favorites_*.csv
 tmp/
+.env*.local

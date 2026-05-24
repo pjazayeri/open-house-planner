@@ -4,6 +4,7 @@ import type { Plugin } from 'vite'
 import type { IncomingMessage, ServerResponse } from 'http'
 import { readFileSync, readdirSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { list, head } from '@vercel/blob'
+import { neon } from '@neondatabase/serverless'
 import { resolve } from 'path'
 
 function readEnvLocal(): Record<string, string> {
@@ -25,34 +26,51 @@ function readEnvLocal(): Record<string, string> {
   }
 }
 
+// Dev-only: derive the per-user key from a Firebase ID token WITHOUT verifying
+// the signature (it's the local developer's own token). Mirrors the uid logic
+// in api/sync.ts; prod verifies properly via firebase-admin.
+function uidFromToken(token: string): string | null {
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(token.split('.')[1] ?? '', 'base64').toString('utf8'));
+    return payload.user_id || payload.sub || null;
+  } catch {
+    return null;
+  }
+}
+
 function localApis(): Plugin {
   const env = readEnvLocal();
-  const BIN_ID = env.JSONBIN_BIN_ID;
-  const API_KEY = env.JSONBIN_API_KEY;
+  const DATABASE_URL = env.DATABASE_URL;
 
-  if (!BIN_ID || !API_KEY) {
-    console.warn('[local-sync-api] ⚠️  JSONBIN_BIN_ID or JSONBIN_API_KEY missing from .env.local — cloud sync disabled');
+  if (!DATABASE_URL) {
+    console.warn('[local-sync-api] ⚠️  DATABASE_URL missing from .env.local — cloud sync disabled (run `vercel env pull .env.local`)');
   }
+  let schemaEnsured = false;
 
   return {
     name: 'local-apis',
     configureServer(server) {
-      // /api/sync — proxy to JSONBin
+      // /api/sync — per-user state in Neon, keyed by the Firebase uid decoded
+      // from the bearer token. Mirrors api/sync.ts (atomic JSONB merge on PUT).
       server.middlewares.use('/api/sync', async (req: IncomingMessage, res: ServerResponse) => {
-        if (!BIN_ID || !API_KEY) {
+        if (!DATABASE_URL) {
           res.writeHead(503, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Sync not configured — set JSONBIN_BIN_ID and JSONBIN_API_KEY in .env.local' }));
+          res.end(JSON.stringify({ error: 'Sync not configured — set DATABASE_URL in .env.local' }));
           return;
         }
-
-        const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
-        const authHeaders = { 'X-Master-Key': API_KEY };
+        const sql = neon(DATABASE_URL);
+        if (!schemaEnsured) {
+          await sql`CREATE TABLE IF NOT EXISTS user_state (uid TEXT PRIMARY KEY, state JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`;
+          schemaEnsured = true;
+        }
+        const auth = (req.headers['authorization'] as string) ?? '';
+        const uid = uidFromToken(auth.startsWith('Bearer ') ? auth.slice(7) : '') ?? 'local-dev';
 
         if (req.method === 'GET') {
-          const r = await fetch(`${BIN_URL}/latest`, { headers: authHeaders });
-          const body = await r.text();
-          res.writeHead(r.status, { 'Content-Type': 'application/json' });
-          res.end(body);
+          const rows = await sql`SELECT state FROM user_state WHERE uid = ${uid}`;
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ record: rows[0]?.state ?? {} }));
           return;
         }
 
@@ -63,34 +81,24 @@ function localApis(): Plugin {
             req.on('end', () => resolve(data));
             req.on('error', reject);
           });
-          const r = await fetch(BIN_URL, {
-            method: 'PUT',
-            headers: { ...authHeaders, 'Content-Type': 'application/json' },
-            body: rawBody,
-          });
-          const body = await r.text();
-          res.writeHead(r.status, { 'Content-Type': 'application/json' });
-          res.end(body);
+          let patch: unknown;
+          try { patch = JSON.parse(rawBody || '{}'); } catch {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Invalid JSON body' }));
+            return;
+          }
+          const patchJson = JSON.stringify(patch);
+          const rows = await sql`
+            INSERT INTO user_state (uid, state) VALUES (${uid}, ${patchJson}::jsonb)
+            ON CONFLICT (uid) DO UPDATE SET state = user_state.state || ${patchJson}::jsonb, updated_at = now()
+            RETURNING state`;
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ record: rows[0]?.state ?? {} }));
           return;
         }
 
         res.writeHead(405);
         res.end('Method not allowed');
-      });
-
-      // /api/user — local dev: return existing bin ID (no registry lookup needed)
-      server.middlewares.use('/api/user', (req: IncomingMessage, res: ServerResponse) => {
-        if (req.method !== 'GET') {
-          res.writeHead(405); res.end('Method not allowed'); return;
-        }
-        const BIN_ID = env.JSONBIN_BIN_ID;
-        if (!BIN_ID) {
-          res.writeHead(503, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Not configured — set JSONBIN_BIN_ID in .env.local' }));
-          return;
-        }
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ binId: BIN_ID }));
       });
 
       // /api/thumbnail — proxy Vercel Blob; fall back to public/thumbnails/ locally
