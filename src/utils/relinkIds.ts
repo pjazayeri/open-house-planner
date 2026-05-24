@@ -1,4 +1,5 @@
 import type { Listing } from "../types";
+import { addressKey } from "./addressKey";
 
 /**
  * Re-link orphaned IDs (priorities, hides) by address when MLS# changes.
@@ -19,41 +20,6 @@ import type { Listing } from "../types";
 export interface RelinkResult {
   ids: string[];
   remappings: Record<string, string>;
-}
-
-// Street-type normalization so "100 Main Street" and "100 Main St."
-// resolve to the same key.
-const STREET_SUFFIX_MAP: Array<[RegExp, string]> = [
-  [/\bstreet\b/g, "st"],
-  [/\bst\.?\b/g, "st"],
-  [/\bavenue\b/g, "ave"],
-  [/\bave\.?\b/g, "ave"],
-  [/\bboulevard\b/g, "blvd"],
-  [/\bblvd\.?\b/g, "blvd"],
-  [/\broad\b/g, "rd"],
-  [/\brd\.?\b/g, "rd"],
-  [/\bdrive\b/g, "dr"],
-  [/\bdr\.?\b/g, "dr"],
-  [/\bplace\b/g, "pl"],
-  [/\bpl\.?\b/g, "pl"],
-];
-
-function addressKey(addressRaw: string, city: string): string {
-  // Aggressive normalization so trailing whitespace, casing, #/Unit
-  // spacing, "Street" vs "St.", and trailing periods don't block a match
-  // between an archived snapshot and a current row.
-  let a = addressRaw
-    .trim()
-    .toLowerCase()
-    .replace(/\./g, "")          // drop ALL periods (St., Ave., etc.)
-    .replace(/[\s,]+/g, " ")
-    .replace(/\bunit\s+/g, "#");
-  for (const [pattern, replacement] of STREET_SUFFIX_MAP) {
-    a = a.replace(pattern, replacement);
-  }
-  // Collapse any spaces introduced by replacements.
-  a = a.replace(/\s+/g, " ").trim();
-  return `${a}|${city.trim().toLowerCase()}`;
 }
 
 export function relinkIds(
