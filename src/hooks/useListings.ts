@@ -171,11 +171,18 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
     [cityListings]
   );
 
-  // Snapshot visited listings to cloud so they survive future CSV updates
+  // Snapshot every listing the user references — visited OR starred (priority)
+  // OR hidden — to cloud + localStorage so they survive future CSV updates.
+  // This is what lets relinkIds() heal a star/hide after Redfin re-lists the
+  // property with a new MLS#: the snapshot preserves the old MLS# → address
+  // mapping. (Previously only *visited* listings were snapshotted, so a
+  // starred-but-unvisited priority had no snapshot and couldn't be relinked.)
   useEffect(() => {
-    const visited = allListings.filter((l) => visits[l.id]);
-    if (visited.length > 0) saveSnapshots(visited);
-  }, [allListings, visits]); // eslint-disable-line react-hooks/exhaustive-deps
+    const referenced = allListings.filter(
+      (l) => visits[l.id] || priorityIds.has(l.id) || hiddenIds.has(l.id)
+    );
+    if (referenced.length > 0) saveSnapshots(referenced);
+  }, [allListings, visits, priorityIds, hiddenIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Self-heal priorityOrder + hiddenIds when Redfin re-lists a property
   // with a new MLS#. Without this, starring a property and then re-uploading
