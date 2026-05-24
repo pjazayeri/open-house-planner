@@ -3,6 +3,9 @@
   "devCommand": "vite",
   "outputDirectory": "dist",
   "installCommand": "npm ci",
+  "crons": [
+    { "path": "/api/cron-listings", "schedule": "0 13 * * *" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
