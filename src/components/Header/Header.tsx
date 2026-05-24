@@ -27,6 +27,7 @@ interface HeaderProps {
   saveFailed: boolean;
   authMode: AuthMode;
   user: AuthUser | null;
+  isAdmin?: boolean;
   onSignOut: () => Promise<void>;
   onShowSummary: () => void;
   onUploadCsv: (text: string) => Promise<number>;
@@ -74,6 +75,7 @@ export function Header({
   saveFailed,
   authMode,
   user,
+  isAdmin,
   onSignOut,
   onShowSummary,
   onUploadCsv,
@@ -204,6 +206,14 @@ export function Header({
         >
           Analytics
         </button>
+        {isAdmin && (
+          <button
+            className={`nav-tab ${page === "admin" ? "active" : ""}`}
+            onClick={() => onNavigate("admin")}
+          >
+            Admin
+          </button>
+        )}
         <button className="nav-tab nav-tab--summary" onClick={onShowSummary}>
           Summary
         </button>

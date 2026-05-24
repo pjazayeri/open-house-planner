@@ -123,6 +123,35 @@ function localApis(): Plugin {
         res.end(JSON.stringify({ openHouses, count: rows.length }));
       });
 
+      // /api/admin-stats — observability (dev: no auth gate; Neon + Blob; Firebase skipped)
+      server.middlewares.use('/api/admin-stats', async (req: IncomingMessage, res: ServerResponse) => {
+        if (req.method !== 'GET') { res.writeHead(405); res.end('Method not allowed'); return; }
+        const out: Record<string, unknown> = { generatedAt: new Date().toISOString() };
+        try {
+          if (!DATABASE_URL) throw new Error('DATABASE_URL not configured');
+          const sql = neon(DATABASE_URL);
+          const [{ db_bytes }] = await sql`SELECT pg_database_size(current_database())::bigint AS db_bytes` as { db_bytes: string }[];
+          const sizes = await sql`SELECT c.relname AS name, pg_total_relation_size(c.oid)::bigint AS bytes FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' ORDER BY bytes DESC` as { name: string; bytes: string }[];
+          const [{ us }] = await sql`SELECT count(*)::int AS us FROM user_state` as { us: number }[];
+          const [{ li }] = await sql`SELECT count(*)::int AS li FROM listings` as { li: number }[];
+          const [{ oh }] = await sql`SELECT count(*)::int AS oh FROM open_houses` as { oh: number }[];
+          const counts: Record<string, number> = { user_state: us, listings: li, open_houses: oh };
+          const [cat] = await sql`SELECT (SELECT max(last_seen) FROM listings) AS last_ingest, (SELECT count(*)::int FROM open_houses WHERE start_ts > now()) AS upcoming, (SELECT min(start_ts) FROM open_houses) AS oh_min, (SELECT max(start_ts) FROM open_houses) AS oh_max` as { last_ingest: string|null; upcoming: number; oh_min: string|null; oh_max: string|null }[];
+          out.neon = { value: { dbBytes: Number(db_bytes), tables: sizes.map(t => ({ name: t.name, bytes: Number(t.bytes), rows: counts[t.name] ?? null })), catalog: { lastIngest: cat?.last_ingest ?? null, upcomingOpenHouses: cat?.upcoming ?? 0, openHouseRange: { min: cat?.oh_min ?? null, max: cat?.oh_max ?? null } } } };
+        } catch (e) { out.neon = { error: String(e) }; }
+        try {
+          const token = env.BLOB_READ_WRITE_TOKEN;
+          if (!token) throw new Error('BLOB_READ_WRITE_TOKEN not set');
+          process.env.BLOB_READ_WRITE_TOKEN = token;
+          let total = 0, count = 0, cursor: string | undefined, pages = 0;
+          do { const { blobs, cursor: next } = await list({ cursor, limit: 1000 }); for (const b of blobs) { total += b.size; count++; } cursor = next; } while (cursor && ++pages < 10);
+          out.blob = { value: { totalBytes: total, count, truncated: Boolean(cursor) } };
+        } catch (e) { out.blob = { error: String(e) }; }
+        out.firebase = { error: 'skipped in local dev' };
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(out, null, 2));
+      });
+
       // /api/thumbnail — proxy Vercel Blob; fall back to public/thumbnails/ locally
       server.middlewares.use('/api/thumbnail', async (req: IncomingMessage, res: ServerResponse) => {
         const mlsId = req.url?.split('/').pop()?.split('?')[0] ?? '';
