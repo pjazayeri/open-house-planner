@@ -101,6 +101,28 @@ function localApis(): Plugin {
         res.end('Method not allowed');
       });
 
+      // /api/listings — serve the open-house catalog (soonest upcoming OH per address)
+      server.middlewares.use('/api/listings', async (req: IncomingMessage, res: ServerResponse) => {
+        if (req.method !== 'GET') { res.writeHead(405); res.end('Method not allowed'); return; }
+        if (!DATABASE_URL) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Catalog not configured — set DATABASE_URL in .env.local' }));
+          return;
+        }
+        const sql = neon(DATABASE_URL);
+        const rows = await sql`
+          SELECT DISTINCT ON (address_key) address_key, start_raw, end_raw, mls_id
+          FROM open_houses
+          WHERE start_ts IS NOT NULL AND start_ts > now()
+          ORDER BY address_key, start_ts ASC`;
+        const openHouses: Record<string, { start: string; end: string | null; mlsId: string | null }> = {};
+        for (const r of rows as { address_key: string; start_raw: string; end_raw: string | null; mls_id: string | null }[]) {
+          openHouses[r.address_key] = { start: r.start_raw, end: r.end_raw, mlsId: r.mls_id };
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ openHouses, count: rows.length }));
+      });
+
       // /api/thumbnail — proxy Vercel Blob; fall back to public/thumbnails/ locally
       server.middlewares.use('/api/thumbnail', async (req: IncomingMessage, res: ServerResponse) => {
         const mlsId = req.url?.split('/').pop()?.split('?')[0] ?? '';

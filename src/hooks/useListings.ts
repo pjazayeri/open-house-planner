@@ -4,6 +4,7 @@ import { loadCsv, loadDemoCsv, uploadCsvText } from "../utils/parseCsv";
 import { filterAndTransform, transformAll, getCities } from "../utils/filterListings";
 import { shiftListingsToFuture } from "../utils/demoSeed";
 import { relinkIds, relinkIdSet } from "../utils/relinkIds";
+import { overlayOpenHouses, type CatalogOpenHouse } from "../utils/overlayOpenHouses";
 import { optimizeRoute } from "../utils/routeOptimizer";
 import { useHiddenIds } from "./useHiddenIds";
 import { useVisits } from "./useVisits";
@@ -126,6 +127,25 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
           // csvUrl from cloud state; for signed-in users it's always "/api/csv"
           const csvUrl = stateResult?.csvUrl;
           rows = await loadCsv(csvUrl, Object.keys(authHeaders).length ? authHeaders : undefined);
+
+          // Overlay fresh open-house times from the shared catalog onto the
+          // user's favorites (matched by address). This is why uploads no longer
+          // need to happen weekly: the daily cron keeps the catalog current and
+          // we self-refresh stale CSV times here. Non-fatal — falls back to the
+          // CSV's own times if the catalog is unavailable.
+          if (authMode === "signed-in") {
+            try {
+              const res = await fetch("/api/listings", { headers: authHeaders });
+              if (res.ok) {
+                const data = (await res.json()) as { openHouses: Record<string, CatalogOpenHouse> };
+                const { rows: overlaid, matched } = overlayOpenHouses(rows, data.openHouses);
+                rows = overlaid;
+                console.info(`[useListings] catalog refreshed open-house times for ${matched}/${rows.length} favorites`);
+              }
+            } catch (e) {
+              console.warn("[useListings] catalog overlay skipped:", e);
+            }
+          }
         }
         if (rows.length === 0) {
           setNeedsCsvUpload(true);
