@@ -28,6 +28,10 @@ History of shipped work. New entries go on top. When a `[PENDING VERIFICATION]` 
   Added a `:root` block in `src/index.css` with the 17 theme variables the app uses (surfaces, text, borders, accents, shadow) plus a `:root[data-theme="light"]` override block. Default values match the existing dark palette so this is a visual no-op until subsequent commits migrate component CSS to consume the variables.
   *Verify:* site still renders identical to before — `vercel --prod` deploy. No theme switch is wired up yet (next subtask).
 
+## Pending verification
+
+- **Option A read-path: catalog open-house times overlay onto CSV favorites** *(shipped 2026-05-24)* — `api/listings` GET (auth-gated, soonest upcoming open house per address; + vite dev middleware) + `overlayOpenHouses()` in `useListings` replace stale CSV open-house times with fresh catalog ones (matched by `addressKey`) before transform. Endpoint verified live + gated (401 unauth). *Verify in-app:* sign in, load the app with a CSV whose open-house times are stale, confirm the Planner shows the catalog's current times (console logs `catalog refreshed open-house times for N/M favorites`); falls back to CSV times if the catalog is down.
+
 ## Verified shipped
 
 - **Neon listing/open-house catalog + daily Redfin cron ingester** *(2026-05-24)* — Shared global catalog: `listings` (keyed by normalized `address_key`) + `open_houses` (append-only, PK `(address_key, start_raw)`). `api/cron-listings.ts` (daily Vercel cron 13:00 UTC, `CRON_SECRET`-gated) fetches SF Redfin `gis-csv`, upserts listings, appends open_houses with times converted to `America/Los_Angeles`. Verified in prod: **348 listings / 200 open houses**, idempotent re-run (0 added), tz round-trips correctly. CSV parsed inline (PapaParse crashes serverless on load); `addressKey()` inlined in the function (Vercel doesn't bundle cross-`src/` imports). Client still reads the CSV — read-path cutover is the remaining piece (see TODO).
