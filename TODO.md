@@ -38,6 +38,17 @@
   - Open questions: pick a SQL provider (Vercel Postgres / Neon / Supabase / Turso)? What's the migration path off JSONBin without a downtime window? Is the goal to make multi-user app-tenant data cleaner, or just to escape JSONBin's flat-blob constraints?
   - *Progress:* **Provider chosen = Neon Postgres** (Vercel Marketplace). **User-specific state migrated** (Stage 1: `user_state(uid, state jsonb)`, JSONBin retired for sync). Remaining scope = the user-agnostic listing/open-house data (see next item) + Stage 2 address-keyed remodel of user state.
 
+- **[MEDIUM]** Research a **free, schedulable source of open-house data** so favorites uploads become rare. Today the only reason to re-export/re-upload the Redfin CSV weekly is to refresh open-house *times*; if we can pull fresh times automatically on a schedule, uploads drop to "only when my favorites change." Deliverable: a short findings note + a recommendation **grounded in a real spike result, not guesses**.
+  - **Spike (the key de-risk):** hit Redfin's regional `gis-csv` open-house endpoint from a **Vercel function (datacenter IP)** — does it return data, and is it bot-blocked? Our thumbnail scraper works only because it runs from a residential IP; Vercel's IPs may be blocked. This single test decides whether free-Redfin is viable.
+  - Evaluate, with the spike result in hand:
+    - (a) **Redfin regional `gis-csv`** — same CSV columns we already parse (incl. `NEXT OPEN HOUSE TIME`), 1 request for all SF open houses, match to favorites by address. Most elegant if not blocked.
+    - (b) **Redfin per-favorite page fetch** — we already store each listing's Redfin URL; N requests, parse page JSON.
+    - (c) **Free tiers of 3rd-party APIs** (RapidAPI Realtor/Zillow, etc.) — confirm whether any *free* tier actually includes open-house times (often paywalled).
+    - (d) **Official MLS/RESO** (Bridge/SimplyRETS) feasibility for a non-agent (likely needs broker sponsorship — note it, don't pursue unless we have an agent connection).
+  - Capture per option: reliability/longevity, ToS/legal, rate limits, the address↔favorite matching path, and refresh cadence (Vercel cron schedule — note `crons` config in `vercel.ts`/`vercel.json`).
+  - Caveat to record: refresh updates *times* for already-saved favorites; it can't auto-discover newly favorited homes without the user's Redfin login, so occasional uploads remain.
+  - Output resolves the "ingestion source of truth" open question on the DB-service item below.
+
 - **[HARD]** Build a DB service for listing / open-house data (user-agnostic catalog in Neon). Today listings come from a per-user Redfin CSV blob that's re-parsed on every load; there's no shared, queryable, historical store of listings or their open-house times. Move that into Neon so listing data is deduped by address, queryable, and accumulates open-house history across weekends — decoupled from any one user's CSV.
   - Open questions / [NEEDS DISCUSSION]:
     - Ingestion source of truth: keep the Redfin CSV upload as the feed (parse → upsert into DB), or add a scheduled fetch? Who can ingest (owner-only vs any signed-in user contributing to a shared catalog)?
