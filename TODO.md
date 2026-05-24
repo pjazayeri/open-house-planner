@@ -41,15 +41,14 @@
 - ~~**[MEDIUM]** Research a free, schedulable open-house data source.~~ *(done 2026-05-24 — see `docs/research-open-house-data.md` + DONE.md. Verdict: **Redfin regional `gis-csv` via a Vercel cron** — proven to work from a Vercel datacenter IP, returns our exact CSV format. Unblocks the ingestion question below.)*
 
 - **[HARD]** Build a DB service for listing / open-house data (user-agnostic catalog in Neon). Today listings come from a per-user Redfin CSV blob that's re-parsed on every load; there's no shared, queryable, historical store of listings or their open-house times. Move that into Neon so listing data is deduped by address, queryable, and accumulates open-house history across weekends — decoupled from any one user's CSV.
-  - Open questions / [NEEDS DISCUSSION]:
-    - ~~Ingestion source of truth~~ **→ RESOLVED (2026-05-24):** scheduled **Redfin `gis-csv` fetch via a Vercel cron** (daily; paginate to cover all SF open houses), with manual CSV upload kept as a fallback + the way to discover *which* homes a user has favorited. See `docs/research-open-house-data.md`. (Still open: owner-only vs shared-catalog ingestion — ties to the multi-tenant question below.)
-    - Multi-tenant boundary: one shared global listing catalog, or per-user listing sets? (Drives whether listings are truly user-agnostic or scoped.)
-    - Schema: `listings` keyed by normalized `address_key` (reuse the `addressKey()` normalizer from `src/utils/relinkIds.ts`), with current MLS#, price, beds/baths, lat/lng, capRate inputs, etc.; plus an `open_houses(address_key, start, end, source)` child table so re-lists/new weekends append rather than overwrite. This is the same `listing_cache` envisioned in Stage 2 of the migration plan — building it here structurally kills the MLS#-relink bug and lets us delete `relinkIds.ts` + the snapshot bandaid.
-    - Read path: does the client query a new `/api/listings` endpoint (server reads Neon) instead of fetching+parsing the CSV? Keep CSV upload as a write path only.
-  - Subtasks (once the above is decided):
-    - **[MEDIUM]** Extract `addressKey()` to `src/utils/addressKey.ts` (shared server+client canonical key).
-    - **[MEDIUM]** Schema + migration: `listings` + `open_houses` tables (+ indexes on `address_key`).
-    - **[MEDIUM]** `api/ingest` (or CSV upload) parses → upserts listings + appends open-house rows.
-    - **[MEDIUM]** `api/listings` GET endpoint; point `parseCsv`/`useListings` read path at it (CSV becomes ingest-only).
-    - **[EASY]** Backfill from the current latest CSV; verify counts.
-    - Add unit tests for the address-key upsert + open-house append/dedupe logic.
+  - Decisions: **shared global catalog** (open-house data is public — one cron for everyone; favorites stay per-user in `user_state`). Ingestion = **Redfin `gis-csv` via a daily Vercel cron**.
+  - **Backend DONE + verified in prod (2026-05-24):**
+    - ✅ `addressKey()` extracted to `src/utils/addressKey.ts` (+ inlined copy in the cron — Vercel doesn't bundle cross-`src/` imports into functions).
+    - ✅ `listings` (address-keyed) + `open_houses` (append-only, PK `(address_key, start_raw)`) tables created via `scripts/neon-init.mjs`.
+    - ✅ `api/cron-listings.ts` — daily Vercel cron (13:00 UTC, `vercel.json`), gated on `CRON_SECRET`. Fetches SF gis-csv, upserts listings + appends open_houses (times → `America/Los_Angeles`). Verified: 348 listings / 200 open houses, idempotent re-run, correct tz.
+  - **Remaining:**
+    - Coverage: pagination via `page_number` doesn't add beyond the top ~350 ranked (got 348 unique / 200 OH). Likely covers ~all SF open houses on a given weekend, but verify; if short, find the open-house-only filter param or raise `num_homes`.
+    - **[MEDIUM]** `api/listings` GET endpoint (server reads Neon).
+    - **[NEEDS DISCUSSION]** Client read-path cutover: point `useListings` at `/api/listings` instead of parsing the CSV. **Product question:** the app is built around the user's *favorited* listings (CSV subset); a global catalog has all SF listings — so we need to either keep CSV as the favorites filter or add a "favorites" concept. CSV upload stays for favorites discovery regardless.
+    - **[MEDIUM]** Once the client reads open-house times from the catalog: this is Stage 2 of the data-model migration — re-key user state by `address_key` and **delete `relinkIds.ts` + the snapshot bandaid**.
+    - Add unit tests for the CSV parse + address-key upsert + open-house append/dedupe logic.
