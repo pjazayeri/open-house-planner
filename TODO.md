@@ -36,3 +36,18 @@
 
 - **[NEEDS DISCUSSION]** Revisit the data model: start moving appropriate data to SQL, and separate user-specific data from user-agnostic data. Reconsider whether public listing data should live under user data at all.
   - Open questions: pick a SQL provider (Vercel Postgres / Neon / Supabase / Turso)? What's the migration path off JSONBin without a downtime window? Is the goal to make multi-user app-tenant data cleaner, or just to escape JSONBin's flat-blob constraints?
+  - *Progress:* **Provider chosen = Neon Postgres** (Vercel Marketplace). **User-specific state migrated** (Stage 1: `user_state(uid, state jsonb)`, JSONBin retired for sync). Remaining scope = the user-agnostic listing/open-house data (see next item) + Stage 2 address-keyed remodel of user state.
+
+- **[HARD]** Build a DB service for listing / open-house data (user-agnostic catalog in Neon). Today listings come from a per-user Redfin CSV blob that's re-parsed on every load; there's no shared, queryable, historical store of listings or their open-house times. Move that into Neon so listing data is deduped by address, queryable, and accumulates open-house history across weekends — decoupled from any one user's CSV.
+  - Open questions / [NEEDS DISCUSSION]:
+    - Ingestion source of truth: keep the Redfin CSV upload as the feed (parse → upsert into DB), or add a scheduled fetch? Who can ingest (owner-only vs any signed-in user contributing to a shared catalog)?
+    - Multi-tenant boundary: one shared global listing catalog, or per-user listing sets? (Drives whether listings are truly user-agnostic or scoped.)
+    - Schema: `listings` keyed by normalized `address_key` (reuse the `addressKey()` normalizer from `src/utils/relinkIds.ts`), with current MLS#, price, beds/baths, lat/lng, capRate inputs, etc.; plus an `open_houses(address_key, start, end, source)` child table so re-lists/new weekends append rather than overwrite. This is the same `listing_cache` envisioned in Stage 2 of the migration plan — building it here structurally kills the MLS#-relink bug and lets us delete `relinkIds.ts` + the snapshot bandaid.
+    - Read path: does the client query a new `/api/listings` endpoint (server reads Neon) instead of fetching+parsing the CSV? Keep CSV upload as a write path only.
+  - Subtasks (once the above is decided):
+    - **[MEDIUM]** Extract `addressKey()` to `src/utils/addressKey.ts` (shared server+client canonical key).
+    - **[MEDIUM]** Schema + migration: `listings` + `open_houses` tables (+ indexes on `address_key`).
+    - **[MEDIUM]** `api/ingest` (or CSV upload) parses → upserts listings + appends open-house rows.
+    - **[MEDIUM]** `api/listings` GET endpoint; point `parseCsv`/`useListings` read path at it (CSV becomes ingest-only).
+    - **[EASY]** Backfill from the current latest CSV; verify counts.
+    - Add unit tests for the address-key upsert + open-house append/dedupe logic.
