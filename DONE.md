@@ -30,6 +30,7 @@ History of shipped work. New entries go on top. When a `[PENDING VERIFICATION]` 
 
 ## Verified shipped
 
+- **Research: free, schedulable open-house data source** *(2026-05-24)* — Verdict: **Redfin regional `gis-csv` via a Vercel cron**. Spike-tested from a Vercel datacenter IP (temp `api/spike-redfin.ts`, since removed): `WORKS_FROM_VERCEL` — HTTP 200, our exact CSV format, 351 rows / 201 open houses, not bot-blocked. Returns the same columns as the favorites export (reuse `parseCsv.ts`). Full findings + recommendation in `docs/research-open-house-data.md`. Unblocks the ingestion-source question on the "DB service for listing/open-house data" TODO.
 - **Apple Maps URL fix** *(2026-05-11)* — address links use `daddr=<lat>,<lng>&q=<label>` instead of the broken `daddr=<address>&ll=<lat>,<lng>` combo (Apple Maps was ignoring `daddr` when `ll` was present and opening with an empty destination). Confirmed by user.
 - **Share Plan dropdown z-index / mobile-modal fix** *(2026-05-11)* — portal-rendered dropdown was painted under the header (z:200 vs header z:1000); bumped to z:3000 and switched mobile under-767px to a centered modal with backdrop. Confirmed by user ("it looks like its working now").
 - **Favorites unification** *(2026-05-11)* — dropped `finFavoriteIds`; one star (priorityIds) tracks across Planner + Finance. One-shot migration in `useHiddenIds` unions legacy favs in.
