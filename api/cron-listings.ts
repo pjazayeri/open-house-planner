@@ -8,8 +8,43 @@
 // See docs/research-open-house-data.md for why this source/approach.
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { neon } from "@neondatabase/serverless";
-import Papa from "papaparse";
 import { addressKey } from "../src/utils/addressKey";
+
+// Minimal RFC-4180 CSV parser. (PapaParse references browser globals at load
+// time and crashes the serverless function, so we parse inline instead.)
+function parseCsvObjects(text: string): Row[] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; } else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ",") {
+      row.push(field); field = "";
+    } else if (c === "\r") {
+      // ignore
+    } else if (c === "\n") {
+      row.push(field); rows.push(row); row = []; field = "";
+    } else field += c;
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  if (rows.length === 0) return [];
+  const header = rows[0];
+  return rows
+    .slice(1)
+    .filter((r) => r.length > 1)
+    .map((r) => {
+      const o: Row = {};
+      header.forEach((h, idx) => { o[h] = r[idx]; });
+      return o;
+    });
+}
 
 const BASE = "https://www.redfin.com/stingray/api/gis-csv";
 const UA =
@@ -63,9 +98,7 @@ function toLocalSqlTs(s: string | undefined): string | null {
 async function fetchPage(page: number): Promise<Row[]> {
   const r = await fetch(gisUrl(page), { headers: { "User-Agent": UA, Accept: "text/csv,*/*" } });
   if (!r.ok) throw new Error(`gis-csv page ${page} → HTTP ${r.status}`);
-  const text = await r.text();
-  const parsed = Papa.parse<Row>(text, { header: true, skipEmptyLines: true });
-  return parsed.data;
+  return parseCsvObjects(await r.text());
 }
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
