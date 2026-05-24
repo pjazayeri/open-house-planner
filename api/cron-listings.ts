@@ -8,7 +8,26 @@
 // See docs/research-open-house-data.md for why this source/approach.
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { neon } from "@neondatabase/serverless";
-import { addressKey } from "../src/utils/addressKey";
+
+// NOTE: kept in sync with src/utils/addressKey.ts. Vercel transpiles each api/
+// file and resolves imports at runtime — it does NOT bundle cross-directory
+// src/ imports into the lambda — so the server needs its own copy of this
+// dependency-free normalizer. (addressKey.test.ts covers the canonical copy.)
+const STREET_SUFFIX_MAP: Array<[RegExp, string]> = [
+  [/\bstreet\b/g, "st"], [/\bst\.?\b/g, "st"],
+  [/\bavenue\b/g, "ave"], [/\bave\.?\b/g, "ave"],
+  [/\bboulevard\b/g, "blvd"], [/\bblvd\.?\b/g, "blvd"],
+  [/\broad\b/g, "rd"], [/\brd\.?\b/g, "rd"],
+  [/\bdrive\b/g, "dr"], [/\bdr\.?\b/g, "dr"],
+  [/\bplace\b/g, "pl"], [/\bpl\.?\b/g, "pl"],
+];
+function addressKey(addressRaw: string, city: string): string {
+  let a = addressRaw.trim().toLowerCase()
+    .replace(/\./g, "").replace(/[\s,]+/g, " ").replace(/\bunit\s+/g, "#");
+  for (const [pattern, replacement] of STREET_SUFFIX_MAP) a = a.replace(pattern, replacement);
+  a = a.replace(/\s+/g, " ").trim();
+  return `${a}|${city.trim().toLowerCase()}`;
+}
 
 // Minimal RFC-4180 CSV parser. (PapaParse references browser globals at load
 // time and crashes the serverless function, so we parse inline instead.)
