@@ -1,0 +1,64 @@
+.design-page {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+  color: var(--text);
+  overflow-y: auto;
+  height: 100%;
+}
+.design-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.design-head h1 { font-size: 1.5rem; margin: 0; }
+.design-doclink { color: var(--accent); text-decoration: none; font-size: 0.9rem; font-weight: 600; }
+.design-doclink:hover { text-decoration: underline; }
+.design-intro { color: var(--text-muted); max-width: 64ch; line-height: 1.5; }
+.design-muted { color: var(--text-muted); font-size: 0.85rem; }
+.design-footer { margin-top: 32px; border-top: 1px solid var(--border-faint, var(--border)); padding-top: 16px; }
+.design-footer a, .design-muted a { color: var(--accent); }
+
+.design-section { margin-top: 28px; }
+.design-section > h2 { font-size: 1.05rem; margin: 0 0 14px; }
+
+/* Layered architecture diagram */
+.design-layers { display: flex; flex-direction: column; gap: 0; }
+.design-layer {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  position: relative;
+}
+.design-layer + .design-layer { margin-top: 26px; }
+.design-layer-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.design-layer-name { font-weight: 700; font-size: 0.98rem; }
+.design-layer-sub { color: var(--text-muted); font-size: 0.82rem; }
+.design-layer ul { margin: 0; padding-left: 18px; }
+.design-layer li { font-size: 0.85rem; line-height: 1.6; color: var(--text); }
+.design-layer-arrow {
+  position: absolute;
+  left: 50%;
+  bottom: -22px;
+  transform: translateX(-50%);
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  z-index: 1;
+}
+
+/* Data flow */
+.design-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.design-flow-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.82rem;
+}
+.design-flow-arrow { color: var(--text-muted); margin-left: 2px; }
+
+/* Decision cards */
+.design-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.design-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.design-card-title { font-weight: 600; margin-bottom: 6px; font-size: 0.92rem; }
+.design-card p { margin: 0; font-size: 0.85rem; line-height: 1.5; color: var(--text-muted); }

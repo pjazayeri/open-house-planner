@@ -16,6 +16,7 @@ import { DataView } from "./components/DataView/DataView";
 import { FinancePage } from "./components/Finance/FinancePage";
 import { AnalyticsPage } from "./components/Analytics/AnalyticsPage";
 import { AdminPage } from "./components/Admin/AdminPage";
+import { DesignPage } from "./components/Design/DesignPage";
 import { serializePlan, decodePlan, deserializePlan, shiftPlanToFuture } from "./utils/serializePlan";
 import type { SerializedPlan } from "./utils/serializePlan";
 import { DEMO_BIN_ID } from "./components/Auth/AuthScreen";
@@ -25,7 +26,7 @@ import type { TimeSlotGroup, Listing } from "./types";
 import "./App.css";
 
 type MobileTab = "map" | "list";
-export type Page = "home" | "planner" | "priority" | "data" | "finance" | "analytics" | "admin";
+export type Page = "home" | "planner" | "priority" | "data" | "finance" | "analytics" | "admin" | "design";
 
 // Client-side visibility gate for the Admin nav link. The real authorization is
 // enforced server-side (ADMIN_UIDS) by /api/admin-stats.
@@ -716,6 +717,7 @@ function App() {
         />
       )}
       {page === "admin" && <AdminPage />}
+      {page === "design" && <DesignPage />}
       {page === "finance" && (
         <FinancePage
           allListings={[...augmentedAllFavoritesListings, ...augmentedArchivedListings.filter(a => !augmentedAllFavoritesListings.some(l => l.id === a.id))]}
@@ -747,7 +749,7 @@ function App() {
           initialSelectedId={idFromHash()}
         />
       )}
-      {page !== "analytics" && page !== "finance" && page !== "data" && page !== "admin" && (
+      {page !== "analytics" && page !== "finance" && page !== "data" && page !== "admin" && page !== "design" && (
       <>
       <div className={`app-body show-${mobileTab}`}>
         <Sidebar
