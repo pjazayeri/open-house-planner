@@ -70,19 +70,22 @@ const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 // San Francisco. (Multi-market would parameterize region_id/region_type.)
 const REGION = { region_id: "17151", region_type: "6", market: "sanfrancisco" };
-const PAGE_SIZE = 350;
-const MAX_PAGES = 6;
-const CHUNK = 50; // statements per Neon transaction round-trip
+const PAGE_CAP = 350;   // Redfin caps a single gis-csv response at ~350 rows
+const MAX_BANDS = 40;   // safety bound on recursive price-band requests
+const CHUNK = 50;       // statements per Neon transaction round-trip
 
 type Row = Record<string, string | undefined>;
 
-function gisUrl(page: number): string {
+// gis-csv for one price band. max=null means open-ended (no upper bound).
+function gisUrl(min: number, max: number | null): string {
   const p = new URLSearchParams({
-    al: "1", market: REGION.market, num_homes: String(PAGE_SIZE),
-    ord: "redfin-recommended-asc", page_number: String(page),
+    al: "1", market: REGION.market, num_homes: String(PAGE_CAP),
+    ord: "redfin-recommended-asc", page_number: "1",
     region_id: REGION.region_id, region_type: REGION.region_type,
     sf: "1,2,3,5,6,7", status: "9", uipt: "1,2,3,4,5,6,7,8", v: "8",
   });
+  if (min > 0) p.set("min_price", String(min));
+  if (max != null) p.set("max_price", String(max));
   return `${BASE}?${p.toString()}`;
 }
 
@@ -114,10 +117,36 @@ function toLocalSqlTs(s: string | undefined): string | null {
   return `${m[3]}-${pad(mon)}-${pad(parseInt(m[2], 10))} ${pad(h)}:${m[5]}:00`;
 }
 
-async function fetchPage(page: number): Promise<Row[]> {
-  const r = await fetch(gisUrl(page), { headers: { "User-Agent": UA, Accept: "text/csv,*/*" } });
-  if (!r.ok) throw new Error(`gis-csv page ${page} → HTTP ${r.status}`);
+async function fetchBand(min: number, max: number | null): Promise<Row[]> {
+  const r = await fetch(gisUrl(min, max), { headers: { "User-Agent": UA, Accept: "text/csv,*/*" } });
+  if (!r.ok) throw new Error(`gis-csv [${min}-${max ?? "inf"}] → HTTP ${r.status}`);
   return parseCsvObjects(await r.text());
+}
+
+// Redfin caps each query at ~350 rows, so to get ALL active SF listings (not just
+// the top-350 "recommended") we slice by price and recursively split any band that
+// hits the cap. This is what lets the catalog cover a user's specific favorites.
+async function fetchAllListings(): Promise<{ rows: Map<string, Row>; bands: number }> {
+  const byKey = new Map<string, Row>();
+  const queue: Array<[number, number | null]> = [[0, null]];
+  let bands = 0;
+  while (queue.length && bands < MAX_BANDS) {
+    const [min, max] = queue.shift()!;
+    const rows = await fetchBand(min, max);
+    bands++;
+    // A full page means the band is truncated — split it (unless it's already a
+    // $1-wide slice, an unsplittable pathological case).
+    if (rows.length >= PAGE_CAP && (max == null || max - min > 1)) {
+      const mid = max == null ? Math.max(min * 2, 1_000_000) : Math.floor((min + max) / 2);
+      queue.push([min, mid], [mid, max]);
+      continue;
+    }
+    for (const r of rows) {
+      const k = addressKey(r.ADDRESS ?? "", r.CITY ?? "");
+      if (k && k !== "|" && !byKey.has(k)) byKey.set(k, r);
+    }
+  }
+  return { rows: byKey, bands };
 }
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
@@ -138,22 +167,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const started = Date.now();
 
   try {
-    // 1. Fetch + dedupe by address_key (pagination stops when a page adds nothing
-    //    new — robust whether or not page_number actually paginates).
-    const byKey = new Map<string, Row>();
-    let pages = 0;
-    for (let page = 1; page <= MAX_PAGES; page++) {
-      const rows = await fetchPage(page);
-      if (rows.length === 0) break;
-      let added = 0;
-      for (const r of rows) {
-        const k = addressKey(r.ADDRESS ?? "", r.CITY ?? "");
-        if (!k || k === "|") continue;
-        if (!byKey.has(k)) { byKey.set(k, r); added++; }
-      }
-      pages++;
-      if (added === 0 || rows.length < PAGE_SIZE) break;
-    }
+    // 1. Fetch ALL active SF listings via adaptive price-band slicing (Redfin
+    //    caps each query at ~350), deduped by address_key.
+    const { rows: byKey, bands } = await fetchAllListings();
 
     // 2. Build upserts.
     const urlKeyOf = (r: Row) => Object.keys(r).find((k) => k.startsWith("URL"));
@@ -216,7 +232,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({
       ok: true,
-      pagesFetched: pages,
+      bandsFetched: bands,
       uniqueListings: byKey.size,
       listingsWithOpenHouse: withOpenHouse,
       listingsTotalNow: lAfter,
