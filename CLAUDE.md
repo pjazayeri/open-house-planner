@@ -25,22 +25,23 @@ Single-page React + TypeScript app (Vite) hosted on Vercel for planning open hou
 ### Data pipeline
 
 ```
-public/redfin-favorites_*.csv  (or localStorage "redfin-csv" if user uploaded)
-  → parseCsv.ts       (PapaParse → RawListing[])
-  → filterListings.ts (filter STATUS=Active + valid open house times → Listing[])
-  → capRate.ts        (compute capRate + CapRateBreakdown per listing)
-  → useListings.ts    (orchestrates pipeline + all UI state)
+user's Redfin CSV  (signed-in: Vercel Blob via /api/csv · dev: bundled public/*.csv · demo: public/demo-listings.csv)
+  → parseCsv.ts          (PapaParse → RawListing[])
+  → overlayOpenHouses.ts (replace stale open-house times with fresh catalog times, by address)
+  → filterListings.ts    (filter STATUS=Active + valid open house times → Listing[])
+  → capRate.ts           (compute capRate + CapRateBreakdown per listing)
+  → useListings.ts       (orchestrates pipeline + all UI state)
       → cityListings  (filters allListings to future open houses + selected city)
       → routeOptimizer.ts (group by time slot, nearest-neighbor → TimeSlotGroup[])
 ```
 
 `allListings` contains all active listings regardless of open house date — used by Browse, Data, Finance, Analytics. `timeSlotGroups` (for the Planner) derives from `cityListings` which filters to `openHouseEnd > now`.
 
-**Updating for a new weekend:** upload a new Redfin CSV via the "↑ Upload CSV" button (persists to `localStorage`), or drop the file in `public/` and update `CSV_PATH` in `src/utils/parseCsv.ts`.
+**Updating for a new weekend:** open-house *times* self-refresh from the catalog (daily cron) — re-uploading is only needed to change *which* homes are favorited. Upload a new Redfin CSV via the "↑ Upload CSV" button (stored in Vercel Blob via `/api/ingest` for signed-in users).
 
 ### Pages & routing
 
-Hash-based routing (`window.location.hash`). `type Page = "home" | "planner" | "priority" | "data" | "finance" | "analytics"` in `src/App.tsx`.
+Hash-based routing (`window.location.hash`). `type Page` in `src/App.tsx`.
 
 - `/#home` — Browse: all non-hidden city listings, flat list + map, sort/filter controls.
 - `/#planner` — Open Houses: future time-slot groups, geo tracking, priority section.
@@ -48,15 +49,28 @@ Hash-based routing (`window.location.hash`). `type Page = "home" | "planner" | "
 - `/#data` — DataView full-screen: all listings, multi-column sort/filter, CSV export.
 - `/#finance` — FinancePage full-screen: buy-vs-rent breakdown per listing.
 - `/#analytics` — AnalyticsPage full-screen: visit stats dashboard (ratings, timeline, top-rated).
+- `/#admin` — AdminPage: observability dashboard (data volume, dependency limits). Owner-only.
+- `/#design` — DesignPage: architecture overview, links to `docs/DESIGN.md`. Owner-only.
+
+**Gotcha when adding a page:** a hash is only honored if it's in the `VALID_PAGES`
+allowlist in `App.tsx` (`pageFromHash()` resets anything else to `home`). Adding a
+`Page` value + a route + a nav tab is *not enough* — omitting it from `VALID_PAGES`
+makes the page silently bounce back to Browse on navigation.
+
+`/#admin` and `/#design` are gated client-side by `isAdminEmail()` (`ADMIN_EMAILS`
+in `App.tsx`, currently only `pauljazayeri@gmail.com`): the nav tabs are hidden and
+direct navigation bounces non-admins to home. The real enforcement is server-side in
+`api/admin-stats.ts` (verified-token email vs the `ADMIN_EMAILS` env, same default).
 
 ### State management
 
-All user state lives in two hooks, both backed by JSONBin.io cloud sync:
+Per-user state is split across small hooks, all backed by Neon cloud sync (see below):
 
 - **`useHiddenIds.ts`** — `hiddenIds: Set<string>` + `priorityOrder: string[]` (ordered array; `priorityIds: Set<string>` derived via `useMemo`). Drag-reordering updates `priorityOrder` and persists it.
 - **`useVisits.ts`** — `visits: Record<string, VisitRecord>` keyed by listing ID. Visit records only created via `markVisited(id)` — other setters are no-ops on unvisited listings.
+- **`useAmenities.ts`**, **`useMapZones.ts`**, **`useListingSnapshots.ts`** — amenities, drawn map zones, and archived-listing snapshots; same `cloudPatch` persistence pattern.
 
-Both hooks are composed in **`useListings.ts`**, which merges `syncStatus` values and exposes a unified API to `App.tsx`.
+These compose in **`useListings.ts`**, which also loads the CSV, overlays fresh catalog open-house times (see *Listing catalog*), runs the pipeline, merges every hook's `syncStatus`, and exposes one unified API to `App.tsx`. Guest/demo modes run fully in-memory (no cloud).
 
 ### Cloud sync
 
@@ -81,11 +95,56 @@ CREATE TABLE user_state (uid TEXT PRIMARY KEY, state JSONB NOT NULL DEFAULT '{}'
 DATABASE_URL                  # Neon Postgres connection string (Vercel Marketplace integration)
 FIREBASE_SERVICE_ACCOUNT_JSON # server-side token verification (base64 or raw JSON)
 ANTHROPIC_API_KEY             # enables AI insights in SummaryModal
+CRON_SECRET                   # gates /api/cron-listings; Vercel sends it as the cron's Bearer
+BLOB_READ_WRITE_TOKEN         # Vercel Blob (CSV upload + thumbnails)
+ADMIN_EMAILS                  # optional CSV allowlist for /api/admin-stats (defaults to the owner)
 ```
+`VITE_FIREBASE_*` (client Firebase config) must be **non-sensitive** in Vercel so they're readable at build time; everything above is server-only.
 
-For local dev, `vercel env pull .env.local` pulls these down. The Vite dev server (`npm run dev`) implements `/api/sync` as a middleware in `vite.config.ts`, reading `.env.local` directly via `fs.readFileSync` — **do not use `loadEnv` or `process.env` to read these secrets** because Vite's env loader interpolates `$` characters in values, corrupting connection strings / keys. The raw parser also strips a trailing literal `\n` that `vercel env pull` can leave on values. Always read `.env.local` with the raw file parser in `vite.config.ts`.
+For local dev, `vercel env pull .env.local` pulls these down. The Vite dev server (`npm run dev`) re-implements the `/api/*` routes as middleware in `vite.config.ts` (kept in parity with the `api/` functions), reading `.env.local` directly via `fs.readFileSync` — **do not use `loadEnv` or `process.env` to read these secrets** because Vite's env loader interpolates `$` characters in values, corrupting connection strings / keys. The raw parser also strips a trailing literal `\n` that `vercel env pull` can leave on values. Always read `.env.local` with the raw file parser in `vite.config.ts`.
 
-`scripts/neon-init.mjs` creates the table; `scripts/migrate-jsonbin-to-neon.mjs` was the one-shot JSONBin→Neon migration (`--env <path>` to target a pulled prod env, `--dry` to preview).
+`scripts/neon-init.mjs` creates all tables (`user_state`, `listings`, `open_houses`); `scripts/migrate-jsonbin-to-neon.mjs` was the one-shot JSONBin→Neon migration (`--env <path>` to target a pulled prod env, `--dry` to preview).
+
+### Listing catalog (shared, address-keyed)
+
+Open-house data is **user-agnostic public data**, so it lives in a shared catalog
+separate from per-user state — two Neon tables created by `neon-init.mjs`:
+- **`listings`** — keyed by `address_key` (normalized address), one row per home.
+- **`open_houses`** — append-only history, PK `(address_key, start_raw)`, so re-ingest
+  is idempotent but each new weekend's slot accumulates. Times are stored as the raw
+  Redfin string plus a `timestamptz` (parsed `AT TIME ZONE 'America/Los_Angeles'`).
+
+`addressKey()` (`src/utils/addressKey.ts`) is the canonical normalizer — it makes a
+user's stars/hides survive an MLS# change (Redfin re-lists under new MLS numbers), the
+original reason state isn't keyed by MLS#. **It's inlined (copied) into `api/`
+functions** because Vercel transpiles each `api/` file and resolves imports at
+runtime — it does *not* bundle cross-`src/` imports into the lambda (importing
+`../src/...` throws `ERR_MODULE_NOT_FOUND`). For the same reason, **don't use
+PapaParse server-side** (it references browser globals at load and crashes the
+function — parse CSV inline; see `api/cron-listings.ts`).
+
+Flow:
+- **`api/cron-listings.ts`** — daily Vercel cron (`vercel.json` `crons`, gated on
+  `CRON_SECRET`). Fetches SF listings from Redfin's regional `gis-csv` endpoint (the
+  same CSV format as the favorites export — no HTML scraping), upserts `listings`,
+  appends `open_houses`. Coverage caps at ~350 rows; `page_number` pagination doesn't
+  extend it. See `docs/research-open-house-data.md`.
+- **`api/listings.ts`** (GET, auth-gated) — returns the soonest upcoming open house
+  per `address_key`.
+- **`useListings.ts`** calls it on load and `overlayOpenHouses()` (`src/utils/`)
+  replaces stale CSV open-house times with the catalog's fresh ones, matched by
+  `addressKey`, **before** the transform pipeline. So the uploaded CSV defines *which*
+  homes are favorites; the catalog keeps their *times* current — re-uploading weekly
+  is no longer required.
+
+### Admin / observability
+
+**`api/admin-stats.ts`** (admin-gated, see *Pages & routing*) reports live data volume
+across every storage dependency — Neon (db + per-table sizes vs the 0.5 GB free cap,
+row counts, catalog health), Vercel Blob (bytes + object count), Firebase Auth (user
+count) — each guarded so one failing service degrades gracefully. Metered services with
+no clean usage API (Vercel bandwidth/functions, Neon compute, Anthropic, RentCast) are
+shown as reference + console links in the `AdminPage`, not measured.
 
 ### Key types (`src/types.ts`)
 
@@ -97,7 +156,7 @@ VisitRecord   // { visitedAt, liked: boolean|null, rating: number|null (1-5), pr
 
 ### Pages / top-level components
 
-**`App.tsx`** owns `page: Page`, `mobileTab`, sort/filter state. Full-page components (`DataView`, `FinancePage`, `AnalyticsPage`) render instead of the main layout when active. `visibleGroups` applies filters + sort on top of `baseGroups`, shared between Browse and Planner.
+**`App.tsx`** owns `page: Page`, `mobileTab`, sort/filter state. Full-page components (`DataView`, `FinancePage`, `AnalyticsPage`, `AdminPage`, `DesignPage`) render instead of the main layout when active. `visibleGroups` applies filters + sort on top of `baseGroups`, shared between Browse and Planner.
 
 - **`Header`** — city selector, stats, sync badge, nav tabs, CSV upload.
 - **`Sidebar`** → `TimeSlotGroup` → `PropertyCard` — scrollable list. `PrioritySection` shows drag-reorderable starred properties.
@@ -106,6 +165,7 @@ VisitRecord   // { visitedAt, liked: boolean|null, rating: number|null (1-5), pr
 - **`FinancePage`** — buy-vs-rent analysis. Mortgage rate auto-fetched from FRED. Inputs persisted to `localStorage`.
 - **`AnalyticsPage`** — visit stats: overview cards, rating distribution bars, per-day timeline, top-rated listings, want-offer list, price/cap rate comparison table.
 - **`SummaryModal`** — tour summary text + streaming AI insights via `POST /api/insights` (SSE, parsed manually — no Anthropic SDK in the browser).
+- **`AdminPage`** / **`DesignPage`** — owner-only observability dashboard and architecture overview (see *Pages & routing*, *Admin / observability*).
 
 ### `capRate` field
 
