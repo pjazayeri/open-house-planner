@@ -58,7 +58,7 @@ function ListIcon() {
   );
 }
 
-const VALID_PAGES: Page[] = ["home", "planner", "priority", "data", "finance", "analytics"];
+const VALID_PAGES: Page[] = ["home", "planner", "priority", "data", "finance", "analytics", "admin", "design"];
 
 function pageFromHash(): Page {
   const hash = window.location.hash.slice(1).split("?")[0] as Page;
