@@ -127,8 +127,12 @@ Flow:
 - **`api/cron-listings.ts`** — daily Vercel cron (`vercel.json` `crons`, gated on
   `CRON_SECRET`). Fetches SF listings from Redfin's regional `gis-csv` endpoint (the
   same CSV format as the favorites export — no HTML scraping), upserts `listings`,
-  appends `open_houses`. Coverage caps at ~350 rows; `page_number` pagination doesn't
-  extend it. See `docs/research-open-house-data.md`.
+  appends `open_houses`. Redfin caps each query at ~350 rows (`num_homes`>350 returns
+  nothing; `page_number` doesn't paginate), so it pulls **all** ~1000+ SF listings via
+  **adaptive price-band slicing** — recursively split any `min_price`/`max_price` band
+  that hits the cap. This full coverage is required for the overlay to match a user's
+  specific favorites (the top-350 "recommended" slice misses them). See
+  `docs/research-open-house-data.md`.
 - **`api/listings.ts`** (GET, auth-gated) — returns the soonest upcoming open house
   per `address_key`.
 - **`useListings.ts`** calls it on load and `overlayOpenHouses()` (`src/utils/`)
