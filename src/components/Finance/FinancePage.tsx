@@ -1073,8 +1073,17 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
     });
   }, [allListings, params, rentOverrides]);
 
+  // Redfin exports "price upon request" rows with a blank PRICE. Every
+  // finance metric divides by or scales with price, so those rows would
+  // otherwise rank first under "Buy Premium" with a nonsense $0 cost.
+  const unpricedCount = useMemo(
+    () => listingsWithResults.filter(({ listing: l }) => l.price <= 0).length,
+    [listingsWithResults]
+  );
+
   const sorted = useMemo(() => {
     const filtered = listingsWithResults.filter(({ listing: l }) => {
+      if (l.price <= 0) return false;
       if (showFavoritesOnly && !priorityIds.has(l.id)) return false;
       if (selectedZone && !pointInPolygon(l.lat, l.lng, selectedZone.polygon)) return false;
       if (!matchesListingSearch(l, searchQuery)) return false;
@@ -1276,6 +1285,11 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
       {/* ── Body: list + detail ── */}
       <div className="fp-body">
         <div className="fp-list-panel">
+          {unpricedCount > 0 && (
+            <div className="fp-list-note" title="Redfin lists these as price upon request; there is nothing to evaluate without a price.">
+              {unpricedCount} listing{unpricedCount === 1 ? "" : "s"} without a price hidden
+            </div>
+          )}
           {sorted.map(({ listing, result, effectiveCapRate }) => (
             <ListItem
               key={listing.id}

@@ -167,6 +167,14 @@
   background: #0a1628;
 }
 
+.fp-list-note {
+  padding: 6px 12px;
+  font-size: 11px;
+  color: #64748b;
+  border-bottom: 1px solid #1e293b;
+  cursor: help;
+}
+
 .fp-list-item {
   display: flex;
   align-items: center;
