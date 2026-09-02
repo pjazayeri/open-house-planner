@@ -223,7 +223,7 @@ function DetailPanel({
           </div>
 
           <div className="dv-detail-price-row">
-            <span className="dv-detail-price">{formatPrice(l.price)}</span>
+            <span className="dv-detail-price">{l.price > 0 ? formatPrice(l.price) : "Price on request"}</span>
             <span className="dv-detail-beds">{formatBedsBaths(l.beds, l.baths)}</span>
             {l.sqft && <span className="dv-detail-sqft">{l.sqft.toLocaleString()} sqft</span>}
           </div>
@@ -586,11 +586,15 @@ export function DataView({
 
     const dir = sortDir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
-      if (sortKey === "price")   return (a.price - b.price) * dir;
+      // Price-less ("price on request") rows sort last in both directions.
+      if (sortKey === "price") {
+        if (a.price <= 0 || b.price <= 0) return (a.price <= 0 ? 1 : 0) - (b.price <= 0 ? 1 : 0);
+        return (a.price - b.price) * dir;
+      }
       if (sortKey === "capRate") return (b.capRate - a.capRate) * dir;
       if (sortKey === "pricePerSqft") {
-        const aPsf = a.sqft ? a.price / a.sqft : Infinity;
-        const bPsf = b.sqft ? b.price / b.sqft : Infinity;
+        const aPsf = a.sqft && a.price > 0 ? a.price / a.sqft : Infinity;
+        const bPsf = b.sqft && b.price > 0 ? b.price / b.sqft : Infinity;
         return (aPsf - bPsf) * dir;
       }
       if (sortKey === "visited") return ((visits[a.id] ? 0 : 1) - (visits[b.id] ? 0 : 1)) * dir;
@@ -665,7 +669,7 @@ export function DataView({
         const ratingStr = v?.rating != null ? String(v.rating) : "";
         return [
           esc(l.address),
-          l.price,
+          l.price > 0 ? l.price : "",
           l.beds,
           l.baths,
           l.sqft ?? "",
@@ -937,7 +941,7 @@ export function DataView({
                       onClick={(e) => e.stopPropagation()}
                     >{l.location || l.city}</a>
                   </div>
-                  <div className="dv-tc dv-tc-price">{formatPrice(l.price)}</div>
+                  <div className="dv-tc dv-tc-price">{l.price > 0 ? formatPrice(l.price) : "—"}</div>
                   <div className="dv-tc dv-tc-beds">{l.beds || "—"}</div>
                   <div className="dv-tc dv-tc-baths">{l.baths || "—"}</div>
                   <div className="dv-tc dv-tc-sqft">{l.sqft?.toLocaleString() ?? "—"}</div>

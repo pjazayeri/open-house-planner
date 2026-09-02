@@ -107,7 +107,7 @@ export function AnalyticsPage({ allListings, visits, hiddenIds, priorityIds }: A
     return Object.entries(groups).map(([key, arr]) => ({
       key,
       count: arr.length,
-      avgPrice: avg(arr, (l) => l.price),
+      avgPrice: avg(arr.filter((l) => l.price > 0), (l) => l.price), // skip "price on request" rows
       avgCapRate: avg(arr, (l) => l.capRate),
     }));
   }, [visitedListings, visits]);
