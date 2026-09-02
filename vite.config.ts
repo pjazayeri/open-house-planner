@@ -243,6 +243,28 @@ function localApis(): Plugin {
         res.end(readFileSync(file, 'utf8'));
       });
 
+      // /api/mortgage-rates — FRED proxy (no CORS on fredgraph.csv); mirrors api/mortgage-rates.ts
+      server.middlewares.use('/api/mortgage-rates', async (_req: IncomingMessage, res: ServerResponse) => {
+        const latest = async (id: string) => {
+          const r = await fetch(`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${id}`);
+          if (!r.ok) return null;
+          const lines = (await r.text()).trim().split('\n').filter((l) => l && !l.startsWith('DATE') && !l.endsWith(',.'));
+          const last = lines[lines.length - 1];
+          if (!last) return null;
+          const [date, raw] = last.split(',');
+          const value = parseFloat(raw);
+          return !isNaN(value) && value > 0 ? { value, date } : null;
+        };
+        try {
+          const [r30, r15] = await Promise.all([latest('MORTGAGE30US'), latest('MORTGAGE15US')]);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 30: r30?.value ?? null, 15: r15?.value ?? null, asOf: r30?.date ?? r15?.date ?? null }));
+        } catch (e) {
+          res.writeHead(502, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'FRED fetch failed' }));
+        }
+      });
+
       // /api/rent-estimate — proxy to RentCast AVM API
       server.middlewares.use('/api/rent-estimate', async (req: IncomingMessage, res: ServerResponse) => {
         const RENTCAST_API_KEY = env.RENTCAST_API_KEY;

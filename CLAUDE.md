@@ -166,7 +166,7 @@ VisitRecord   // { visitedAt, liked: boolean|null, rating: number|null (1-5), pr
 - **`Sidebar`** → `TimeSlotGroup` → `PropertyCard` — scrollable list. `PrioritySection` shows drag-reorderable starred properties.
 - **`MapView`** — React-Leaflet. Priority markers numbered in gold. Route from OSRM public API with directional arrows; falls back to dashed line.
 - **`DataView`** — full-screen table, filter chips, sort, CSV export.
-- **`FinancePage`** — buy-vs-rent analysis. Mortgage rate auto-fetched from FRED. Inputs persisted to `localStorage`.
+- **`FinancePage`** — buy-vs-rent analysis. Live 15/30-yr mortgage rates come from `/api/mortgage-rates` (`api/mortgage-rates.ts`, a FRED proxy — FRED sends no CORS headers, so the browser can't call `fredgraph.csv` directly; the rate follows the term toggle until the user types one). Inputs persisted to `localStorage`.
 - **`AnalyticsPage`** — visit stats: overview cards, rating distribution bars, per-day timeline, top-rated listings, want-offer list, price/cap rate comparison table.
 - **`SummaryModal`** — tour summary text + streaming AI insights via `POST /api/insights` (SSE, parsed manually — no Anthropic SDK in the browser).
 - **`AdminPage`** / **`DesignPage`** — owner-only observability dashboard and architecture overview (see *Pages & routing*, *Admin / observability*).

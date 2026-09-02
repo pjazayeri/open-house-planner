@@ -95,6 +95,7 @@
 .fp-breakeven-btn:hover { border-color: #22c55e !important; color: #22c55e !important; }
 
 .fp-rate-spinner { font-size: 11px; color: #64748b; font-style: italic; }
+.fp-rate-reset { font-size: 11px; padding: 2px 6px; }
 
 /* ── Neighborhood filter select ──────────────────── */
 .fp-filter-select {

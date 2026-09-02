@@ -968,11 +968,15 @@ function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, term
 export function FinancePage({ allListings, initialSelectedId, priorityIds, togglePriority, zones }: FinancePageProps) {
   const [downPct, setDownPct] = useState(() => readLs(LS_DOWN, 20));
   const [ratePct, setRatePct] = useState(() => readLs(LS_RATE, 6.75));
+  // Live Freddie Mac PMMS rates by term. The displayed rate follows the
+  // 15yr/30yr toggle until the user types their own, then "↺ live" resets.
+  const [liveRates, setLiveRates] = useState<Partial<Record<15 | 30, number>>>({});
+  const [rateEdited, setRateEdited] = useState(false);
   const [oppReturnPct, setOppReturnPct] = useState(() => readLs(LS_OPP, 7));
   const [taxRatePct, setTaxRatePct] = useState(() => readLs(LS_TAX_RATE, 28));
   const [appreciationPct, setAppreciationPct] = useState(() => readLs(LS_APPRECIATION, 3));
   const [saltHeadroom, setSaltHeadroom] = useState(() => readLs(LS_SALT_HEADROOM, 10));
-  const [termYears, setTermYears] = useState(30);
+  const [termYears, setTermYears] = useState<15 | 30>(30);
   const [includePrincipal, setIncludePrincipal] = useState(() => {
     try { return localStorage.getItem(LS_PRINCIPAL) !== "false"; } catch { return true; }
   });
@@ -1036,29 +1040,29 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
   useEffect(() => { try { localStorage.setItem(LS_SELLER_COST, String(sellerCostPct)); } catch {} }, [sellerCostPct]);
   useEffect(() => { try { localStorage.setItem(LS_RENT_INFLATION, String(rentInflationPct)); } catch {} }, [rentInflationPct]);
 
-  // Fetch live 30-yr mortgage rate from FRED
+  // Live Freddie Mac PMMS rates for both terms, via /api/mortgage-rates
+  // (FRED has no CORS headers, so it must be proxied). The displayed rate
+  // tracks the 15yr/30yr toggle — 15-yr fixed runs ~0.5–0.8pt below 30-yr.
   useEffect(() => {
     let cancelled = false;
     setFetchingRate(true);
-    fetch("https://fred.stlouisfed.org/graph/fredgraph.csv?id=MORTGAGE30US")
-      .then((r) => r.text())
-      .then((text) => {
-        if (cancelled) return;
-        const lines = text.trim().split("\n").filter((l) => l && !l.startsWith("DATE"));
-        const last = lines[lines.length - 1];
-        if (last) {
-          const val = parseFloat(last.split(",")[1]);
-          if (!isNaN(val) && val > 0) setRatePct(val);
-        }
+    fetch("/api/mortgage-rates")
+      .then((r) => (r.ok ? (r.json() as Promise<{ 30?: number | null; 15?: number | null }>) : null))
+      .then((d) => {
+        if (cancelled || !d) return;
+        setLiveRates({ 30: d[30] ?? undefined, 15: d[15] ?? undefined });
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setFetchingRate(false); });
     return () => { cancelled = true; };
   }, []);
 
+  const liveRate = liveRates[termYears];
+  const rate = rateEdited || liveRate === undefined ? ratePct : liveRate;
+
   const params = useMemo(
-    () => ({ downPaymentPct: downPct / 100, annualRatePct: ratePct, termYears, opportunityReturnPct: oppReturnPct, includePrincipal, marginalTaxRatePct: taxRatePct, appreciationRatePct: includeAppreciation ? appreciationPct : 0, saltHeadroomAnnual: saltHeadroom * 1000, buyerClosingCostPct: buyerClosingPct }),
-    [downPct, ratePct, termYears, oppReturnPct, includePrincipal, taxRatePct, appreciationPct, includeAppreciation, saltHeadroom, buyerClosingPct]
+    () => ({ downPaymentPct: downPct / 100, annualRatePct: rate, termYears, opportunityReturnPct: oppReturnPct, includePrincipal, marginalTaxRatePct: taxRatePct, appreciationRatePct: includeAppreciation ? appreciationPct : 0, saltHeadroomAnnual: saltHeadroom * 1000, buyerClosingCostPct: buyerClosingPct }),
+    [downPct, rate, termYears, oppReturnPct, includePrincipal, taxRatePct, appreciationPct, includeAppreciation, saltHeadroom, buyerClosingPct]
   );
 
   const listingsWithResults = useMemo(() => {
@@ -1124,7 +1128,7 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
     const fixedCosts = b.propertyTax / 12 + b.insurance / 12 + b.annualHoa / 12 + b.maintenance / 12;
 
     // PI factor per dollar of loan (respects includePrincipal toggle)
-    const r = ratePct / 12 / 100;
+    const r = rate / 12 / 100;
     const n = termYears * 12;
     let k: number;
     if (r === 0) {
@@ -1136,8 +1140,11 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
 
     if (k === 0) return; // can't compute
 
-    const rent = rentOverrides[listing.id] ?? b.monthlyRent;
-    // Solve for cash-flow breakeven: rent = PI + fixed costs
+    // Net rent after the vacancy allowance, matching the cash-on-cash metric.
+    const grossRent = rentOverrides[listing.id] ?? b.monthlyRent;
+    const vacancyRate = b.annualGrossRent > 0 ? b.vacancy / b.annualGrossRent : 0.05;
+    const rent = grossRent * (1 - vacancyRate);
+    // Solve for cash-flow breakeven: net rent = PI + fixed costs
     // i.e. rental income exactly covers all monthly ownership expenses
     // D = 1 - (rent - fixedCosts) / (price * k)
     const D = (1 - (rent - fixedCosts) / (price * k)) * 100;
@@ -1168,14 +1175,24 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
               <button
                 className="fp-term-btn fp-breakeven-btn"
                 onClick={calcBreakevenDown}
-                title="Set down payment so rental income covers all monthly costs: P&amp;I + property tax + insurance + HOA + maintenance (cash-flow breakeven)"
+                title="Set down payment so rental income (after the 5% vacancy allowance) covers all monthly costs: P&amp;I + property tax + insurance + HOA + maintenance (cash-flow breakeven)"
               >= rent</button>
             </div>
             <div className="fp-input-group">
               <label>Rate</label>
-              <NumInput value={ratePct} onChange={setRatePct} min={0} max={20} step={0.01} width={62} />
+              <NumInput value={rate} onChange={(n) => { setRatePct(n); setRateEdited(true); }} min={0} max={20} step={0.01} width={62} />
               <span>%</span>
-              {fetchingRate && <span className="fp-rate-spinner">live…</span>}
+              {fetchingRate ? (
+                <span className="fp-rate-spinner">live…</span>
+              ) : rateEdited && liveRate !== undefined ? (
+                <button
+                  className="fp-term-btn fp-rate-reset"
+                  onClick={() => setRateEdited(false)}
+                  title={`Reset to the live ${termYears}-yr rate (${liveRate}%)`}
+                >↺ live</button>
+              ) : liveRate !== undefined ? (
+                <span className="fp-rate-spinner" title={`Freddie Mac ${termYears}-yr fixed average, via FRED (MORTGAGE${termYears}US)`}>live {termYears}yr</span>
+              ) : null}
             </div>
             <div className="fp-input-group">
               <label>Opp. return</label>
@@ -1311,7 +1328,7 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
               result={selectedEntry.result}
               effectiveCapRate={selectedEntry.effectiveCapRate}
               downPct={downPct}
-              ratePct={ratePct}
+              ratePct={rate}
               termYears={termYears}
               oppReturnPct={oppReturnPct}
               taxRatePct={taxRatePct}
