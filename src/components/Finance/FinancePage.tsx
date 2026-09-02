@@ -471,7 +471,7 @@ function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, term
   const timeSeries = useMemo(() => calcTimeSeries(
     listing,
     params,
-    { holdYears, buyerClosingCostPct: buyerClosingPct, sellerCostPct, rentInflationPct },
+    { holdYears, buyerClosingCostPct: buyerClosingPct, sellerCostPct, rentInflationPct, costInflationPct: rentInflationPct },
     rentOverride ?? undefined,
   ), [listing, params, holdYears, buyerClosingPct, sellerCostPct, rentInflationPct, rentOverride]);
   const accent = accentClass(result.monthlyBuyPremium, effectiveCapRate);
@@ -528,9 +528,12 @@ function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, term
   const tipRent = rentLines.join("\n");
 
   const tipOpp = [
-    `If the down payment were invested instead:`,
-    `${fmtDollar(result.downPayment)} × ${oppReturnPct}% / 12`,
+    `If the cash you sink at closing stayed invested:`,
+    `(${fmtDollar(result.downPayment)} down + ${fmtDollar(result.totalCashInvested - result.downPayment)} closing)`,
+    `× ${oppReturnPct}% / 12 — first-year simple rate.`,
     `Assumed annual return: ${oppReturnPct}% (configurable above)`,
+    ``,
+    `Time Analysis compounds this over the hold.`,
   ].join("\n");
 
   const annualInterest = result.monthlyInterest * 12;
@@ -538,6 +541,10 @@ function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, term
     `Mortgage interest deduction (federal only).`,
     ``,
     `First-month interest: ${fmtDollar(result.monthlyInterest)}/mo`,
+    ...(result.deductibleInterestFraction < 1 ? [
+      `× ${(result.deductibleInterestFraction * 100).toFixed(0)}% — only interest on the first $750k`,
+      `  of the ${fmtDollar(result.loanAmount)} loan is deductible`,
+    ] : []),
     `× ${taxRatePct}% marginal tax rate`,
     `= ${fmtDollar(result.monthlyTaxSavings)}/mo savings`,
     ``,
@@ -602,7 +609,10 @@ function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, term
     `divided by total cash invested.`,
     ``,
     `Annual cash flow:`,
-    `  Rent − P&I − prop tax − insurance − HOA − maint`,
+    `  Rent − vacancy − mgmt − P&I − prop tax − insurance − HOA − maint`,
+    `  Rent: ${fmtDollar(result.estimatedMonthlyRent * 12)}/yr`,
+    `  − Vacancy allowance: ${fmtDollar(result.annualVacancy)}/yr`,
+    ...(result.annualManagement > 0 ? [`  − Management: ${fmtDollar(result.annualManagement)}/yr`] : []),
     `  = ${fmtDollar(result.annualCashFlow / 12)}/mo × 12 = ${fmtDollar(result.annualCashFlow)}/yr`,
     ``,
     `Total cash invested:`,
@@ -836,14 +846,20 @@ function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, term
               `Purple — "Buy net cost"`,
               `  Total cash out (down + closing, P&I while the`,
               `  loan lasts, tax/insurance/HOA/maintenance,`,
-              `  opportunity cost on the down payment, − tax`,
-              `  savings) minus what you'd net by selling that`,
-              `  year (value − balance − seller costs).`,
+              `  compounded opportunity cost on down + closing,`,
+              `  − tax savings) minus what you'd net by selling`,
+              `  that year (value − balance − seller costs; an`,
+              `  underwater sale adds the shortfall).`,
               `  Year 0 = the day you close: the net cost is`,
               `  just the round-trip transaction costs.`,
               ``,
               `Amber — "Rent"`,
-              `  Cumulative rent paid (with annual inflation).`,
+              `  Cumulative rent paid, growing at "Inflation".`,
+              ``,
+              `Inflation also grows insurance, HOA and`,
+              `  maintenance. Property tax grows 2%/yr (Prop 13)`,
+              `  regardless. Mortgage interest is deductible`,
+              `  only on the first $750k of loan balance.`,
               ``,
               `Shading — green where buying is ahead, red`,
               `  where renting is ahead.`,
@@ -881,7 +897,7 @@ function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, term
                 <span>%</span>
               </div>
               <div className="fp-input-group">
-                <label>Rent inflation</label>
+                <label>Inflation</label>
                 <NumInput value={rentInflationPct} onChange={setRentInflationPct} min={0} max={15} step={0.5} width={44} />
                 <span>%/yr</span>
               </div>

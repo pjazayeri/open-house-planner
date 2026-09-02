@@ -34,7 +34,8 @@ export function totalOwnCostTooltip(result: BuyVsRentResult, includePrincipal: b
 export function effectiveCostTooltip(result: BuyVsRentResult, oppReturnPct: number): string {
   return [
     `Total own cost plus the opportunity cost of the`,
-    `down payment (what it would earn if invested).`,
+    `down payment + closing costs (what that cash`,
+    `would earn if it stayed invested).`,
     ``,
     `  Total own cost:              ${fmtMo(result.totalMonthlyOwnershipCost)}`,
     `+ Opp. cost (${oppReturnPct}% return):    ${fmtMo(result.opportunityCostMonthly)}`,

@@ -12,12 +12,16 @@ function listing(over: Partial<Listing> & {
   maintenance?: number;
   monthlyRent?: number;
 } = {}): Listing {
+  const monthlyRent = over.monthlyRent ?? 5_000;
   const breakdown = {
     propertyTax: over.propertyTax ?? 12_000,
     insurance: over.insurance ?? 2_400,
     annualHoa: over.annualHoa ?? 0,
     maintenance: over.maintenance ?? 4_800,
-    monthlyRent: over.monthlyRent ?? 5_000,
+    monthlyRent,
+    annualGrossRent: monthlyRent * 12,
+    vacancy: monthlyRent * 12 * 0.05,
+    management: 0,
   } as Listing["capRateBreakdown"];
   return {
     id: "L1",
@@ -94,15 +98,16 @@ describe("calcBuyVsRent", () => {
     expect(withP.monthlyPI).toBe(withoutP.monthlyPI);
   });
 
-  it("opportunityCostMonthly is downPayment × oppReturnPct / 12", () => {
-    const r = calcBuyVsRent(listing({ price: 1_000_000 }), { ...PARAMS, downPaymentPct: 0.20, opportunityReturnPct: 6 });
-    // 200k × 6% / 12 = 1000
-    expect(r.opportunityCostMonthly).toBeCloseTo(1000, 2);
+  it("opportunityCostMonthly is (downPayment + buyer closing) × oppReturnPct / 12", () => {
+    const r = calcBuyVsRent(listing({ price: 1_000_000 }), { ...PARAMS, downPaymentPct: 0.2, buyerClosingCostPct: 2.5, opportunityReturnPct: 6 });
+    // (200k + 25k) × 6% / 12
+    expect(r.opportunityCostMonthly).toBeCloseTo(225_000 * 0.06 / 12, 6);
   });
 
-  it("monthlyTaxSavings is mortgage interest × marginal tax rate", () => {
-    const r = calcBuyVsRent(listing(), { ...PARAMS, marginalTaxRatePct: 30 });
-    expect(r.monthlyTaxSavings).toBeCloseTo(r.monthlyInterest * 0.30, 4);
+  it("monthlyTaxSavings is deductible mortgage interest × marginal tax rate", () => {
+    // 900k × 80% = 720k loan — under the $750k cap, so all interest counts.
+    const r = calcBuyVsRent(listing({ price: 900_000 }), { ...PARAMS, downPaymentPct: 0.2, marginalTaxRatePct: 32 });
+    expect(r.monthlyTaxSavings).toBeCloseTo(r.monthlyInterest * 0.32, 4);
   });
 
   it("propertyTaxSavings caps at the SALT headroom (not the full property tax)", () => {
@@ -130,12 +135,28 @@ describe("calcBuyVsRent", () => {
     expect(r.estimatedMonthlyRent).toBe(7_500);
   });
 
-  it("cashOnCashReturn = (rent − P&I − all opex) × 12 / totalCashInvested × 100", () => {
-    const r = calcBuyVsRent(listing({ monthlyRent: 5_000 }), { ...PARAMS, downPaymentPct: 0.20, buyerClosingCostPct: 2 });
-    const expected = (5_000 - r.monthlyPI - r.monthlyPropertyTax - r.monthlyInsurance - r.monthlyHOA - r.monthlyMaintenance) * 12;
-    expect(r.annualCashFlow).toBeCloseTo(expected, 2);
-    expect(r.totalCashInvested).toBe(200_000 + 20_000); // down + 2% closing
-    expect(r.cashOnCashReturnPct).toBeCloseTo((r.annualCashFlow / r.totalCashInvested) * 100, 2);
+  it("cashOnCashReturn = (rent − vacancy − mgmt − (P&I + all opex) × 12) / totalCashInvested × 100", () => {
+    const r = calcBuyVsRent(listing({ price: 1_000_000, monthlyRent: 5_000 }), { ...PARAMS, downPaymentPct: 0.2, buyerClosingCostPct: 2.5 });
+    const annualRent = 60_000;
+    expect(r.annualVacancy).toBeCloseTo(annualRent * 0.05, 6);
+    expect(r.annualManagement).toBe(0);
+    const opex = (r.monthlyPI + 1_000 + 200 + 0 + 400) * 12;
+    const expectedCashFlow = annualRent - 3_000 - opex;
+    expect(r.annualCashFlow).toBeCloseTo(expectedCashFlow, 4);
+    expect(r.totalCashInvested).toBeCloseTo(225_000, 6);
+    expect(r.cashOnCashReturnPct).toBeCloseTo(expectedCashFlow / 225_000 * 100, 6);
+  });
+
+  it("mortgage interest deduction only covers the first $750k of loan", () => {
+    // 2M × 80% = 1.6M loan → 750k / 1.6M = 46.875% of interest is deductible
+    const r = calcBuyVsRent(listing({ price: 2_000_000 }), { ...PARAMS, downPaymentPct: 0.2, marginalTaxRatePct: 32 });
+    expect(r.deductibleInterestFraction).toBeCloseTo(0.46875, 6);
+    expect(r.monthlyTaxSavings).toBeCloseTo(r.monthlyInterest * 0.46875 * 0.32, 4);
+
+    // Under the cap → everything is deductible
+    const small = calcBuyVsRent(listing({ price: 900_000 }), { ...PARAMS, downPaymentPct: 0.2, marginalTaxRatePct: 32 });
+    expect(small.deductibleInterestFraction).toBe(1);
+    expect(small.monthlyTaxSavings).toBeCloseTo(small.monthlyInterest * 0.32, 4);
   });
 
   it("cashOnCashReturn falls back to 0 when no cash invested (e.g. 0% down)", () => {
@@ -207,11 +228,16 @@ describe("calcTimeSeries", () => {
     expect(at(inflated, 10).cumulativeRentCost).toBeCloseTo(expected, 0);
   });
 
-  it("netBuyCost = cumulativeBuyCashOut − max(0, saleProceeds)", () => {
+  it("netBuyCost = cumulativeBuyCashOut − saleProceeds (no clamp: an underwater sale is a cost)", () => {
     const points = calcTimeSeries(listing(), PARAMS, TS_PARAMS);
     for (const p of points) {
-      expect(p.netBuyCost).toBeCloseTo(p.cumulativeBuyCashOut - Math.max(0, p.saleProceeds), 0);
+      expect(p.netBuyCost).toBeCloseTo(p.cumulativeBuyCashOut - p.saleProceeds, 0);
     }
+    // 5% down + 6% seller costs → underwater at closing: proceeds = 0.94M − 0.95M = −10k,
+    // so the day-0 net cost is down + closing + the 10k shortfall.
+    const thin = calcTimeSeries(listing({ price: 1_000_000 }), { ...PARAMS, downPaymentPct: 0.05 }, { ...TS_PARAMS, buyerClosingCostPct: 2, sellerCostPct: 6 });
+    expect(thin[0].saleProceeds).toBeCloseTo(-10_000, 0);
+    expect(thin[0].netBuyCost).toBeCloseTo(50_000 + 20_000 + 10_000, 0);
   });
 
   it("loan balance strictly decreases each year", () => {
@@ -236,25 +262,27 @@ describe("calcTimeSeries", () => {
   // the full P&I payment for years 16–20 even though the balance was 0 —
   // ~$200k of phantom cost on a ~$400k loan.
   it("stops charging P&I once the loan is paid off (hold > term)", () => {
+    // Zero out property tax + opportunity cost so the post-payoff years are
+    // just flat insurance + maintenance and the arithmetic is exact.
     const points = calcTimeSeries(
-      listing({ price: 1_000_000 }),
-      { ...PARAMS, termYears: 15, downPaymentPct: 0.20, opportunityReturnPct: 7 },
-      { ...TS_PARAMS, holdYears: 20 }
+      listing({ price: 900_000, propertyTax: 0 }),
+      { ...PARAMS, termYears: 15, downPaymentPct: 0.20, opportunityReturnPct: 0 },
+      { ...TS_PARAMS, holdYears: 20, rentInflationPct: 0 }
     );
     expect(at(points, 15).remainingBalance).toBeCloseTo(0, 0);
     expect(at(points, 20).remainingBalance).toBe(0);
 
-    // After payoff the only yearly cash out is fixed costs + opportunity cost
-    // − SALT savings: (12000 + 2400 + 0 + 4800) + 200k×7% − min(12000,10000)×32%
-    const yearlyPostPayoff = 19_200 + 14_000 - 3_200;
+    // After payoff the only yearly cash out is insurance + maintenance.
+    const yearlyPostPayoff = 2_400 + 4_800;
     expect(at(points, 16).cumulativeBuyCashOut - at(points, 15).cumulativeBuyCashOut).toBeCloseTo(yearlyPostPayoff, 0);
     expect(at(points, 20).cumulativeBuyCashOut - at(points, 16).cumulativeBuyCashOut).toBeCloseTo(4 * yearlyPostPayoff, 0);
 
     // …and the total P&I over the whole hold is exactly 180 payments.
+    const loan = 720_000;
     const r = 6 / 12 / 100, n = 180, f = Math.pow(1 + r, n);
-    const monthlyPI = 800_000 * (r * f) / (f - 1);
-    const totalInterest = monthlyPI * n - 800_000;
-    const expectedCashOut = 225_000 - 5_000 /* TS_PARAMS closing is 2%, not 2.5% */
+    const monthlyPI = loan * (r * f) / (f - 1);
+    const totalInterest = monthlyPI * n - loan;
+    const expectedCashOut = 180_000 + 18_000 /* down + 2% closing */
       + monthlyPI * n
       + 20 * yearlyPostPayoff
       - totalInterest * 0.32;
@@ -335,5 +363,61 @@ describe("findBreakEven (regression: dot must sit at the visual line intersectio
     const be = findBreakEven(points)!;
     expect(be.year).toBeCloseTo(2, 4);
     expect(be.value).toBeCloseTo(200, 4);
+  });
+});
+
+describe("calcTimeSeries accuracy: compounding, inflation, deduction cap", () => {
+  // Flat everything except the thing under test.
+  const FLAT: MortgageParams = { ...PARAMS, annualRatePct: 0, opportunityReturnPct: 0, marginalTaxRatePct: 0, appreciationRatePct: 0 };
+  const FLAT_TS: TimeSeriesParams = { ...TS_PARAMS, rentInflationPct: 0, costInflationPct: 0 };
+
+  it("opportunity cost compounds on down + closing at opportunityReturnPct", () => {
+    const points = calcTimeSeries(
+      listing({ price: 1_000_000, propertyTax: 0, insurance: 0, maintenance: 0 }),
+      { ...FLAT, downPaymentPct: 0.2, opportunityReturnPct: 7 },
+      { ...FLAT_TS, buyerClosingCostPct: 2.5, holdYears: 10 }
+    );
+    const sunk = 225_000;
+    const pi = 800_000 / 360; // 0% loan
+    for (const y of [1, 5, 10]) {
+      const expectedOpp = sunk * (Math.pow(1.07, y) - 1);
+      expect(at(points, y).cumulativeBuyCashOut - sunk - pi * 12 * y).toBeCloseTo(expectedOpp, 0);
+    }
+    // Simple interest would have given 7% × 225k × 10 = 157.5k; compounding is materially more.
+    expect(at(points, 10).cumulativeBuyCashOut - sunk - pi * 120).toBeGreaterThan(157_500 + 60_000);
+  });
+
+  it("property tax grows 2%/yr (Prop 13) while other costs follow costInflationPct", () => {
+    const points = calcTimeSeries(
+      listing({ price: 1_000_000, propertyTax: 12_000, insurance: 2_400, maintenance: 4_800, annualHoa: 1_200 }),
+      { ...FLAT, downPaymentPct: 1 },   // no loan → no P&I
+      { ...FLAT_TS, buyerClosingCostPct: 0, costInflationPct: 3, holdYears: 3 }
+    );
+    const yearCost = (y: number) => at(points, y).cumulativeBuyCashOut - at(points, y - 1).cumulativeBuyCashOut;
+    expect(yearCost(1)).toBeCloseTo(12_000 + 8_400, 0);
+    expect(yearCost(2)).toBeCloseTo(12_000 * 1.02 + 8_400 * 1.03, 0);
+    expect(yearCost(3)).toBeCloseTo(12_000 * 1.02 ** 2 + 8_400 * 1.03 ** 2, 0);
+  });
+
+  it("costInflationPct defaults to rentInflationPct", () => {
+    const explicit = calcTimeSeries(listing(), FLAT, { ...FLAT_TS, rentInflationPct: 3, costInflationPct: 3 });
+    const implicit = calcTimeSeries(listing(), FLAT, { ...FLAT_TS, rentInflationPct: 3, costInflationPct: undefined });
+    expect(at(implicit, 10).cumulativeBuyCashOut).toBeCloseTo(at(explicit, 10).cumulativeBuyCashOut, 6);
+  });
+
+  it("interest tax savings only count the first $750k of balance each month", () => {
+    // 2M, 20% down → 1.6M loan; compare against a hand-rolled month loop.
+    const params: MortgageParams = { ...PARAMS, downPaymentPct: 0.2, opportunityReturnPct: 0, marginalTaxRatePct: 32 };
+    const points = calcTimeSeries(listing({ price: 2_000_000, propertyTax: 0, insurance: 0, maintenance: 0 }), params, { ...FLAT_TS, buyerClosingCostPct: 0, holdYears: 1 });
+    const r = 0.06 / 12, n = 360, f = Math.pow(1 + r, n);
+    const pi = 1_600_000 * (r * f) / (f - 1);
+    let bal = 1_600_000, expected = 400_000;
+    for (let m = 0; m < 12; m++) {
+      const interest = bal * r;
+      const frac = bal > 750_000 ? 750_000 / bal : 1;
+      expected += pi - interest * frac * 0.32;
+      bal -= pi - interest;
+    }
+    expect(at(points, 1).cumulativeBuyCashOut).toBeCloseTo(expected, 0);
   });
 });
