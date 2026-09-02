@@ -37,7 +37,7 @@ export interface BuyVsRentResult {
 }
 
 export interface TimeSeriesPoint {
-  year: number;
+  year: number;                  // 0 = day of closing, then one point per year
   cumulativeBuyCashOut: number;  // total out-of-pocket for buying (excl. principal if toggled off, incl. opp cost, minus tax savings)
   saleProceeds: number;          // net sale proceeds if sold this year (after seller costs)
   netBuyCost: number;            // cumulativeBuyCashOut - saleProceeds (negative = you made money)
@@ -91,18 +91,32 @@ export function calcTimeSeries(
   let balance = loanAmount;
   let cumulativeRent = 0;
 
-  const points: TimeSeriesPoint[] = [];
+  // Year 0 = the day you close. You've paid down + closing; selling on the
+  // spot would net price − seller costs − loan, so the net cost at t=0 is
+  // exactly the round-trip transaction cost (buyer closing + seller costs).
+  // Anchoring the series here makes that upfront hit visible on the chart.
+  const saleProceedsAtClose = price * (1 - sellerCostPct / 100) - balance;
+  const points: TimeSeriesPoint[] = [{
+    year: 0,
+    cumulativeBuyCashOut: cumulativeBuy,
+    saleProceeds: saleProceedsAtClose,
+    netBuyCost: cumulativeBuy - Math.max(0, saleProceedsAtClose),
+    cumulativeRentCost: 0,
+    homeValue: price,
+    remainingBalance: balance,
+  }];
 
   for (let month = 1; month <= holdYears * 12; month++) {
-    // Interest for this month
+    // Interest for this month. The final payment is capped at what's still
+    // owed, and once the loan is paid off (hold > term) there's no P&I at all.
     const interest = balance * r;
-    const principal = monthlyPI - interest;
+    const principal = Math.min(monthlyPI - interest, balance);
+    const piCost = balance > 0 ? interest + principal : 0;
     balance = Math.max(0, balance - principal);
 
     // Monthly buy cash-out: always use full P&I regardless of includePrincipal toggle —
     // principal is real cash out and is recovered at sale via saleProceeds (homeValue - balance).
     // The toggle is a display preference for the monthly snapshot only.
-    const piCost = monthlyPI;
     const taxSavings = interest * (marginalTaxRatePct / 100);
     const propTaxSavings = Math.min(listing.capRateBreakdown.propertyTax, saltHeadroomAnnual) * (marginalTaxRatePct / 100) / 12;
     cumulativeBuy += piCost + fixedMonthly + oppCostMonthly - taxSavings - propTaxSavings;

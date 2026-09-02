@@ -568,6 +568,14 @@
   gap: 10px 16px;
 }
 
+.fp-time-chart-wrap {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .fp-time-chart {
   width: 100%;
   height: auto;
@@ -576,6 +584,30 @@
   border-radius: 6px;
   border: 1px solid #1e293b;
 }
+
+.fp-time-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 11px;
+  color: #94a3b8;
+  padding: 0 2px;
+}
+.fp-time-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.fp-time-legend i {
+  display: inline-block;
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+}
+.fp-time-legend i.dot { width: 8px; height: 8px; border-radius: 50%; }
+.fp-time-legend i.area { width: 14px; height: 10px; border-radius: 2px; }
+.fp-time-legend i.dash { height: 0; border-top: 2px dashed #64748b; border-radius: 0; }
 
 .fp-sell-table {
   display: flex;

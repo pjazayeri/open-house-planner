@@ -152,17 +152,40 @@ const TS_PARAMS: TimeSeriesParams = {
   rentInflationPct: 3,
 };
 
+// Look a series point up by calendar year (the series starts at year 0).
+function at(points: ReturnType<typeof calcTimeSeries>, year: number) {
+  const p = points.find((p) => p.year === year);
+  if (!p) throw new Error(`no point for year ${year}`);
+  return p;
+}
+
 describe("calcTimeSeries", () => {
-  it("returns one point per year up to holdYears", () => {
+  it("returns a year-0 (closing) point plus one point per year up to holdYears", () => {
     const points = calcTimeSeries(listing(), PARAMS, { ...TS_PARAMS, holdYears: 7 });
-    expect(points).toHaveLength(7);
-    expect(points.map((p) => p.year)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(points).toHaveLength(8);
+    expect(points.map((p) => p.year)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it("year 0 is the day of closing: cash out = down + closing, net cost = round-trip transaction costs", () => {
+    const points = calcTimeSeries(
+      listing({ price: 1_000_000 }),
+      { ...PARAMS, downPaymentPct: 0.20 },
+      { ...TS_PARAMS, buyerClosingCostPct: 2.5, sellerCostPct: 6 }
+    );
+    const p0 = at(points, 0);
+    expect(p0.cumulativeBuyCashOut).toBeCloseTo(225_000, 0);   // 200k down + 25k closing
+    expect(p0.homeValue).toBe(1_000_000);
+    expect(p0.remainingBalance).toBeCloseTo(800_000, 0);
+    expect(p0.cumulativeRentCost).toBe(0);
+    // Sell on the spot: 1M × 0.94 − 800k = 140k back → net cost 225k − 140k = 85k
+    // = 25k buyer closing + 60k seller costs.
+    expect(p0.netBuyCost).toBeCloseTo(85_000, 0);
   });
 
   it("homeValue grows by appreciationRatePct per year", () => {
     const points = calcTimeSeries(listing({ price: 1_000_000 }), { ...PARAMS, appreciationRatePct: 4 }, TS_PARAMS);
-    expect(points[0].homeValue).toBeCloseTo(1_000_000 * 1.04, 0);
-    expect(points[9].homeValue).toBeCloseTo(1_000_000 * Math.pow(1.04, 10), 0);
+    expect(at(points, 1).homeValue).toBeCloseTo(1_000_000 * 1.04, 0);
+    expect(at(points, 10).homeValue).toBeCloseTo(1_000_000 * Math.pow(1.04, 10), 0);
   });
 
   it("saleProceeds = homeValue × (1 − sellerCostPct) − remainingBalance", () => {
@@ -174,14 +197,14 @@ describe("calcTimeSeries", () => {
   it("cumulativeRentCost compounds rent annually by rentInflationPct", () => {
     // rentInflation=0 → exactly 12 × baseRent each year, no compounding.
     const flat = calcTimeSeries(listing({ monthlyRent: 5_000 }), PARAMS, { ...TS_PARAMS, rentInflationPct: 0 });
-    expect(flat[0].cumulativeRentCost).toBe(5_000 * 12);
-    expect(flat[9].cumulativeRentCost).toBe(5_000 * 12 * 10);
+    expect(at(flat, 1).cumulativeRentCost).toBe(5_000 * 12);
+    expect(at(flat, 10).cumulativeRentCost).toBe(5_000 * 12 * 10);
 
     // rentInflation=3 → year 2 monthly = 5000 × 1.03, etc.
     const inflated = calcTimeSeries(listing({ monthlyRent: 5_000 }), PARAMS, { ...TS_PARAMS, rentInflationPct: 3 });
     let expected = 0;
     for (let y = 0; y < 10; y++) expected += 5_000 * Math.pow(1.03, y) * 12;
-    expect(inflated[9].cumulativeRentCost).toBeCloseTo(expected, 0);
+    expect(at(inflated, 10).cumulativeRentCost).toBeCloseTo(expected, 0);
   });
 
   it("netBuyCost = cumulativeBuyCashOut − max(0, saleProceeds)", () => {
@@ -199,16 +222,54 @@ describe("calcTimeSeries", () => {
   });
 
   it("upfront cash includes down payment + buyer closing — first-year cumulativeBuy reflects that", () => {
-    // Make rates harsh so we can sanity-check the upfront baseline.
     const points = calcTimeSeries(
       listing({ price: 1_000_000 }),
       { ...PARAMS, downPaymentPct: 0.20 },
       { ...TS_PARAMS, buyerClosingCostPct: 2.5 }
     );
-    // Year 1's cumulativeBuyCashOut should be at least down + closing
-    // (200k + 25k = 225k) — could be more once 12 months of P&I, taxes,
-    // insurance, opp cost are added.
-    expect(points[0].cumulativeBuyCashOut).toBeGreaterThanOrEqual(225_000);
+    // Year 1's cumulativeBuyCashOut is down + closing (200k + 25k = 225k)
+    // plus 12 months of P&I, taxes, insurance, opp cost.
+    expect(at(points, 1).cumulativeBuyCashOut).toBeGreaterThan(225_000);
+  });
+
+  // Regression: with a 15-yr loan and a 20-yr hold the old loop kept adding
+  // the full P&I payment for years 16–20 even though the balance was 0 —
+  // ~$200k of phantom cost on a ~$400k loan.
+  it("stops charging P&I once the loan is paid off (hold > term)", () => {
+    const points = calcTimeSeries(
+      listing({ price: 1_000_000 }),
+      { ...PARAMS, termYears: 15, downPaymentPct: 0.20, opportunityReturnPct: 7 },
+      { ...TS_PARAMS, holdYears: 20 }
+    );
+    expect(at(points, 15).remainingBalance).toBeCloseTo(0, 0);
+    expect(at(points, 20).remainingBalance).toBe(0);
+
+    // After payoff the only yearly cash out is fixed costs + opportunity cost
+    // − SALT savings: (12000 + 2400 + 0 + 4800) + 200k×7% − min(12000,10000)×32%
+    const yearlyPostPayoff = 19_200 + 14_000 - 3_200;
+    expect(at(points, 16).cumulativeBuyCashOut - at(points, 15).cumulativeBuyCashOut).toBeCloseTo(yearlyPostPayoff, 0);
+    expect(at(points, 20).cumulativeBuyCashOut - at(points, 16).cumulativeBuyCashOut).toBeCloseTo(4 * yearlyPostPayoff, 0);
+
+    // …and the total P&I over the whole hold is exactly 180 payments.
+    const r = 6 / 12 / 100, n = 180, f = Math.pow(1 + r, n);
+    const monthlyPI = 800_000 * (r * f) / (f - 1);
+    const totalInterest = monthlyPI * n - 800_000;
+    const expectedCashOut = 225_000 - 5_000 /* TS_PARAMS closing is 2%, not 2.5% */
+      + monthlyPI * n
+      + 20 * yearlyPostPayoff
+      - totalInterest * 0.32;
+    expect(at(points, 20).cumulativeBuyCashOut).toBeCloseTo(expectedCashOut, 0);
+  });
+
+  it("caps the final payment at the remaining balance (never pays past zero)", () => {
+    const points = calcTimeSeries(listing(), { ...PARAMS, termYears: 15 }, { ...TS_PARAMS, holdYears: 16 });
+    expect(at(points, 15).remainingBalance).toBeCloseTo(0, 0);
+    expect(at(points, 16).remainingBalance).toBe(0);
+    // Balance never goes negative and only ever decreases.
+    for (let i = 1; i < points.length; i++) {
+      expect(points[i].remainingBalance).toBeGreaterThanOrEqual(0);
+      expect(points[i].remainingBalance).toBeLessThanOrEqual(points[i - 1].remainingBalance);
+    }
   });
 });
 

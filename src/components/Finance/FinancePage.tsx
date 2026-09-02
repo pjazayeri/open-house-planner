@@ -145,57 +145,132 @@ function Tip({ children, tip }: { children: React.ReactNode; tip: string }) {
   );
 }
 
+// Short money label: "$85k", "$1.25M", "−$12k". Trims trailing zeros so a
+// nice-step axis tick like 1.25M doesn't round to a misleading "$1.3M".
 function fmtK(n: number): string {
-  if (Math.abs(n) >= 1_000_000) return "$" + (n / 1_000_000).toFixed(1) + "M";
-  if (Math.abs(n) >= 1_000) return "$" + Math.round(n / 1_000) + "k";
-  return "$" + Math.round(n);
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "−" : "";
+  if (abs >= 1_000_000) return `${sign}$${parseFloat((abs / 1_000_000).toFixed(2))}M`;
+  if (abs >= 1_000) return `${sign}$${Math.round(abs / 1_000)}k`;
+  return `${sign}$${Math.round(abs)}`;
+}
+
+// Axis step of 1 / 2 / 2.5 / 5 × 10^k so gridlines land on round dollars.
+function niceStep(range: number, targetTicks: number): number {
+  const raw = range / targetTicks;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  const nice = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
+  return nice * mag;
+}
+
+// Width of a block element, kept current via ResizeObserver, so the chart
+// can render at real pixel size instead of scaling a fixed viewBox.
+function useMeasuredWidth() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setWidth(el.getBoundingClientRect().width);
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, width] as const;
+}
+
+// Interpolated crossing where buy first drops below rent (the visual line
+// intersection), or null if buying never catches up within the hold.
+// Mirrored in mortgageCalc.test.ts — keep the two in sync.
+function findBreakEven(points: TimeSeriesPoint[]): { year: number; value: number } | null {
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1];
+    const curr = points[i];
+    const dPrev = prev.netBuyCost - prev.cumulativeRentCost;
+    const dCurr = curr.netBuyCost - curr.cumulativeRentCost;
+    if (dPrev > 0 && dCurr <= 0) {
+      const t = dPrev / (dPrev - dCurr);
+      return {
+        year: prev.year + (curr.year - prev.year) * t,
+        value: prev.netBuyCost + (curr.netBuyCost - prev.netBuyCost) * t,
+      };
+    }
+  }
+  return null;
 }
 
 // ── Time series chart ─────────────────────────────────────────────
 function TimeChart({ points }: { points: TimeSeriesPoint[] }) {
   const [hoverYear, setHoverYear] = useState<number | null>(null);
+  const [wrapRef, wrapW] = useMeasuredWidth();
   const svgRef = useRef<SVGSVGElement>(null);
 
-  if (points.length === 0) return null;
-  const W = 460, H = 200, PAD_L = 52, PAD_R = 12, PAD_T = 12, PAD_B = 28;
+  if (points.length < 2) return null;
+
+  // Render at the container's real width so labels stay 11px on wide panels
+  // instead of being scaled up 3× with a fixed viewBox.
+  const W = Math.max(320, Math.round(wrapW) || 460), H = 260;
+  const PAD_L = 62, PAD_R = 18, PAD_T = 16, PAD_B = 30;
   const chartW = W - PAD_L - PAD_R;
   const chartH = H - PAD_T - PAD_B;
 
+  const maxYear = points[points.length - 1].year;
   const allVals = points.flatMap((p) => [p.netBuyCost, p.cumulativeRentCost]);
-  const minV = Math.min(0, ...allVals);
-  const maxV = Math.max(...allVals);
-  const range = maxV - minV || 1;
+  const rawMin = Math.min(0, ...allVals);
+  const rawMax = Math.max(0, ...allVals);
+  const step = niceStep(rawMax - rawMin || 1, 4);
+  const minV = Math.floor(rawMin / step) * step;
+  const maxV = Math.max(Math.ceil(rawMax / step) * step, minV + step);
+  const range = maxV - minV;
+  const ticks: number[] = [];
+  for (let v = minV; v <= maxV + step / 2; v += step) ticks.push(v);
 
-  const xOf = (year: number) => PAD_L + ((year - 1) / (points.length - 1 || 1)) * chartW;
+  const xOf = (year: number) => PAD_L + (year / (maxYear || 1)) * chartW;
   const yOf = (v: number) => PAD_T + chartH - ((v - minV) / range) * chartH;
 
   const buyPts = points.map((p) => `${xOf(p.year)},${yOf(p.netBuyCost)}`).join(" ");
   const rentPts = points.map((p) => `${xOf(p.year)},${yOf(p.cumulativeRentCost)}`).join(" ");
 
-  // Break-even crossover: linearly interpolate between the surrounding
-  // year samples so the marker actually sits at the visual intersection
-  // of the two lines instead of at the next integer-year data point.
-  const breakEven: { year: number; value: number } | null = (() => {
+  // Band between the two lines, coloured by who's ahead. Each yearly segment
+  // is split at the interpolated crossing so the colour flips exactly there.
+  const bands: { pts: string; buyAhead: boolean }[] = [];
+  const quad = (y0: number, b0: number, r0: number, y1: number, b1: number, r1: number, buyAhead: boolean) =>
+    bands.push({ pts: `${xOf(y0)},${yOf(b0)} ${xOf(y1)},${yOf(b1)} ${xOf(y1)},${yOf(r1)} ${xOf(y0)},${yOf(r0)}`, buyAhead });
+  for (let i = 1; i < points.length; i++) {
+    const p = points[i - 1], c = points[i];
+    const dP = p.netBuyCost - p.cumulativeRentCost;
+    const dC = c.netBuyCost - c.cumulativeRentCost;
+    if (dP * dC < 0) {
+      const t = dP / (dP - dC);
+      const ym = p.year + (c.year - p.year) * t;
+      const bm = p.netBuyCost + (c.netBuyCost - p.netBuyCost) * t;
+      const rm = p.cumulativeRentCost + (c.cumulativeRentCost - p.cumulativeRentCost) * t;
+      quad(p.year, p.netBuyCost, p.cumulativeRentCost, ym, bm, rm, dP < 0);
+      quad(ym, bm, rm, c.year, c.netBuyCost, c.cumulativeRentCost, dC < 0);
+    } else {
+      quad(p.year, p.netBuyCost, p.cumulativeRentCost, c.year, c.netBuyCost, c.cumulativeRentCost, dP + dC < 0);
+    }
+  }
+
+  const breakEven = findBreakEven(points);
+
+  // Year the mortgage is paid off (hold ≥ term) — P&I stops here, so the
+  // buy line's slope changes; label it so the kink isn't a mystery.
+  const payoffYear = (() => {
     for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1];
-      const curr = points[i];
-      const dPrev = prev.netBuyCost - prev.cumulativeRentCost;
-      const dCurr = curr.netBuyCost - curr.cumulativeRentCost;
-      if (dPrev > 0 && dCurr <= 0) {
-        const t = dPrev / (dPrev - dCurr); // fraction between prev and curr
-        const year = prev.year + (curr.year - prev.year) * t;
-        const value = prev.netBuyCost + (curr.netBuyCost - prev.netBuyCost) * t;
-        return { year, value };
-      }
+      if (points[i - 1].remainingBalance > 1 && points[i].remainingBalance <= 1) return points[i].year;
     }
     return null;
   })();
 
-  // Y-axis ticks
-  const tickCount = 4;
-  const ticks = Array.from({ length: tickCount + 1 }, (_, i) => minV + (range * i) / tickCount);
-
-  const zeroY = yOf(0);
+  // X labels: every 5 years plus both endpoints; drop a 5-multiple that
+  // would collide with the final-year label.
+  const xLabels = points
+    .map((p) => p.year)
+    .filter((y) => y === 0 || y === maxYear || (y % 5 === 0 && maxYear - y >= 2));
 
   const hoverPoint = hoverYear !== null ? (points.find((p) => p.year === hoverYear) ?? null) : null;
 
@@ -204,85 +279,100 @@ function TimeChart({ points }: { points: TimeSeriesPoint[] }) {
     if (!svg) return;
     const rect = svg.getBoundingClientRect();
     const svgX = ((e.clientX - rect.left) / rect.width) * W;
-    const yearFrac = ((svgX - PAD_L) / chartW) * (points.length - 1) + 1;
-    const year = Math.round(Math.max(1, Math.min(points.length, yearFrac)));
-    setHoverYear(year);
+    const yearFrac = ((svgX - PAD_L) / chartW) * maxYear;
+    setHoverYear(Math.round(Math.max(0, Math.min(maxYear, yearFrac))));
   }
 
-  const TT_W = 110, TT_H = 46, TT_PAD = 6;
+  const TT_W = 172, TT_H = 66, TT_PAD = 8, LINE = 14;
 
   return (
-    <svg
-      ref={svgRef}
-      viewBox={`0 0 ${W} ${H}`}
-      className="fp-time-chart"
-      aria-label="Buy vs Rent over time"
-      onMouseMove={handleMouseMove}
-      onMouseLeave={() => setHoverYear(null)}
-      style={{ cursor: "crosshair" }}
-    >
-      {/* Zero line */}
-      {minV < 0 && maxV > 0 && (
-        <line x1={PAD_L} y1={zeroY} x2={W - PAD_R} y2={zeroY} stroke="#334155" strokeWidth={1} strokeDasharray="3 3" />
-      )}
-      {/* Y-axis ticks */}
-      {ticks.map((v, i) => (
-        <g key={i}>
-          <line x1={PAD_L - 4} y1={yOf(v)} x2={PAD_L} y2={yOf(v)} stroke="#475569" strokeWidth={1} />
-          <text x={PAD_L - 6} y={yOf(v) + 4} textAnchor="end" fontSize={9} fill="#64748b">{fmtK(v)}</text>
-        </g>
-      ))}
-      {/* X-axis labels */}
-      {points.filter((p) => p.year % 5 === 0 || p.year === 1).map((p) => (
-        <text key={p.year} x={xOf(p.year)} y={H - 6} textAnchor="middle" fontSize={9} fill="#64748b">yr{p.year}</text>
-      ))}
-      {/* Axes */}
-      <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={H - PAD_B} stroke="#475569" strokeWidth={1} />
-      <line x1={PAD_L} y1={H - PAD_B} x2={W - PAD_R} y2={H - PAD_B} stroke="#475569" strokeWidth={1} />
-      {/* Rent line (amber) */}
-      <polyline points={rentPts} fill="none" stroke="#f59e0b" strokeWidth={2} />
-      {/* Buy net cost line (purple) */}
-      <polyline points={buyPts} fill="none" stroke="#a78bfa" strokeWidth={2} />
-      {/* Break-even marker — at the interpolated line intersection */}
-      {breakEven !== null && (
-        <g>
-          <circle cx={xOf(breakEven.year)} cy={yOf(breakEven.value)} r={4} fill="#22c55e" />
-          <text x={xOf(breakEven.year) + 6} y={yOf(breakEven.value) - 4} fontSize={9} fill="#22c55e">
-            yr{breakEven.year.toFixed(1)}
-          </text>
-        </g>
-      )}
-      {/* Legend */}
-      <g>
-        <line x1={PAD_L + 4} y1={PAD_T + 6} x2={PAD_L + 18} y2={PAD_T + 6} stroke="#a78bfa" strokeWidth={2} />
-        <text x={PAD_L + 22} y={PAD_T + 10} fontSize={9} fill="#a78bfa">Buy net cost</text>
-        <line x1={PAD_L + 90} y1={PAD_T + 6} x2={PAD_L + 104} y2={PAD_T + 6} stroke="#f59e0b" strokeWidth={2} />
-        <text x={PAD_L + 108} y={PAD_T + 10} fontSize={9} fill="#f59e0b">Rent</text>
-        {breakEven !== null && (
-          <>
-            <circle cx={PAD_L + 158} cy={PAD_T + 6} r={3} fill="#22c55e" />
-            <text x={PAD_L + 164} y={PAD_T + 10} fontSize={9} fill="#22c55e">Break-even</text>
-          </>
-        )}
-      </g>
-      {/* Hover crosshair + tooltip */}
-      {hoverPoint && (() => {
-        const cx = xOf(hoverPoint.year);
-        const ttX = cx + 8 + TT_W > W - PAD_R ? cx - 8 - TT_W : cx + 8;
-        const ttY = PAD_T + chartH / 2 - TT_H / 2;
-        return (
-          <g pointerEvents="none">
-            <line x1={cx} y1={PAD_T} x2={cx} y2={H - PAD_B} stroke="#94a3b8" strokeWidth={1} strokeDasharray="3 3" />
-            <circle cx={cx} cy={yOf(hoverPoint.netBuyCost)} r={3.5} fill="#a78bfa" />
-            <circle cx={cx} cy={yOf(hoverPoint.cumulativeRentCost)} r={3.5} fill="#f59e0b" />
-            <rect x={ttX} y={ttY} width={TT_W} height={TT_H} rx={4} fill="#1e293b" stroke="#334155" strokeWidth={1} />
-            <text x={ttX + TT_PAD} y={ttY + TT_PAD + 9} fontSize={9} fill="#94a3b8" fontWeight="600">yr {hoverPoint.year}</text>
-            <text x={ttX + TT_PAD} y={ttY + TT_PAD + 22} fontSize={9} fill="#a78bfa">Buy: {fmtK(hoverPoint.netBuyCost)}</text>
-            <text x={ttX + TT_PAD} y={ttY + TT_PAD + 35} fontSize={9} fill="#f59e0b">Rent: {fmtK(hoverPoint.cumulativeRentCost)}</text>
+    <div className="fp-time-chart-wrap" ref={wrapRef}>
+      <div className="fp-time-legend">
+        <span><i style={{ background: "#a78bfa" }} />Buy net cost (if sold that year)</span>
+        <span><i style={{ background: "#f59e0b" }} />Rent paid to date</span>
+        <span><i className="area" style={{ background: "rgba(34,197,94,0.35)" }} />Buy ahead</span>
+        <span><i className="area" style={{ background: "rgba(239,68,68,0.35)" }} />Rent ahead</span>
+        {breakEven !== null && <span><i className="dot" style={{ background: "#22c55e" }} />Break-even</span>}
+        {payoffYear !== null && <span><i className="dash" />Loan paid off</span>}
+      </div>
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${W} ${H}`}
+        width={W}
+        height={H}
+        className="fp-time-chart"
+        aria-label="Buy vs Rent over time"
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setHoverYear(null)}
+        style={{ cursor: "crosshair" }}
+      >
+        {/* Gridlines + Y ticks */}
+        {ticks.map((v) => (
+          <g key={v}>
+            <line x1={PAD_L} y1={yOf(v)} x2={W - PAD_R} y2={yOf(v)} stroke={v === 0 ? "#475569" : "#1e293b"} strokeWidth={1} />
+            <text x={PAD_L - 8} y={yOf(v) + 4} textAnchor="end" fontSize={11} fill="#64748b">{fmtK(v)}</text>
           </g>
-        );
-      })()}
-    </svg>
+        ))}
+        {/* Who's-ahead band */}
+        {bands.map((b, i) => (
+          <polygon key={i} points={b.pts} fill={b.buyAhead ? "#22c55e" : "#ef4444"} fillOpacity={0.12} stroke="none" />
+        ))}
+        {/* Loan payoff marker */}
+        {payoffYear !== null && (
+          <g>
+            <line x1={xOf(payoffYear)} y1={PAD_T} x2={xOf(payoffYear)} y2={H - PAD_B} stroke="#64748b" strokeWidth={1} strokeDasharray="4 3" />
+            <text x={xOf(payoffYear) - 5} y={PAD_T + 11} textAnchor="end" fontSize={10} fill="#94a3b8">loan paid off</text>
+          </g>
+        )}
+        {/* X-axis labels */}
+        {xLabels.map((y) => (
+          <text key={y} x={xOf(y)} y={H - 8} textAnchor="middle" fontSize={11} fill="#64748b">yr {y}</text>
+        ))}
+        {/* Axes */}
+        <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={H - PAD_B} stroke="#475569" strokeWidth={1} />
+        <line x1={PAD_L} y1={H - PAD_B} x2={W - PAD_R} y2={H - PAD_B} stroke="#475569" strokeWidth={1} />
+        {/* Rent line (amber) */}
+        <polyline points={rentPts} fill="none" stroke="#f59e0b" strokeWidth={2} strokeLinejoin="round" />
+        {/* Buy net cost line (purple) */}
+        <polyline points={buyPts} fill="none" stroke="#a78bfa" strokeWidth={2} strokeLinejoin="round" />
+        {/* Break-even marker — at the interpolated line intersection */}
+        {breakEven !== null && (() => {
+          const bx = xOf(breakEven.year), by = yOf(breakEven.value);
+          const flip = bx > W - PAD_R - 120;
+          return (
+            <g>
+              <circle cx={bx} cy={by} r={4.5} fill="#22c55e" stroke="#0a1628" strokeWidth={1.5} />
+              <text x={flip ? bx - 8 : bx + 8} y={by - 8} textAnchor={flip ? "end" : "start"} fontSize={11} fontWeight={600} fill="#22c55e">
+                break-even yr {breakEven.year.toFixed(1)}
+              </text>
+            </g>
+          );
+        })()}
+        {/* Hover crosshair + tooltip */}
+        {hoverPoint && (() => {
+          const cx = xOf(hoverPoint.year);
+          const diff = hoverPoint.cumulativeRentCost - hoverPoint.netBuyCost;
+          const ttX = cx + 10 + TT_W > W - PAD_R ? cx - 10 - TT_W : cx + 10;
+          const ttY = PAD_T + 4;
+          return (
+            <g pointerEvents="none">
+              <line x1={cx} y1={PAD_T} x2={cx} y2={H - PAD_B} stroke="#94a3b8" strokeWidth={1} strokeDasharray="3 3" />
+              <circle cx={cx} cy={yOf(hoverPoint.netBuyCost)} r={4} fill="#a78bfa" stroke="#0a1628" strokeWidth={1.5} />
+              <circle cx={cx} cy={yOf(hoverPoint.cumulativeRentCost)} r={4} fill="#f59e0b" stroke="#0a1628" strokeWidth={1.5} />
+              <rect x={ttX} y={ttY} width={TT_W} height={TT_H} rx={5} fill="#1e293b" stroke="#334155" strokeWidth={1} />
+              <text x={ttX + TT_PAD} y={ttY + TT_PAD + 10} fontSize={11} fill="#cbd5e1" fontWeight={600}>
+                {hoverPoint.year === 0 ? "At closing" : `Year ${hoverPoint.year}`}
+              </text>
+              <text x={ttX + TT_PAD} y={ttY + TT_PAD + 10 + LINE} fontSize={11} fill="#a78bfa">Buy net: {fmtK(hoverPoint.netBuyCost)}</text>
+              <text x={ttX + TT_PAD} y={ttY + TT_PAD + 10 + LINE * 2} fontSize={11} fill="#f59e0b">Rent: {fmtK(hoverPoint.cumulativeRentCost)}</text>
+              <text x={ttX + TT_PAD} y={ttY + TT_PAD + 10 + LINE * 3} fontSize={11} fontWeight={600} fill={diff >= 0 ? "#22c55e" : "#ef4444"}>
+                {diff >= 0 ? `Buy ahead by ${fmtK(diff)}` : `Rent ahead by ${fmtK(-diff)}`}
+              </text>
+            </g>
+          );
+        })()}
+      </svg>
+    </div>
   );
 }
 
@@ -741,25 +831,32 @@ function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, term
           <span>
             📈 Time Analysis
             <Tip tip={[
-              `Chart shows cumulative costs over time.`,
+              `Cumulative cost of buying vs renting, year by year.`,
               ``,
-              `Purple line — "Buy net cost"`,
-              `  Total cash out (P&I + all expenses + opp cost`,
-              `  − tax savings) minus what you'd net from`,
-              `  selling that year (home value − balance`,
-              `  − seller costs).`,
+              `Purple — "Buy net cost"`,
+              `  Total cash out (down + closing, P&I while the`,
+              `  loan lasts, tax/insurance/HOA/maintenance,`,
+              `  opportunity cost on the down payment, − tax`,
+              `  savings) minus what you'd net by selling that`,
+              `  year (value − balance − seller costs).`,
+              `  Year 0 = the day you close: the net cost is`,
+              `  just the round-trip transaction costs.`,
               ``,
-              `Amber line — "Rent"`,
+              `Amber — "Rent"`,
               `  Cumulative rent paid (with annual inflation).`,
               ``,
-              `Green dot — break-even year`,
-              `  The year where buying-then-selling becomes`,
-              `  cheaper than having rented the whole time.`,
+              `Shading — green where buying is ahead, red`,
+              `  where renting is ahead.`,
               ``,
-              `Seller costs affect break-even because they`,
-              `reduce sale proceeds at every year on the`,
-              `chart — the purple line always assumes you`,
-              `sell at that point.`,
+              `Green dot — break-even year: where buying-`,
+              `  then-selling first beats having rented.`,
+              ``,
+              `Dashed line — mortgage paid off (hold > term).`,
+              `  P&I stops, so the buy line flattens.`,
+              ``,
+              `Seller costs reduce sale proceeds at every`,
+              `year on the chart — the purple line always`,
+              `assumes you sell at that point.`,
             ].join("\n")}>
               <span className="fp-time-info">ⓘ</span>
             </Tip>
