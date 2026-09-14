@@ -19,6 +19,7 @@ session. Humans may add items too — anything you notice on the phone goes here
 
 ## Backlog
 
+- [ ] **Pull-to-refresh on the list (phones)** — Browse/Open Houses list view: drag down at the top → call `refreshListings()` with the same toast. Native `overscroll-behavior: none` is set on `html.native`, so implement with touch handlers (start at scrollTop 0, threshold ~70px, spinner row). Test: pull in the simulator → toast appears.
 - [ ] **Property cards: tighter on phones** — Browse/Open Houses list: thumbnail 120px + large padding makes ~1.3 cards fit per screen. Try a horizontal card (thumb left 96×72, price/address/meta right, actions in one row) at ≤767px. Test: ≥2.5 cards visible on a 844px-tall viewport.
 - [ ] **Data page table on phones** — #data: columns truncate to "4…" and the table scrolls horizontally with no sticky first column; consider a compact row layout (address + price + beds/baths) under 767px. Test: address readable without horizontal scroll.
 
@@ -27,5 +28,6 @@ session. Humans may add items too — anything you notice on the phone goes here
 - [ ] **Open a CSV from the iOS Share Sheet** — native: declare a CSV document type in `ios/App/App/Info.plist` (CFBundleDocumentTypes, public.comma-separated-values-text), handle `appUrlOpen` file URLs in `src/native/native.ts` via `@capacitor/filesystem` → `uploadListings`. Needs `npm run ios:ship` after. Test: Safari download → Share → "Open House" → listings update.
 
 ## Done
+- [x] **Refresh listings is first-class: ↻ button + menu item, on-demand Redfin pull, status/price/open-house merge, "updated Xh ago"** — 221f052
 - [x] **Compact phone shell: one-row header, bottom page tabs, floating Map/List, avatar menu, collapsed filters** — c143ae7
 - [x] **Catalog favorites, stage (a): `GET /api/listings?catalog=1` returns full rows** — 6771c96
