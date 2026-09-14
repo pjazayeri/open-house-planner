@@ -93,3 +93,32 @@ import { addressKey } from "./addressKey";
 export function listingAddressKey(l: Pick<Listing, "address" | "city">): string {
   return addressKey(l.address ?? "", l.city ?? "");
 }
+
+// ── Listing universe = CSV favorites ∪ hearted catalog listings ───────
+
+/**
+ * Build the rows the pipeline should run on: the user's (catalog-merged) CSV
+ * rows plus a catalog row for every hearted address that the CSV doesn't
+ * already contain. `missing` lists hearted addresses we have no catalog row
+ * for yet (caller fetches them via POST /api/listings and recomposes).
+ */
+export function composeUniverse(
+  csvRows: RawListing[],
+  favoriteIds: Iterable<string>,
+  catalogRows: Record<string, RawListing | undefined>,
+): { rows: RawListing[]; added: number; missing: string[] } {
+  const have = new Set(csvRows.map((r) => addressKey(r.ADDRESS ?? "", r.CITY ?? "")));
+  const extras: RawListing[] = [];
+  const missing: string[] = [];
+  for (const key of favoriteIds) {
+    if (have.has(key)) continue;
+    const row = catalogRows[key];
+    if (row) {
+      extras.push({ ...row, FAVORITE: "Y" });
+      have.add(key);
+    } else {
+      missing.push(key);
+    }
+  }
+  return { rows: [...csvRows, ...extras], added: extras.length, missing };
+}

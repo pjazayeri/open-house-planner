@@ -4,9 +4,11 @@ interface CsvUploadPromptProps {
   onUpload: (csvText: string) => Promise<number>;
   user?: { displayName: string | null; email: string | null } | null;
   onSignOut?: () => Promise<void>;
+  /** Signed-in users can skip the CSV and heart listings from the catalog instead. */
+  onSkip?: () => void;
 }
 
-export function CsvUploadPrompt({ onUpload, user, onSignOut }: CsvUploadPromptProps) {
+export function CsvUploadPrompt({ onUpload, user, onSignOut, onSkip }: CsvUploadPromptProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +58,11 @@ export function CsvUploadPrompt({ onUpload, user, onSignOut }: CsvUploadPromptPr
             Open Redfin Favorites &#8599;
           </a>
         </div>
+        {onSkip && (
+          <button className="csv-prompt-skip" onClick={onSkip}>
+            No CSV? <strong>Browse the catalog instead</strong> — every SF listing with an open house, heart the ones you like.
+          </button>
+        )}
         {error && <p className="csv-prompt-error">{error}</p>}
         <input ref={fileRef} type="file" accept=".csv" style={{ display: "none" }} onChange={handleFile} />
         {user && onSignOut && (

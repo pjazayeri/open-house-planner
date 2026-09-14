@@ -351,6 +351,7 @@ function App() {
   const {
     loading,
     needsCsvUpload,
+    skipCsvUpload,
     error,
     allListings,
     allFavoritesListings,
@@ -689,6 +690,7 @@ function App() {
         onUpload={uploadListings}
         user={user ? { displayName: user.displayName, email: user.email } : null}
         onSignOut={signOut}
+        onSkip={authMode === "signed-in" ? skipCsvUpload : undefined}
       />
     );
   }

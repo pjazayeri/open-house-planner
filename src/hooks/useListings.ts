@@ -7,7 +7,7 @@ import { shiftListingsToFuture } from "../utils/demoSeed";
 import { relinkIds, relinkIdSet } from "../utils/relinkIds";
 import { overlayCatalogRows } from "../utils/overlayOpenHouses";
 import { addressKey } from "../utils/addressKey";
-import type { CatalogRowsResponse, RefreshResult } from "../utils/catalog";
+import { composeUniverse, type CatalogRowsResponse, type RefreshResult } from "../utils/catalog";
 import { optimizeRoute } from "../utils/routeOptimizer";
 import { useHiddenIds } from "./useHiddenIds";
 import { useVisits } from "./useVisits";
@@ -38,6 +38,8 @@ const NEARBY_MILES = 0.062; // ~100 meters
 interface UseListingsResult {
   loading: boolean;
   needsCsvUpload: boolean;
+  /** Enter the app with no CSV (browse + heart catalog listings instead). */
+  skipCsvUpload: () => void;
   error: string | null;
   allListings: Listing[];
   allFavoritesListings: Listing[];
@@ -106,6 +108,12 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
   // The user's CSV rows as loaded (before any catalog overlay) — the base that
   // every refresh re-merges onto.
   const rawRowsRef = useRef<RawListing[]>([]);
+  // CSV rows after the catalog merge, catalog rows by address key (from every
+  // POST /api/listings so far), and whether the initial load has finished —
+  // the pieces needed to recompose the universe when favorites change.
+  const mergedCsvRowsRef = useRef<RawListing[]>([]);
+  const catalogRowsRef = useRef<Record<string, RawListing>>({});
+  const loadedRef = useRef(false);
   const [listingsUpdatedAt, setListingsUpdatedAt] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -128,9 +136,13 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
    * it in. `refresh=true` also triggers a fresh Redfin pull server-side
    * (rate-limited there). Returns null when the catalog is unavailable.
    */
-  const mergeCatalog = useCallback(async (rows: RawListing[], refresh: boolean): Promise<{ rows: RawListing[]; result: RefreshResult } | null> => {
+  const mergeCatalog = useCallback(async (rows: RawListing[], refresh: boolean, extraKeys: Iterable<string> = []): Promise<{ rows: RawListing[]; result: RefreshResult } | null> => {
     const authHeaders = await getAuthHeaders();
-    const addressKeys = Array.from(new Set(rows.map((r) => addressKey(r.ADDRESS ?? "", r.CITY ?? ""))));
+    const addressKeys = Array.from(new Set([...rows.map((r) => addressKey(r.ADDRESS ?? "", r.CITY ?? "")), ...extraKeys]));
+    if (addressKeys.length === 0 && !refresh) {
+      mergedCsvRowsRef.current = rows;
+      return { rows, result: { refreshed: false, updatedAt: null, changes: { matched: 0, status: 0, price: 0, openHouse: 0 } } };
+    }
     const res = await fetch(apiUrl("/api/listings"), {
       method: "POST",
       headers: { "Content-Type": "application/json", ...authHeaders },
@@ -138,7 +150,9 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
     });
     if (!res.ok) return null;
     const data = (await res.json()) as CatalogRowsResponse;
+    Object.assign(catalogRowsRef.current, data.rows);
     const { rows: merged, changes } = overlayCatalogRows(rows, data.rows);
+    mergedCsvRowsRef.current = merged;
     const updatedAt = data.updatedAt ? new Date(data.updatedAt) : null;
     setListingsUpdatedAt(updatedAt);
     console.info(`[useListings] catalog merged ${changes.matched}/${rows.length} favorites (status ${changes.status}, price ${changes.price}, open house ${changes.openHouse})`);
@@ -154,7 +168,53 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
     }
     setAllListings(filtered);
     setAllFavoritesListings(all);
+    const cities = getCities(filtered);
+    setSelectedCity((prev) => (prev && cities.includes(prev) ? prev : (cities[0] ?? prev)));
     return filtered;
+  }, []);
+
+  /**
+   * Universe = catalog-merged CSV rows ∪ hearted catalog listings. Fetches
+   * catalog rows for hearted addresses we haven't seen yet, then recomposes.
+   */
+  const composeRows = useCallback(async (csvRows: RawListing[], favKeys: Iterable<string>): Promise<RawListing[]> => {
+    let u = composeUniverse(csvRows, favKeys, catalogRowsRef.current);
+    if (u.missing.length > 0) {
+      try {
+        const authHeaders = await getAuthHeaders();
+        const res = await fetch(apiUrl("/api/listings"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders },
+          body: JSON.stringify({ addressKeys: u.missing }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as CatalogRowsResponse;
+          Object.assign(catalogRowsRef.current, data.rows);
+          u = composeUniverse(csvRows, favKeys, catalogRowsRef.current);
+        }
+      } catch (e) {
+        console.warn("[useListings] favorite rows fetch skipped:", e);
+      }
+    }
+    return u.rows;
+  }, []);
+
+  // Hearting / un-hearting in the Catalog view updates the universe live.
+  useEffect(() => {
+    if (!loadedRef.current || authMode !== "signed-in") return;
+    let cancelled = false;
+    (async () => {
+      const rows = await composeRows(mergedCsvRowsRef.current, favoriteIds);
+      if (cancelled) return;
+      applyRows(rows, false);
+      if (rows.length > 0) setNeedsCsvUpload(false);
+    })();
+    return () => { cancelled = true; };
+  }, [favoriteIds, authMode, composeRows, applyRows]);
+
+  const skipCsvUpload = useCallback(() => {
+    loadedRef.current = true;
+    setNeedsCsvUpload(false);
   }, []);
 
   /** First-class "Refresh listings": fresh Redfin pull + re-merge. Signed-in only. */
@@ -162,14 +222,14 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
     if (authMode !== "signed-in" || rawRowsRef.current.length === 0) return null;
     setRefreshing(true);
     try {
-      const merged = await mergeCatalog(rawRowsRef.current, true);
+      const merged = await mergeCatalog(rawRowsRef.current, true, favoriteIds);
       if (!merged) return null;
-      applyRows(merged.rows, false);
+      applyRows(await composeRows(merged.rows, favoriteIds), false);
       return merged.result;
     } finally {
       setRefreshing(false);
     }
-  }, [authMode, mergeCatalog, applyRows]);
+  }, [authMode, mergeCatalog, applyRows, composeRows, favoriteIds]);
   const saveFailed = hiddenSaveFailed || visitsSaveFailed;
   const { position: geoPosition, error: geoError, watching: geoWatching, startWatching: startGeo } = useGeolocation();
 
@@ -203,14 +263,19 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
           // Non-fatal — falls back to the CSV's own values if unavailable.
           rawRowsRef.current = rows;
           if (authMode === "signed-in") {
+            // Hearted catalog listings (favoriteIds) join the universe even
+            // with no CSV at all — that's the "no computer needed" path.
+            const favKeys = new Set(stateResult?.favoriteIds ?? []);
             try {
-              const merged = await mergeCatalog(rows, false);
+              const merged = await mergeCatalog(rows, false, favKeys);
               if (merged) rows = merged.rows;
             } catch (e) {
               console.warn("[useListings] catalog merge skipped:", e);
             }
+            rows = await composeRows(rows, favKeys);
           }
         }
+        loadedRef.current = true;
         if (rows.length === 0) {
           setNeedsCsvUpload(true);
         } else {
@@ -316,6 +381,7 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
   return {
     loading,
     needsCsvUpload,
+    skipCsvUpload,
     error,
     allListings,
     allFavoritesListings,
@@ -364,12 +430,14 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
       rawRowsRef.current = rows;
       if (authMode === "signed-in") {
         try {
-          const merged = await mergeCatalog(rows, false);
+          const merged = await mergeCatalog(rows, false, favoriteIds);
           if (merged) rows = merged.rows;
         } catch (e) {
           console.warn("[uploadListings] catalog merge skipped:", e);
         }
+        rows = await composeRows(rows, favoriteIds);
       }
+      loadedRef.current = true;
       const filtered = filterAndTransform(rows);
       setAllListings(filtered);
       setAllFavoritesListings(transformAll(rows));

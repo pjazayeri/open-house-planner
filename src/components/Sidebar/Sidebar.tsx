@@ -344,7 +344,7 @@ export function Sidebar({
   const isMobile = useIsMobile();
   const [filtersOpen, setFiltersOpen] = useState(false);
   // Browse: "My listings" (CSV + hearted) vs the shared "Catalog".
-  const [source, setSource] = useState<"mine" | "catalog">("mine");
+  const [source, setSource] = useState<"mine" | "catalog">(() => (mode === "browse" && catalog && totalListings === 0 ? "catalog" : "mine"));
   const showCatalog = mode === "browse" && !!catalog && source === "catalog";
   const activeFilterCount = countActiveFilters({
     mode, searchQuery, selectedAreas, statusFilter, priceMin, priceMax,
