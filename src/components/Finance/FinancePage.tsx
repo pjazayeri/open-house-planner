@@ -6,7 +6,8 @@ import { recalcCapRateWithRent } from "../../utils/capRate";
 import { pointInPolygon } from "../../utils/geometry";
 import { formatPrice, formatBedsBaths } from "../../utils/formatters";
 import { navigationUrl } from "../../utils/mapsUrl";
-import { totalOwnCostTooltip, effectiveCostTooltip, netCostTooltip } from "../../utils/financeTooltips";
+import { totalOwnCostTooltip, effectiveCostTooltip, netCostTooltip, assumptionsSummary } from "../../utils/financeTooltips";
+import { useIsMobile } from "../../hooks/useIsMobile";
 import { matchesListingSearch } from "../../utils/listingSearch";
 import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import "./FinancePage.css";
@@ -1006,6 +1007,10 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
   const [sellerCostPct, setSellerCostPct] = useState(() => readLs(LS_SELLER_COST, 6));
   const [rentInflationPct, setRentInflationPct] = useState(() => readLs(LS_RENT_INFLATION, 3));
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
+  // Phones: stacked navigation (list → detail) and a collapsed assumptions bar.
+  const isMobile = useIsMobile();
+  const [mobileView, setMobileView] = useState<"list" | "detail">(initialSelectedId ? "detail" : "list");
+  const [assumptionsOpen, setAssumptionsOpen] = useState(false);
   const { fetchEstimate, getEstimate } = useRentEstimates();
   const [fetchingEstimate, setFetchingEstimate] = useState(false);
 
@@ -1168,7 +1173,17 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
           <div className="fp-header-center">
             <h2>Finance — Buy vs Rent</h2>
           </div>
-          <div className="fp-inputs">
+          <button
+            className={`fp-assumptions-toggle${assumptionsOpen ? " open" : ""}`}
+            onClick={() => setAssumptionsOpen((v) => !v)}
+            aria-expanded={assumptionsOpen}
+            aria-controls="fp-inputs"
+          >
+            <span className="fp-assumptions-label">Assumptions</span>
+            <span className="fp-assumptions-summary">{assumptionsSummary(downPct, rate, termYears, oppReturnPct)}</span>
+            <span aria-hidden="true">{assumptionsOpen ? "▴" : "▾"}</span>
+          </button>
+          <div id="fp-inputs" className={`fp-inputs${assumptionsOpen ? " fp-inputs--open" : ""}`}>
             <div className="fp-input-group">
               <label>Down</label>
               <NumInput value={downPct} onChange={setDownPct} min={0} max={100} step={1} />
@@ -1301,7 +1316,7 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
       </div>
 
       {/* ── Body: list + detail ── */}
-      <div className="fp-body">
+      <div className={`fp-body fp-body--${mobileView}`}>
         <div className="fp-list-panel">
           {unpricedCount > 0 && (
             <div className="fp-list-note" title="Redfin lists these as price upon request; there is nothing to evaluate without a price.">
@@ -1317,12 +1332,15 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
               selected={listing.id === selectedId}
               isFavorite={priorityIds.has(listing.id)}
               onToggleFavorite={() => togglePriority(listing.id)}
-              onClick={() => setSelectedId(listing.id)}
+              onClick={() => { setSelectedId(listing.id); if (isMobile) setMobileView("detail"); }}
             />
           ))}
         </div>
 
         <div className="fp-detail-panel">
+          <button className="fp-mobile-back" onClick={() => setMobileView("list")}>
+            ‹ All listings
+          </button>
           {selectedEntry ? (
             <DetailPanel
               listing={selectedEntry.listing}

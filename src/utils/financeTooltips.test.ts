@@ -85,3 +85,13 @@ describe("netCostTooltip", () => {
     expect(t).toContain("= $6,500 / mo");
   });
 });
+
+import { assumptionsSummary } from "./financeTooltips";
+
+describe("assumptionsSummary", () => {
+  it("formats the collapsed assumptions line", () => {
+    expect(assumptionsSummary(20, 6.76, 30, 7)).toBe("20% down · 6.76% · 30yr · 7% opp.");
+    expect(assumptionsSummary(25, 6.5, 15, 5)).toBe("25% down · 6.5% · 15yr · 5% opp.");
+    expect(assumptionsSummary(20, Number.NaN, 30, 7)).toBe("20% down · — · 30yr · 7% opp.");
+  });
+});

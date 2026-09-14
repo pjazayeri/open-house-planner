@@ -60,3 +60,10 @@ export function netCostTooltip(result: BuyVsRentResult): string {
   lines.push(`  = ${fmtMo(result.netMonthlyOwnershipCost)}`);
   return lines.join("\n");
 }
+
+
+/** Compact one-liner for the collapsed "Assumptions" bar on phones. */
+export function assumptionsSummary(downPct: number, ratePct: number, termYears: number, oppReturnPct: number): string {
+  const rate = Number.isFinite(ratePct) ? `${ratePct.toFixed(2).replace(/\.?0+$/, "")}%` : "—";
+  return `${downPct}% down · ${rate} · ${termYears}yr · ${oppReturnPct}% opp.`;
+}

@@ -49,6 +49,10 @@
   margin: 0;
 }
 
+/* Phone-only controls (see the mobile block at the bottom) */
+.fp-assumptions-toggle { display: none; }
+.fp-mobile-back { display: none; }
+
 /* ── Inputs ──────────────────────────────────────── */
 .fp-inputs {
   display: flex;
@@ -627,21 +631,41 @@
 
 /* ── Mobile ──────────────────────────────────────── */
 @media (max-width: 767px) {
-  /* Header: allow scrolling the inputs row horizontally */
-  .fp-header { padding: 8px 12px; gap: 6px; }
-  .fp-header-top { flex-wrap: nowrap; align-items: flex-start; gap: 8px; }
-  .fp-header-center h2 { font-size: 13px; }
-  .fp-inputs {
+  /* Header: title row, then a collapsed "Assumptions" bar that expands into a
+     2-column grid of inputs. Nothing scrolls sideways. */
+  .fp-header { padding: 8px 12px; gap: 8px; }
+  .fp-header-top { flex-direction: column; align-items: stretch; gap: 8px; }
+  .fp-header-center h2 { font-size: 15px; }
+  .fp-assumptions-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    background: #0f172a;
+    color: #e2e8f0;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .fp-assumptions-toggle.open { border-color: #3b82f6; }
+  .fp-assumptions-label { font-weight: 600; white-space: nowrap; }
+  .fp-assumptions-summary { flex: 1; min-width: 0; color: #94a3b8; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fp-inputs { display: none; }
+  .fp-inputs--open {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
     margin-left: 0;
     width: 100%;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 4px;
-    gap: 10px;
-    /* hide scrollbar but keep scrollable */
-    scrollbar-width: none;
+    padding: 4px 2px 2px;
   }
-  .fp-inputs::-webkit-scrollbar { display: none; }
+  .fp-inputs--open .fp-input-group { min-height: 36px; flex-wrap: wrap; }
+  .fp-inputs--open .fp-input-group label { min-width: 0; }
 
   /* Prevent iOS zoom on numeric inputs */
   .fp-num-input  { font-size: 16px; width: 60px; }
@@ -657,33 +681,43 @@
   }
   .fp-sort-row::-webkit-scrollbar { display: none; }
 
-  /* Body stacks list above detail */
+  /* Body: stacked navigation — full-height list, tap a row → full-height
+     detail with a back bar (fp-body--list / fp-body--detail from the page). */
   .fp-body { flex-direction: column; }
-
-  /* Horizontal card scroller */
   .fp-list-panel {
     width: 100%;
-    height: 160px;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
+    flex: 1;
+    min-height: 0;
     border-right: none;
-    border-bottom: 1px solid #1e293b;
-    gap: 0;
-    flex-shrink: 0;
+    overflow-y: auto;
   }
-  .fp-list-item {
-    min-width: 190px;
-    border-left: none;
-    border-bottom: 3px solid transparent;
-    flex-shrink: 0;
-  }
-  .fp-list-item.accent-green  { border-bottom-color: #22c55e; }
-  .fp-list-item.accent-yellow { border-bottom-color: #eab308; }
-  .fp-list-item.accent-red    { border-bottom-color: #ef4444; }
+  .fp-list-item { min-height: 60px; }
+  .fp-li-main { padding: 10px 6px 10px 14px; }
+  .fp-li-address { font-size: 13px; }
+  .fp-star-btn { width: 44px; height: 44px; }
+  .fp-body--list .fp-detail-panel { display: none; }
+  .fp-body--detail .fp-list-panel { display: none; }
 
-  .fp-detail-panel { padding: 12px; overflow-y: auto; }
+  .fp-detail-panel { padding: 0 12px 16px; overflow-y: auto; }
+  .fp-mobile-back {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    width: calc(100% + 24px);
+    margin: 0 -12px 10px;
+    padding: 12px 16px;
+    min-height: 44px;
+    background: #0f172a;
+    border: none;
+    border-bottom: 1px solid #1e293b;
+    color: #60a5fa;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
 
   /* Tooltip stays within viewport */
   .fp-tip {
