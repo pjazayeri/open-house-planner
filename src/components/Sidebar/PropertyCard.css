@@ -695,3 +695,47 @@
     font-size: 15px;
   }
 }
+
+/* ── Phones: compact horizontal card ───────────────────────────────
+   Thumbnail on the left (96×72), address/details/time on the right,
+   the rest stacked full-width below — ~2.7 cards per screen instead of
+   1.3. The visit panel and footer stay full width. CSS-only. */
+@media (max-width: 767px) {
+  .property-card {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    grid-template-areas:
+      "header header"
+      "thumb address"
+      "thumb details"
+      "thumb meta"
+      "amen amen"
+      "rent rent"
+      "checkin checkin"
+      "visit visit"
+      "footer footer";
+    column-gap: 10px;
+    row-gap: 3px;
+    padding: 10px 12px;
+    align-items: start;
+  }
+  .property-card > .card-header { grid-area: header; margin-bottom: 2px; }
+  .property-card > .card-thumbnail,
+  .property-card > .card-thumbnail-ph {
+    grid-area: thumb;
+    width: 96px;
+    height: 72px;
+    margin: 0;
+    border-radius: 8px;
+    font-size: 22px;
+  }
+  .property-card > .card-address { grid-area: address; margin: 0; font-size: 14px; font-weight: 600; color: #1e293b; line-height: 1.25; }
+  .property-card > .card-details { grid-area: details; margin: 0; line-height: 1.3; }
+  .property-card > .card-meta { grid-area: meta; margin: 0; gap: 8px; flex-wrap: wrap; }
+  .property-card > .card-amenities { grid-area: amen; margin: 4px 0 0; }
+  .property-card > .card-rent-row { grid-area: rent; margin: 0; }
+  .property-card > .card-checkin-row { grid-area: checkin; margin: 2px 0 0; }
+  .property-card > .visit-panel { grid-area: visit; }
+  .property-card > .card-footer { grid-area: footer; margin-top: 2px; }
+  .checkin-btn { padding: 8px 10px; min-height: 36px; }
+}
