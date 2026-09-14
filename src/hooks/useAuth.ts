@@ -9,6 +9,8 @@ import {
 } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
 import { setAuthContext, setGuestMode, clearAuthContext } from "../utils/cloudSync";
+import { isNative } from "../native/native";
+import { signInViaWebHandoff } from "../native/nativeAuth";
 
 export type AuthMode = "loading" | "signed-in" | "guest" | "demo" | "signed-out";
 
@@ -64,6 +66,11 @@ export function useAuth(): AuthResult {
   }, []);
 
   const signInWithGoogle = async () => {
+    if (isNative) {
+      // Google refuses OAuth inside embedded web views — hand off to Safari.
+      await signInViaWebHandoff(auth);
+      return;
+    }
     try {
       await signInWithPopup(auth, googleProvider);
       // onAuthStateChanged handles the rest

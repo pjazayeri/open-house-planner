@@ -1,3 +1,4 @@
+import { apiUrl } from "../../utils/apiBase";
 import { useState, useRef } from "react";
 import type { Listing, VisitRecord } from "../../types";
 import { formatPrice, formatBedsBaths, formatTimeRange } from "../../utils/formatters";
@@ -117,7 +118,7 @@ export function SummaryModal({ allListings, visits, priorityIds, onClose }: Summ
     setInsightsError("");
 
     try {
-      const response = await fetch("/api/insights", {
+      const response = await fetch(apiUrl("/api/insights"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

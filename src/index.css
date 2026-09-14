@@ -61,3 +61,47 @@
 
   --shadow:        0 4px 16px rgba(15, 23, 42, 0.10);
 }
+
+/* ── Native (Capacitor iOS) shell ─────────────────────────────────────
+   <html class="native native-ios"> is set by src/native/native.ts. The web
+   view extends under the status bar / home indicator, so full-screen pages
+   pad themselves with the safe-area insets (the main mobile header already
+   does this in Header.css). */
+html.native {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+html.native input,
+html.native textarea,
+html.native [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+html.native body {
+  background: var(--bg);
+  overscroll-behavior: none;
+}
+html.native .header {
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+html.native .dv-header,
+html.native .fp-header,
+html.native .an-header {
+  padding-top: calc(10px + env(safe-area-inset-top));
+}
+html.native .admin-page,
+html.native .design-page {
+  padding-top: calc(24px + env(safe-area-inset-top));
+}
+html.native .auth-screen,
+html.native .csv-prompt-screen {
+  padding-top: calc(24px + env(safe-area-inset-top));
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+/* Modals / sheets that stick to the bottom edge */
+html.native .mobile-tab-bar {
+  padding-bottom: max(6px, env(safe-area-inset-bottom));
+}

@@ -1,3 +1,4 @@
+import { apiUrl } from "./apiBase";
 import Papa from "papaparse";
 import type { RawListing } from "../types";
 
@@ -26,7 +27,7 @@ export async function loadCsv(csvUrl?: string, authHeaders?: Record<string, stri
   // 1. User's own CSV from cloud (served via /api/csv with auth headers)
   if (csvUrl) {
     try {
-      const r = await fetch(csvUrl, authHeaders ? { headers: authHeaders } : undefined);
+      const r = await fetch(apiUrl(csvUrl), authHeaders ? { headers: authHeaders } : undefined);
       if (r.ok) return parseCsvText(await r.text());
     } catch {
       // fall through

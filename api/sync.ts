@@ -75,6 +75,24 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   }
   if (!uid) uid = "local-dev"; // dev-only fallback; unreachable in prod (verified above)
 
+  // POST /api/sync — native sign-in handoff. The web app (already signed in,
+  // running in the iOS app's in-app Safari sheet) asks for a Firebase *custom
+  // token* for its own verified uid; the native shell then finishes with
+  // signInWithCustomToken. Lives here rather than in its own function to stay
+  // under the Hobby-plan serverless function limit.
+  if (req.method === "POST") {
+    const admin = process.env.FIREBASE_SERVICE_ACCOUNT_JSON ? await getFirebaseAdmin() : null;
+    if (!admin) {
+      res.writeHead(503, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Auth not configured" }));
+      return;
+    }
+    const customToken = await admin.auth().createCustomToken(uid);
+    res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+    res.end(JSON.stringify({ token: customToken }));
+    return;
+  }
+
   const sql = neon(DATABASE_URL);
 
   if (req.method === "GET") {

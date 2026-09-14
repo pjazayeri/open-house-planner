@@ -1,3 +1,4 @@
+import { API_BASE } from "./apiBase";
 // Builds the URL for /api/thumbnail/{id}.
 //
 // `listingUrl` (the listing's Redfin URL) is forwarded so the server can
@@ -8,7 +9,7 @@ export function thumbnailUrl(
   id: string,
   listingUrl?: string,
   retry?: number,
-  origin = ""
+  origin: string = API_BASE
 ): string {
   const params = new URLSearchParams();
   if (listingUrl) params.set("url", listingUrl);

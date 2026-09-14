@@ -1,3 +1,4 @@
+import { apiUrl } from "./apiBase";
 /**
  * Shared cloud sync for all cross-device state, backed by Neon Postgres.
  *
@@ -48,7 +49,7 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
   return { Authorization: `Bearer ${token}` };
 }
 
-const BIN_URL = `/api/sync`;
+const BIN_URL = apiUrl("/api/sync");
 
 export interface ListingAmenities {
   parking?: boolean;  // undefined = unknown

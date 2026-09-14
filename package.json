@@ -12,12 +12,26 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build:ios": "VITE_API_BASE=https://open-house-planner.vercel.app npm run build",
+    "ios:sync": "npm run build:ios && cap sync ios",
+    "ios:open": "cap open ios",
+    "ios:assets": "capacitor-assets generate --ios --iconBackgroundColor '#0f172a' --iconBackgroundColorDark '#0f172a' --splashBackgroundColor '#0f172a' --splashBackgroundColorDark '#0f172a'",
+    "ios:ship": "scripts/ios-testflight.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/browser": "^8.0.4",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.5.2",
+    "@capacitor/keyboard": "^8.0.5",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3",
     "@neondatabase/serverless": "^1.1.0",
     "@vercel/blob": "^2.3.1",
+    "@vercel/functions": "^3.9.7",
     "firebase": "^12.12.1",
     "firebase-admin": "^13.8.0",
     "leaflet": "^1.9.4",
@@ -27,6 +41,8 @@
     "react-leaflet": "^5.0.0"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.2",
     "@eslint/js": "^9.39.1",
     "@testing-library/react": "^16.3.2",
     "@types/leaflet": "^1.9.21",

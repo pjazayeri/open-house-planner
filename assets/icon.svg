@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1d4ed8"/>
+      <stop offset="0.55" stop-color="#1e3a8a"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="roof" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dbeafe"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <!-- soft glow behind the house -->
+  <circle cx="512" cy="560" r="330" fill="#3b82f6" opacity="0.18"/>
+  <!-- house body -->
+  <path d="M512 232 L200 500 L276 500 L276 800 L748 800 L748 500 L824 500 Z"
+        fill="none" stroke="url(#roof)" stroke-width="58" stroke-linejoin="round" stroke-linecap="round"/>
+  <!-- door -->
+  <rect x="452" y="612" width="120" height="188" rx="16" fill="#ffffff"/>
+  <!-- window -->
+  <rect x="612" y="580" width="82" height="82" rx="12" fill="#ffffff" opacity="0.9"/>
+  <!-- gold "priority" star badge -->
+  <circle cx="792" cy="262" r="118" fill="#f59e0b"/>
+  <path d="M792 190 l22 46 51 7 -37 36 9 51 -45 -24 -45 24 9 -51 -37 -36 51 -7 z" fill="#0f172a"/>
+</svg>

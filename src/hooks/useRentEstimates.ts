@@ -1,3 +1,4 @@
+import { apiUrl } from "../utils/apiBase";
 import { useState, useEffect } from "react";
 import type { Listing } from "../types";
 import { USE_CLOUD, cloudFetch, cloudPatch } from "../utils/cloudSync";
@@ -111,7 +112,7 @@ export function useRentEstimates() {
     if (listing.sqft) params.set("squareFootage", String(listing.sqft));
 
     try {
-      const r = await fetch(`/api/rent-estimate?${params}`);
+      const r = await fetch(apiUrl(`/api/rent-estimate?${params}`));
       if (!r.ok) return null;
       const data = await r.json();
       if (!data.rent) return null;

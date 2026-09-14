@@ -21,9 +21,11 @@ interface AuthScreenProps {
   onSignIn: () => Promise<void>;
   onGuest: () => void;
   onDemo: () => void;
+  /** Sign-in only: opened by the native app to hand a session back. */
+  handoff?: boolean;
 }
 
-export function AuthScreen({ onSignIn, onGuest, onDemo }: AuthScreenProps) {
+export function AuthScreen({ onSignIn, onGuest, onDemo, handoff = false }: AuthScreenProps) {
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +49,7 @@ export function AuthScreen({ onSignIn, onGuest, onDemo }: AuthScreenProps) {
       <div className="auth-card">
         <div className="auth-icon">&#127968;</div>
         <h1 className="auth-title">Open House Planner</h1>
-        <p className="auth-subtitle">Plan your weekend tours</p>
+        <p className="auth-subtitle">{handoff ? "Sign in to continue to the iPhone app" : "Plan your weekend tours"}</p>
 
         <div className="auth-actions">
           <button
@@ -59,15 +61,15 @@ export function AuthScreen({ onSignIn, onGuest, onDemo }: AuthScreenProps) {
             <span>{signingIn ? "Signing in\u2026" : "Sign in with Google"}</span>
           </button>
 
-          <button className="auth-btn auth-btn--guest" onClick={onGuest}>
+          {!handoff && <button className="auth-btn auth-btn--guest" onClick={onGuest}>
             <span className="auth-btn-main">Continue as Guest</span>
             <span className="auth-btn-sub">Data saved locally only</span>
-          </button>
+          </button>}
 
-          <button className="auth-btn auth-btn--demo" onClick={onDemo}>
+          {!handoff && <button className="auth-btn auth-btn--demo" onClick={onDemo}>
             <span className="auth-btn-main">View Demo</span>
             <span className="auth-btn-sub">Explore sample SF listings — no account needed</span>
-          </button>
+          </button>}
         </div>
 
         {error && <p className="auth-error">{error}</p>}

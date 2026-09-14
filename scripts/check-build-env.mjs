@@ -10,7 +10,27 @@ const REQUIRED = [
   "VITE_FIREBASE_APP_ID",
 ];
 
-const missing = REQUIRED.filter((k) => !process.env[k]);
+// Local builds (e.g. the iOS shell via scripts/ios-testflight.sh) keep these in
+// .env.local (pulled with `vercel env pull`). Vite reads that file itself; this
+// guard just needs to see the same values. Raw parse — no `$` interpolation.
+import { readFileSync } from "node:fs";
+let local = {};
+try {
+  local = Object.fromEntries(
+    readFileSync(".env.local", "utf8")
+      .split("\n")
+      .filter((l) => l.includes("=") && !l.trim().startsWith("#"))
+      .map((l) => {
+        const i = l.indexOf("=");
+        const raw = l.slice(i + 1).trim();
+        return [l.slice(0, i).trim(), raw.startsWith('"') && raw.endsWith('"') ? raw.slice(1, -1) : raw];
+      })
+  );
+} catch {
+  /* no .env.local — fine on Vercel */
+}
+
+const missing = REQUIRED.filter((k) => !process.env[k] && !local[k]);
 
 if (missing.length > 0) {
   console.error("\n[check-build-env] Missing required env vars:");

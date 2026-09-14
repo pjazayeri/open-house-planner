@@ -1,3 +1,4 @@
+import { apiUrl } from "../utils/apiBase";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import type { Listing, TimeSlotGroup, VisitRecord } from "../types";
 import { loadCsv, loadDemoCsv, uploadCsvText } from "../utils/parseCsv";
@@ -135,7 +136,7 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
           // CSV's own times if the catalog is unavailable.
           if (authMode === "signed-in") {
             try {
-              const res = await fetch("/api/listings", { headers: authHeaders });
+              const res = await fetch(apiUrl("/api/listings"), { headers: authHeaders });
               if (res.ok) {
                 const data = (await res.json()) as { openHouses: Record<string, CatalogOpenHouse> };
                 const { rows: overlaid, matched } = overlayOpenHouses(rows, data.openHouses);
@@ -301,7 +302,7 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
       (async () => {
         try {
           const authHeaders = await getAuthHeaders();
-          const r = await fetch("/api/ingest", {
+          const r = await fetch(apiUrl("/api/ingest"), {
             method: "POST",
             headers: { "Content-Type": "text/csv", ...authHeaders },
             body: csvText,

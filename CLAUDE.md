@@ -183,6 +183,43 @@ Breakpoint at `max-width: 767px`. Map/List tab bar at bottom; active panel toggl
 
 Pre-fetched by `scripts/fetch-thumbnails.py` into `public/thumbnails/{MLS#}.jpg`.
 
+### iOS app (Capacitor)
+
+`ios/` is a Capacitor iOS shell around the same web bundle (`dist/`), bundle ID
+`com.jazayeri.lifeapps.openhouse`, Xcode project `ios/App/App.xcodeproj` (Swift
+Package Manager — no CocoaPods). Config in `capacitor.config.ts`.
+
+```bash
+npm run ios:sync     # build web bundle (VITE_API_BASE=prod) + copy into ios/App/App/public
+npm run ios:open     # open in Xcode
+npm run ios:assets   # regenerate icons/splash from assets/icon-only.png + assets/logo.png
+npm run ios:ship     # scripts/ios-testflight.sh — archive, sign (automatic, via ASC API key), upload to TestFlight
+```
+
+How the native shell differs from the web app:
+- **API base** — the bundle is served from `capacitor://localhost`, so every
+  `/api/*` call goes through `apiUrl()` in `src/utils/apiBase.ts`, which
+  prefixes the production origin on native (relative on web). Use it for any
+  new fetch. `thumbnailUrl()` and share links (`publicOrigin()`) do the same.
+- **CORS** — `middleware.ts` (Vercel Routing Middleware) answers `OPTIONS`
+  preflights for `capacitor://localhost`; `vercel.json` adds the CORS headers
+  to `/api/*` responses.
+- **Google sign-in** — Google blocks OAuth in embedded web views, so native
+  sign-in is a handoff (`src/native/nativeAuth.ts`): open the production site
+  at `/#native-login` in an in-app Safari sheet → the web app signs in normally
+  → `POST /api/sync` mints a Firebase custom token for that uid → the
+  page navigates to `openhouseplanner://auth?token=…` (URL scheme registered
+  in `Info.plist`) → the shell calls `signInWithCustomToken`. No Firebase iOS
+  app / GoogleService-Info.plist is needed.
+- **Shell bootstrap** — `src/native/native.ts` (`initNative()` from
+  `main.tsx`) tags `<html class="native native-ios">`, opens external links in
+  an in-app browser, syncs the status bar with the theme, hides the splash.
+  Safe-area padding for full-screen pages lives under `html.native` in
+  `src/index.css`.
+- Ship prereqs: `~/.appstoreconnect/asc-api.env` (key id / issuer id / key
+  path — not in git) and `.env.local` (for `VITE_FIREBASE_*`). Build numbers
+  are epoch seconds; `MARKETING_VERSION` comes from `package.json` `version`.
+
 ### Deployment
 
 Hosted on Vercel. Push to `main` triggers auto-deploy via `.github/workflows/deploy.yml` (uses `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` GitHub Secrets). `vercel --prod` deploys immediately from local.

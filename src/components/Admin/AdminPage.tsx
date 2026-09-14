@@ -1,3 +1,4 @@
+import { apiUrl } from "../../utils/apiBase";
 import { useEffect, useState } from "react";
 import { getAuthHeaders } from "../../utils/cloudSync";
 import "./AdminPage.css";
@@ -60,7 +61,7 @@ export function AdminPage() {
     (async () => {
       try {
         const headers = await getAuthHeaders();
-        const res = await fetch("/api/admin-stats", { headers });
+        const res = await fetch(apiUrl("/api/admin-stats"), { headers });
         if (res.status === 401 || res.status === 403) { setStatus("forbidden"); return; }
         if (!res.ok) { setErrMsg(`HTTP ${res.status}`); setStatus("error"); return; }
         setStats(await res.json());

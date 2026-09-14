@@ -1,3 +1,4 @@
+import { apiUrl } from "../../utils/apiBase";
 import { useState, useEffect, useMemo, useRef } from "react";
 import type { Listing, VisitRecord, MapZone } from "../../types";
 import { calcBuyVsRent, calcTimeSeries, type BuyVsRentResult, type TimeSeriesPoint } from "../../utils/mortgageCalc";
@@ -1046,7 +1047,7 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
   useEffect(() => {
     let cancelled = false;
     setFetchingRate(true);
-    fetch("/api/mortgage-rates")
+    fetch(apiUrl("/api/mortgage-rates"))
       .then((r) => (r.ok ? (r.json() as Promise<{ 30?: number | null; 15?: number | null }>) : null))
       .then((d) => {
         if (cancelled || !d) return;

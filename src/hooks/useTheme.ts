@@ -1,3 +1,4 @@
+import { applyNativeTheme } from "../native/native";
 import { useEffect, useState, useCallback } from "react";
 
 export type Theme = "dark" | "light";
@@ -46,6 +47,7 @@ export function useTheme(): { theme: Theme; toggleTheme: () => void; setTheme: (
     if (typeof document === "undefined") return;
     document.documentElement.dataset.theme = theme;
     safeSet(LS_KEY, theme);
+    void applyNativeTheme(theme);
   }, [theme]);
 
   const toggleTheme = useCallback(() => {

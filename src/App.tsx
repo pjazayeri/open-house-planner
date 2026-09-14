@@ -1,9 +1,12 @@
+import { apiUrl, publicOrigin } from "./utils/apiBase";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useListings } from "./hooks/useListings";
 import { useMapZones } from "./hooks/useMapZones";
 import { useAuth } from "./hooks/useAuth";
 import { useTheme } from "./hooks/useTheme";
 import { AuthScreen } from "./components/Auth/AuthScreen";
+import { NativeLoginHandoff } from "./components/Auth/NativeLoginHandoff";
+import { isNativeLoginHandoff } from "./native/handoffFlag";
 import { CsvUploadPrompt } from "./components/CsvUploadPrompt";
 import { Header } from "./components/Header/Header";
 import { Sidebar, sortListings, matchesFilter } from "./components/Sidebar/Sidebar";
@@ -175,7 +178,7 @@ function App() {
       const isMap = hash.startsWith(mapPrefix);
       const id = hash.slice((isMap ? mapPrefix : binPrefix).length);
       if (isMap) setSharedPlanMode("map");
-      fetch(`/api/plan?id=${id}`)
+      fetch(apiUrl(`/api/plan?id=${id}`))
         .then((r) => r.ok ? r.json() : Promise.reject(r.status))
         .then((data: SerializedPlan) => {
           let plan = deserializePlan(data);
@@ -638,6 +641,14 @@ function App() {
       <div className="loading-spinner" />
     </div>
   );
+
+  // Opened by the native iOS app (in an in-app Safari sheet) purely to sign
+  // in: once signed in, hand the session back via the app's URL scheme.
+  if (isNativeLoginHandoff()) {
+    return authMode === "signed-in"
+      ? <NativeLoginHandoff />
+      : <AuthScreen onSignIn={signInWithGoogle} onGuest={continueAsGuest} onDemo={continueAsDemo} handoff />;
+  }
   if (authMode === "signed-out") return (
     <AuthScreen onSignIn={signInWithGoogle} onGuest={continueAsGuest} onDemo={continueAsDemo} />
   );
@@ -703,14 +714,14 @@ function App() {
         onShowSummary={() => setShowSummary(true)}
         onUploadCsv={uploadListings}
         onSharePlan={async () => {
-          const r = await fetch("/api/share", {
+          const r = await fetch(apiUrl("/api/share"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(serializePlan(visibleGroups)),
           });
           if (!r.ok) throw new Error("Failed");
           const { id } = await r.json() as { id: string };
-          const origin = window.location.origin;
+          const origin = publicOrigin();
           return {
             planUrl: `${origin}/#share?bin=${id}`,
             mapUrl: `${origin}/#map?bin=${id}`,
