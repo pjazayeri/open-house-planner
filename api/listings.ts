@@ -2,6 +2,10 @@
 // Returns the soonest upcoming open house per normalized address, so the app can
 // overlay fresh times onto a user's (possibly stale) uploaded favorites.
 //
+// GET /api/listings?catalog=1 additionally returns `catalog`: the full Redfin-
+// shaped row for every listing with an upcoming open house (times filled in
+// from open_houses), so the phone can browse + favorite listings without a CSV.
+//
 // Auth-gated like /api/sync (the data is public, but we don't want an open
 // anonymous endpoint on the deployment).
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -76,9 +80,27 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     openHouses[r.address_key] = { start: r.start_raw, end: r.end_raw, mlsId: r.mls_id };
   }
 
+  const wantCatalog = new URL(req.url ?? "/", "http://x").searchParams.get("catalog") === "1";
+  let catalog: { addressKey: string; row: Record<string, string> }[] | undefined;
+  if (wantCatalog) {
+    // `raw` is the ingested Redfin CSV row (same headers as a favorites export),
+    // so the client can feed it straight through parse → filter → capRate.
+    const full = (await sql`
+      SELECT DISTINCT ON (l.address_key) l.address_key, l.raw, o.start_raw, o.end_raw
+      FROM open_houses o
+      JOIN listings l USING (address_key)
+      WHERE o.start_ts IS NOT NULL AND o.start_ts > now() AND l.raw IS NOT NULL
+      ORDER BY l.address_key, o.start_ts ASC
+    `) as { address_key: string; raw: Record<string, string>; start_raw: string; end_raw: string | null }[];
+    catalog = full.map((r) => ({
+      addressKey: r.address_key,
+      row: { ...r.raw, "NEXT OPEN HOUSE START TIME": r.start_raw, "NEXT OPEN HOUSE END TIME": r.end_raw ?? "" },
+    }));
+  }
+
   res.writeHead(200, {
     "Content-Type": "application/json",
     "Cache-Control": "public, max-age=300", // open-house times change at most daily
   });
-  res.end(JSON.stringify({ openHouses, count: rows.length }));
+  res.end(JSON.stringify({ openHouses, count: rows.length, ...(catalog ? { catalog } : {}) }));
 }

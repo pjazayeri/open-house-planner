@@ -119,8 +119,22 @@ function localApis(): Plugin {
         for (const r of rows as { address_key: string; start_raw: string; end_raw: string | null; mls_id: string | null }[]) {
           openHouses[r.address_key] = { start: r.start_raw, end: r.end_raw, mlsId: r.mls_id };
         }
+        // ?catalog=1 — full Redfin-shaped rows for every listing with an upcoming
+        // open house (mirrors api/listings.ts).
+        let catalog: { addressKey: string; row: Record<string, string> }[] | undefined;
+        if (new URL(req.url ?? '/', 'http://x').searchParams.get('catalog') === '1') {
+          const full = await sql`
+            SELECT DISTINCT ON (l.address_key) l.address_key, l.raw, o.start_raw, o.end_raw
+            FROM open_houses o JOIN listings l USING (address_key)
+            WHERE o.start_ts IS NOT NULL AND o.start_ts > now() AND l.raw IS NOT NULL
+            ORDER BY l.address_key, o.start_ts ASC` as { address_key: string; raw: Record<string, string>; start_raw: string; end_raw: string | null }[];
+          catalog = full.map((r) => ({
+            addressKey: r.address_key,
+            row: { ...r.raw, 'NEXT OPEN HOUSE START TIME': r.start_raw, 'NEXT OPEN HOUSE END TIME': r.end_raw ?? '' },
+          }));
+        }
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ openHouses, count: rows.length }));
+        res.end(JSON.stringify({ openHouses, count: rows.length, ...(catalog ? { catalog } : {}) }));
       });
 
       // /api/admin-stats — observability (dev: no auth gate; Neon + Blob; Firebase skipped)
