@@ -235,8 +235,8 @@ html, body, #root {
   color: #fff;
 }
 
-/* Mobile tab bar — hidden on desktop */
-.mobile-tab-bar {
+/* Floating Map/List switch — phones only */
+.view-toggle {
   display: none;
 }
 
@@ -251,37 +251,48 @@ html, body, #root {
     position: relative;
   }
 
-  /* Tab bar */
-  .mobile-tab-bar {
+  /* Floating Map/List segmented control over the content */
+  .view-toggle {
     display: flex;
-    background: var(--bg);
-    border-top: 1px solid var(--border-faint);
-    flex-shrink: 0;
-    /* Safe area for iPhone home bar */
-    padding-bottom: env(safe-area-inset-bottom);
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1100;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
   }
-
-  .tab-btn {
-    flex: 1;
+  .view-toggle-btn {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 3px;
-    padding: 10px 0;
-    background: none;
+    gap: 6px;
+    min-height: 34px;
+    padding: 6px 14px;
     border: none;
-    color: var(--text-faint);
-    font-size: 11px;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 13px;
     font-weight: 600;
-    letter-spacing: 0.02em;
     cursor: pointer;
-    transition: color 0.15s;
     -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s, color 0.15s;
+  }
+  .view-toggle-btn svg { width: 16px; height: 16px; }
+  .view-toggle-btn.active {
+    background: var(--accent);
+    color: var(--accent-fg);
   }
 
-  .tab-btn.active {
-    color: var(--accent);
+  /* Leave room for the floating switch at the top of the list */
+  .app-body.show-list .sidebar-content {
+    padding-top: 56px;
   }
 
   /* Show/hide panels based on active tab */

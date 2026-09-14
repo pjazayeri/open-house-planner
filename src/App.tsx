@@ -9,6 +9,7 @@ import { NativeLoginHandoff } from "./components/Auth/NativeLoginHandoff";
 import { isNativeLoginHandoff } from "./native/handoffFlag";
 import { CsvUploadPrompt } from "./components/CsvUploadPrompt";
 import { Header } from "./components/Header/Header";
+import { MobileNav } from "./components/MobileNav/MobileNav";
 import { Sidebar, sortListings, matchesFilter } from "./components/Sidebar/Sidebar";
 import type { SortKey, FilterKey } from "./components/Sidebar/Sidebar";
 const VALID_SORT_KEYS: SortKey[] = ["time", "price", "capRate", "ppsf"];
@@ -774,6 +775,27 @@ function App() {
       {page !== "analytics" && page !== "finance" && page !== "data" && page !== "admin" && page !== "design" && (
       <>
       <div className={`app-body show-${mobileTab}`}>
+        {/* Phone-only floating Map/List switch (hidden on desktop via CSS) */}
+        <div className="view-toggle" role="tablist" aria-label="Map or list">
+          <button
+            role="tab"
+            aria-selected={mobileTab === "map"}
+            className={`view-toggle-btn ${mobileTab === "map" ? "active" : ""}`}
+            onClick={() => setMobileTab("map")}
+          >
+            <MapIcon />
+            <span>Map</span>
+          </button>
+          <button
+            role="tab"
+            aria-selected={mobileTab === "list"}
+            className={`view-toggle-btn ${mobileTab === "list" ? "active" : ""}`}
+            onClick={() => setMobileTab("list")}
+          >
+            <ListIcon />
+            <span>List</span>
+          </button>
+        </div>
         <Sidebar
           mode={page === "planner" || page === "priority" ? "planner" : "browse"}
           timeSlotGroups={visibleGroups}
@@ -875,24 +897,9 @@ function App() {
           allListings={augmentedAllListings.filter(l => !hiddenIds.has(l.id) && l.city === selectedCity)}
         />
       </div>
-      <nav className="mobile-tab-bar">
-        <button
-          className={`tab-btn ${mobileTab === "map" ? "active" : ""}`}
-          onClick={() => setMobileTab("map")}
-        >
-          <MapIcon />
-          <span>Map</span>
-        </button>
-        <button
-          className={`tab-btn ${mobileTab === "list" ? "active" : ""}`}
-          onClick={() => setMobileTab("list")}
-        >
-          <ListIcon />
-          <span>List</span>
-        </button>
-      </nav>
       </>
       )}
+      <MobileNav page={page} onNavigate={setPage} />
       {showSummary && (
         <SummaryModal
           allListings={allListings}

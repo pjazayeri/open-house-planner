@@ -43,6 +43,7 @@ user's Redfin CSV  (signed-in: Vercel Blob via /api/csv · dev: bundled public/*
 
 Hash-based routing (`window.location.hash`). `type Page` in `src/App.tsx`.
 
+- `/#demo` — enters demo mode (bundled sample listings) and redirects to Browse. Shareable; used by the UX eval loop.
 - `/#home` — Browse: all non-hidden city listings, flat list + map, sort/filter controls.
 - `/#planner` — Open Houses: future time-slot groups, geo tracking, priority section.
 - `/#priority` — same as planner but filtered to priority listings only.

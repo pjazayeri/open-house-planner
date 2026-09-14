@@ -102,6 +102,6 @@ html.native .csv-prompt-screen {
   padding-bottom: calc(24px + env(safe-area-inset-bottom));
 }
 /* Modals / sheets that stick to the bottom edge */
-html.native .mobile-tab-bar {
-  padding-bottom: max(6px, env(safe-area-inset-bottom));
+html.native .mobile-nav {
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
 }

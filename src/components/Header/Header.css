@@ -103,6 +103,7 @@
   font-size: 13px;
   color: var(--text-dim);
 }
+.header-stats-short { display: none; }
 
 .header-right {
   display: flex;
@@ -167,11 +168,13 @@
 }
 
 .sync-badge {
+  display: inline-block;
   width: 8px;
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
-  align-self: center;
+  vertical-align: middle;
+  margin-left: 6px;
 }
 
 .sync-badge--ok    { background: var(--good); }
@@ -179,53 +182,81 @@
 .sync-badge--error { background: var(--bad); }
 .sync-badge--grey  { background: var(--text-faint); }
 
-/* ── Mobile header ────────────────────────────── */
+/* ── Mobile header: one compact row ───────────────
+   Title + stats on the left, city pill + avatar menu on the right. Page
+   navigation moves to the bottom tab bar (MobileNav); actions (summary,
+   share, upload, theme, sign out) live in the avatar menu. */
 @media (max-width: 767px) {
   .header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 10px 16px;
-    padding-top: max(10px, env(safe-area-inset-top));
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px 8px 16px;
+    padding-top: max(8px, env(safe-area-inset-top));
+    border-bottom-width: 1px;
   }
 
   .header-left {
+    flex: 1;
+    min-width: 0;
     flex-direction: column;
     align-items: flex-start;
-    gap: 2px;
+    gap: 1px;
   }
 
   .header-title {
     font-size: 16px;
-  }
-
-  .header-nav {
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    gap: 2px;
-  }
-
-  .nav-tab {
-    padding: 8px 10px;
-    font-size: 12px;
+    line-height: 1.2;
+    max-width: 100%;
     white-space: nowrap;
-    min-height: 36px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  /* Not enough room in nav on mobile */
-  .nav-tab--redfin { display: none; }
+  .header-stats {
+    font-size: 11.5px;
+    line-height: 1.3;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .header-stats-long { display: none; }
+  .header-stats-short { display: inline; }
+
+  /* Lives in the avatar menu on phones */
+  .header-left .restore-btn { display: none; }
+
+  /* Page tabs live in the bottom bar on phones */
+  .header-nav { display: none; }
 
   .header-right {
-    width: 100%;
-    flex-wrap: wrap;
-    gap: 6px;
+    width: auto;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
   }
 
   .city-select {
-    width: 100%;
-    font-size: 16px;
+    width: auto;
+    max-width: 150px;
+    font-size: 13px;
+    padding: 7px 26px 7px 12px;
+    border-radius: 999px;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%2394a3b8' stroke-width='1.6' stroke-linecap='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
+
+  .user-signout { display: none; }
+  .user-avatar { width: 34px; height: 34px; }
 }
 
 /* ── User menu ─────────────────────────────────── */
@@ -252,6 +283,110 @@
   font-size: 13px;
   font-weight: 600;
 }
+
+.user-avatar-btn {
+  display: flex;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.user-avatar-btn:active .user-avatar { opacity: 0.8; }
+
+/* Desktop keeps the inline nav + Sign out; the avatar is decorative there
+   and the "⋯" placeholder (guest/demo) is hidden. */
+@media (min-width: 768px) {
+  .user-avatar-btn { pointer-events: none; }
+  .user-avatar-btn--more { display: none; }
+}
+
+/* ── Account / actions menu ───────────────────── */
+.app-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 2999;
+}
+.app-menu {
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  z-index: 3000;
+  min-width: 260px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+.app-menu-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border-faint);
+}
+.app-menu-head .user-avatar { width: 36px; height: 36px; }
+.app-menu-who { flex: 1; min-width: 0; }
+.app-menu-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app-menu-sub { font-size: 12px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app-menu-sync {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.app-menu-sync .sync-badge { margin: 0 4px 0 0; }
+.app-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.app-menu-item:hover, .app-menu-item:active { background: var(--surface-hover); }
+.app-menu-item--danger { color: var(--bad); }
+.app-menu-icon {
+  width: 22px;
+  text-align: center;
+  font-size: 15px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+  /* Bottom sheet on phones */
+  .app-menu {
+    top: auto;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    min-width: 0;
+    border-radius: 20px;
+    padding: 10px;
+    animation: sheet-in 0.2s ease;
+  }
+}
+@keyframes sheet-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
 .user-signout {
   padding: 3px 10px;

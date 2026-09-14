@@ -34,6 +34,18 @@ export function useAuth(): AuthResult {
   const [mode, setMode] = useState<AuthMode>("loading");
 
   useEffect(() => {
+    // `/#demo` deep link: enter demo mode without tapping through the sign-in
+    // screen (shareable demo URL; also what the automated UX evals use).
+    try {
+      if (window.location.hash === "#demo" || window.location.hash.startsWith("#demo?")) {
+        sessionStorage.removeItem("guest-mode");
+        sessionStorage.setItem("demo-mode", "1");
+        window.location.hash = window.location.hash.replace(/^#demo\??/, "#");
+      }
+    } catch {
+      /* sessionStorage unavailable */
+    }
+
     // Handle the result from signInWithRedirect (mobile fallback).
     // Must be called before onAuthStateChanged so the user state is set correctly.
     getRedirectResult(auth).catch((e: unknown) => {

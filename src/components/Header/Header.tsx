@@ -87,6 +87,8 @@ export function Header({
   const [toast, setToast] = useState<{ msg: string; kind: "loading" | "ok" | "error" } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [shareLinks, setShareLinks] = useState<{ planUrl: string; mapUrl: string } | null>(null);
+  // Account / actions menu (bottom sheet on phones — replaces the nav row there).
+  const [menuOpen, setMenuOpen] = useState(false);
   const shareBtnRef = useRef<HTMLButtonElement>(null);
   const shareDropdownRef = useRef<HTMLDivElement>(null);
   // Dropdown is rendered via portal (out of `.header-nav` which has overflow:auto
@@ -159,20 +161,57 @@ export function Header({
     0
   );
 
+  async function handleShare() {
+    if (shareLinks) { setShareLinks(null); return; }
+    showToast("Generating links…", "loading");
+    try {
+      const links = await onSharePlan();
+      setToast(null);
+      setShareDropdownPos(computeDropdownPos());
+      setShareLinks(links);
+    } catch {
+      showToast("Failed to create plan link", "error", true);
+    }
+  }
+
+  const avatar = user
+    ? (user.photoURL
+        ? <img className="user-avatar" src={user.photoURL} alt="" referrerPolicy="no-referrer" />
+        : <span className="user-avatar user-avatar--initials">{(user.displayName ?? user.email ?? "?")[0].toUpperCase()}</span>)
+    : <span className="user-avatar user-avatar--initials" aria-hidden="true">⋯</span>;
+
+  const syncLabel = saveFailed ? "Last save failed"
+    : syncStatus === "ok" ? "Synced"
+    : syncStatus === "loading" ? "Syncing…"
+    : syncStatus === "error" ? "Sync error"
+    : syncStatus === "degraded" ? "Sync unavailable"
+    : authMode === "demo" ? "Demo — changes don't save"
+    : authMode === "guest" ? "Guest — saved on this device"
+    : "Not synced";
+
+  function menuAction(fn: () => void) {
+    return () => { setMenuOpen(false); fn(); };
+  }
+
   return (
     <header className="header">
       <div className="header-left">
         <h1 className="header-title">Open House Planner</h1>
         <span className="header-stats">
-          {cityCount} open houses in {selectedCity} &middot; {totalListings}{" "}
-          total
+          {/* Phones show the city in the pill, so the long form is desktop-only */}
+          <span className="header-stats-long">
+            {cityCount} open house{cityCount === 1 ? "" : "s"} in {selectedCity} &middot; {totalListings} total
+          </span>
+          <span className="header-stats-short">
+            {cityCount} open house{cityCount === 1 ? "" : "s"} &middot; {totalListings} total
+          </span>
+          <SyncBadge syncStatus={syncStatus} saveFailed={saveFailed} />
         </span>
         {hiddenCount > 0 && (
           <button className="restore-btn" onClick={onRestoreHidden}>
             {hiddenCount} hidden &middot; Restore
           </button>
         )}
-        <SyncBadge syncStatus={syncStatus} saveFailed={saveFailed} />
       </div>
 
       <nav className="header-nav">
@@ -240,18 +279,7 @@ export function Header({
               ref={shareBtnRef}
               className="nav-tab nav-tab--share"
               title="Generate shareable links for your open house plan"
-              onClick={async () => {
-                if (shareLinks) { setShareLinks(null); return; }
-                showToast("Generating links…", "loading");
-                try {
-                  const links = await onSharePlan();
-                  setToast(null);
-                  setShareDropdownPos(computeDropdownPos());
-                  setShareLinks(links);
-                } catch {
-                  showToast("Failed to create plan link", "error", true);
-                }
-              }}
+              onClick={() => void handleShare()}
             >
               Share Plan ↗
             </button>
@@ -337,18 +365,78 @@ export function Header({
             ))}
           </select>
         )}
-        {authMode === "signed-in" && user && (
-          <div className="user-menu">
-            {user.photoURL
-              ? <img className="user-avatar" src={user.photoURL} alt={user.displayName ?? ""} referrerPolicy="no-referrer" />
-              : <span className="user-avatar user-avatar--initials">{(user.displayName ?? user.email ?? "?")[0].toUpperCase()}</span>
-            }
+        <div className="user-menu">
+          <button
+            className={`user-avatar-btn${user ? "" : " user-avatar-btn--more"}`}
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label="Menu"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+          >
+            {avatar}
+          </button>
+          {authMode === "signed-in" && user && (
             <button className="user-signout" onClick={onSignOut} title="Sign out">
               Sign out
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+      {menuOpen && createPortal(
+        <>
+          <div className="app-menu-backdrop" onClick={() => setMenuOpen(false)} />
+          <div className="app-menu" role="menu" data-testid="app-menu">
+            <div className="app-menu-head">
+              {avatar}
+              <div className="app-menu-who">
+                <div className="app-menu-name">{user?.displayName ?? (authMode === "demo" ? "Demo mode" : "Guest")}</div>
+                <div className="app-menu-sub">{user?.email ?? syncLabel}</div>
+              </div>
+              {user && (
+                <span className="app-menu-sync">
+                  <SyncBadge syncStatus={syncStatus} saveFailed={saveFailed} />
+                  <span>{syncLabel}</span>
+                </span>
+              )}
+            </div>
+            <button className="app-menu-item" role="menuitem" onClick={menuAction(onShowSummary)}>
+              <span className="app-menu-icon">📝</span> Tour summary
+            </button>
+            {(page === "planner" || page === "priority") && (
+              <button className="app-menu-item" role="menuitem" onClick={() => { setMenuOpen(false); void handleShare(); }}>
+                <span className="app-menu-icon">↗</span> Share this plan
+              </button>
+            )}
+            <button className="app-menu-item" role="menuitem" onClick={() => { setMenuOpen(false); fileInputRef.current?.click(); }}>
+              <span className="app-menu-icon">↑</span> Upload Redfin CSV
+            </button>
+            {hiddenCount > 0 && (
+              <button className="app-menu-item" role="menuitem" onClick={menuAction(onRestoreHidden)}>
+                <span className="app-menu-icon">↺</span> Restore {hiddenCount} hidden listing{hiddenCount === 1 ? "" : "s"}
+              </button>
+            )}
+            <button className="app-menu-item" role="menuitem" onClick={onToggleTheme}>
+              <span className="app-menu-icon">{theme === "dark" ? "☀" : "☾"}</span> {theme === "dark" ? "Light mode" : "Dark mode"}
+            </button>
+            {isAdmin && (
+              <button className="app-menu-item" role="menuitem" onClick={menuAction(() => onNavigate("admin"))}>
+                <span className="app-menu-icon">⚙</span> Admin
+              </button>
+            )}
+            {isAdmin && (
+              <button className="app-menu-item" role="menuitem" onClick={menuAction(() => onNavigate("design"))}>
+                <span className="app-menu-icon">◫</span> Design
+              </button>
+            )}
+            {authMode === "signed-in" && (
+              <button className="app-menu-item app-menu-item--danger" role="menuitem" onClick={menuAction(() => void onSignOut())}>
+                <span className="app-menu-icon">⎋</span> Sign out
+              </button>
+            )}
+          </div>
+        </>,
+        document.body
+      )}
     </header>
   );
 }

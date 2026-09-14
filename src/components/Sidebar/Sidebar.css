@@ -613,3 +613,36 @@
 .sb-status-chip--pending.active { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
 .sb-status-chip--contingent.active { background: #ffedd5; border-color: #fdba74; color: #9a3412; }
 .sb-status-chip--sold.active    { background: #f1f5f9; border-color: #94a3b8; color: #334155; }
+
+
+/* ── Collapsed filter bar (phones) ─────────────── */
+.sb-filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.sb-filter-toggle-main { font-weight: 600; white-space: nowrap; }
+.sb-filter-toggle-meta {
+  flex: 1;
+  min-width: 0;
+  color: #64748b;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sb-filter-toggle-chev { color: #64748b; font-size: 12px; }
+.sb-filter-toggle.has-active { border-color: #93c5fd; }
+.sb-filter-toggle.has-active .sb-filter-toggle-meta { color: #1d4ed8; }
+.sb-filter-toggle.open { border-color: #2563eb; }

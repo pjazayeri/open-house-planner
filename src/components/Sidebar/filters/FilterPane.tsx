@@ -4,13 +4,7 @@ import type { SortKey, FilterKey } from "../Sidebar";
 import { Chip } from "./Chip";
 import { RangeFilter, type RangePreset } from "./RangeFilter";
 import { ActiveFiltersSummary } from "./ActiveFiltersSummary";
-
-const SORT_LABELS: Record<SortKey, string> = {
-  time: "Time",
-  price: "Price",
-  capRate: "Cap Rate",
-  ppsf: "$/sqft",
-};
+import { countActiveFilters, SORT_LABELS } from "./countActiveFilters";
 
 const REACTION_FILTERS: { key: FilterKey; label: string }[] = [
   { key: "liked", label: "👍 Liked" },
@@ -108,16 +102,10 @@ export function FilterPane(props: FilterPaneProps) {
 
   // Active-filter count is the source of truth for "Showing X of Y · N filters · Clear all"
   // — count each independently-applied dimension, not each chip.
-  const activeFilterCount =
-    (searchQuery.trim() ? 1 : 0) +
-    (selectedAreas.size > 0 ? 1 : 0) +
-    (mode === "browse" && statusFilter !== "Active" ? 1 : 0) +
-    (priceMin !== null || priceMax !== null ? 1 : 0) +
-    (capRateMin !== null || capRateMax !== null ? 1 : 0) +
-    (ppsfMin !== null || ppsfMax !== null ? 1 : 0) +
-    (timeFrom !== null || timeTo !== null ? 1 : 0) +
-    activeFilters.size +
-    (selectedDate ? 1 : 0);
+  const activeFilterCount = countActiveFilters({
+    mode, searchQuery, selectedAreas, statusFilter, priceMin, priceMax,
+    capRateMin, capRateMax, ppsfMin, ppsfMax, timeFrom, timeTo, activeFilters, selectedDate,
+  });
   const anyActive = activeFilterCount > 0 || sortKey !== "time";
 
   function toggleFilter(k: FilterKey) {

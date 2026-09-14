@@ -5,6 +5,8 @@ import { TimeSlotGroup } from "./TimeSlotGroup";
 import { formatPrice, formatTimeRange } from "../../utils/formatters";
 import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import { FilterPane } from "./filters/FilterPane";
+import { countActiveFilters, SORT_LABELS } from "./filters/countActiveFilters";
+import { useIsMobile } from "../../hooks/useIsMobile";
 import "./Sidebar.css";
 
 interface SidebarProps {
@@ -333,6 +335,15 @@ export function Sidebar({
 }: SidebarProps) {
   const totalVisible = timeSlotGroups.reduce((s, g) => s + g.listings.length, 0);
 
+  // Phones: the filter pane is collapsed behind a one-line "Filters & sort"
+  // bar so the list starts near the top of the screen.
+  const isMobile = useIsMobile();
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilterCount = countActiveFilters({
+    mode, searchQuery, selectedAreas, statusFilter, priceMin, priceMax,
+    capRateMin, capRateMax, ppsfMin, ppsfMax, timeFrom, timeTo, activeFilters, selectedDate,
+  });
+
   return (
     <aside className="sidebar">
       <div className="sidebar-content">
@@ -387,6 +398,24 @@ export function Sidebar({
          * chips) live behind "More filters ▾" so the pane
          * doesn't dominate the sidebar.
          */}
+        {isMobile && (
+          <button
+            className={`sb-filter-toggle${filtersOpen ? " open" : ""}${activeFilterCount > 0 ? " has-active" : ""}`}
+            onClick={() => setFiltersOpen((o) => !o)}
+            aria-expanded={filtersOpen}
+            aria-controls="sb-filter-pane"
+          >
+            <span className="sb-filter-toggle-main">{filtersOpen ? "Hide filters" : "Filters & sort"}</span>
+            <span className="sb-filter-toggle-meta">
+              {totalVisible} of {totalListings}
+              {activeFilterCount > 0 ? ` · ${activeFilterCount} active` : ""}
+              {` · ${SORT_LABELS[sortKey]}`}
+            </span>
+            <span className="sb-filter-toggle-chev" aria-hidden="true">{filtersOpen ? "▴" : "▾"}</span>
+          </button>
+        )}
+        {(!isMobile || filtersOpen) && (
+        <div id="sb-filter-pane">
         <FilterPane
           mode={mode}
           searchQuery={searchQuery}
@@ -421,6 +450,8 @@ export function Sidebar({
           totalVisible={totalVisible}
           totalListings={totalListings}
         />
+        </div>
+        )}
 
         {mode === "planner" && priorityIds.size > 0 && (
           <button
