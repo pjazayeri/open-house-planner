@@ -27,6 +27,7 @@ import { DEMO_BIN_ID } from "./components/Auth/AuthScreen";
 import { PlanView } from "./components/PlanView/PlanView";
 import { MapPlanView } from "./components/PlanView/MapPlanView";
 import type { TimeSlotGroup, Listing } from "./types";
+import { listingAddressKey } from "./utils/catalog";
 import "./App.css";
 
 type MobileTab = "map" | "list";
@@ -383,6 +384,9 @@ function App() {
     clearVisit,
     importData,
     uploadListings,
+    favoriteIds,
+    toggleFavorite,
+    catalog,
     refreshListings,
     listingsUpdatedAt,
     refreshing,
@@ -418,6 +422,10 @@ function App() {
     () => allFavoritesListings.map(augmentWithZone),
     [allFavoritesListings, augmentWithZone]
   );
+
+  // Address keys of the user's own (CSV) listings — the Catalog view marks
+  // these "in my list" so hearting them is unnecessary.
+  const userAddressKeys = useMemo(() => new Set(allFavoritesListings.map(listingAddressKey)), [allFavoritesListings]);
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -804,6 +812,17 @@ function App() {
         </div>
         <Sidebar
           mode={page === "planner" || page === "priority" ? "planner" : "browse"}
+          catalog={{
+            signedIn: authMode === "signed-in",
+            listings: catalog.listings,
+            loading: catalog.loading,
+            error: catalog.error,
+            updatedAt: catalog.updatedAt,
+            onLoad: catalog.load,
+            userAddressKeys: userAddressKeys,
+            favoriteIds,
+            onToggleFavorite: toggleFavorite,
+          }}
           timeSlotGroups={visibleGroups}
           totalListings={totalListings}
           selectedId={selectedId}

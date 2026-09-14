@@ -68,6 +68,7 @@ direct navigation bounces non-admins to home. The real enforcement is server-sid
 Per-user state is split across small hooks, all backed by Neon cloud sync (see below):
 
 - **`useHiddenIds.ts`** — `hiddenIds: Set<string>` + `priorityOrder: string[]` (ordered array; `priorityIds: Set<string>` derived via `useMemo`). Drag-reordering updates `priorityOrder` and persists it.
+- **`useFavorites.ts`** — `favoriteIds: Set<string>` of normalized *address keys* hearted in Browse → Catalog (`user_state.favoriteIds`). Distinct from priority (ranking) and hidden. **`useCatalog.ts`** lazily loads `GET /api/listings?catalog=1` for that view.
 - **`useVisits.ts`** — `visits: Record<string, VisitRecord>` keyed by listing ID. Visit records only created via `markVisited(id)` — other setters are no-ops on unvisited listings.
 - **`useAmenities.ts`**, **`useMapZones.ts`**, **`useListingSnapshots.ts`** — amenities, drawn map zones, and archived-listing snapshots; same `cloudPatch` persistence pattern.
 

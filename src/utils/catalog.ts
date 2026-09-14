@@ -83,3 +83,13 @@ export function describeRefresh(r: RefreshResult): string {
   }
   return `${r.refreshed ? "Refreshed" : "Updated"}: ${parts.join(", ")}`;
 }
+
+// ── Address keys for Listing objects ──────────────────────────────────
+
+import type { Listing } from "../types";
+import { addressKey } from "./addressKey";
+
+/** Normalized address key of a transformed listing (matches catalog keys). */
+export function listingAddressKey(l: Pick<Listing, "address" | "city">): string {
+  return addressKey(l.address ?? "", l.city ?? "");
+}

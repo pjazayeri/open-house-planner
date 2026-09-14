@@ -16,6 +16,8 @@ import type { SyncStatus } from "../utils/cloudSync";
 import { cloudFetch, cloudPatch, getAuthHeaders } from "../utils/cloudSync";
 import { useListingSnapshots } from "./useListingSnapshots";
 import { useAmenities } from "./useAmenities";
+import { useFavorites } from "./useFavorites";
+import { useCatalog, type UseCatalogResult } from "./useCatalog";
 import type { ListingAmenities } from "../utils/cloudSync";
 
 /** Haversine distance in miles */
@@ -73,6 +75,10 @@ interface UseListingsResult {
   amenities: Record<string, ListingAmenities>;
   setAmenity: (id: string, field: "parking" | "laundry", value: boolean | undefined) => void;
   uploadListings: (csvText: string) => Promise<number>;
+  // Catalog favorites (♥ in Browse → Catalog); address-keyed, cloud-persisted
+  favoriteIds: Set<string>;
+  toggleFavorite: (addressKey: string) => void;
+  catalog: UseCatalogResult;
   // Listing data freshness ("Refresh listings" is a first-class action)
   refreshListings: () => Promise<RefreshResult | null>;
   listingsUpdatedAt: Date | null;
@@ -107,6 +113,8 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
   const { saveSnapshots, archivedListings } = useListingSnapshots();
   const { visits, markVisited, setLiked, setRating, setNoteField, toggleWantOffer, clearVisit, importVisits, syncStatus: visitsStatus, saveFailed: visitsSaveFailed } = useVisits(authMode);
   const { amenities, setAmenity } = useAmenities();
+  const { favoriteIds, toggleFavorite } = useFavorites(authMode);
+  const catalog = useCatalog(authMode);
 
   const syncStatus: SyncStatus =
     hiddenStatus === "loading"  || visitsStatus === "loading"  ? "loading" :
@@ -345,6 +353,9 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
       importHiddenAndPriority(h, p);
       importVisits(v);
     },
+    favoriteIds,
+    toggleFavorite,
+    catalog,
     refreshListings,
     listingsUpdatedAt,
     refreshing,

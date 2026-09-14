@@ -64,6 +64,10 @@ export interface CloudState {
   skippedForDay: Record<string, string[]>;  // date → listing IDs hidden for that day only
   mapZones: MapZone[];
   finFavoriteIds: string[];
+  // Catalog favorites: normalized address keys (see addressKey.ts) the user
+  // hearted in the in-app Catalog view. Distinct from priorityIds (= ranking)
+  // and hiddenIds. Feeds the listing universe alongside the CSV favorites.
+  favoriteIds: string[];
   amenities: Record<string, ListingAmenities>;
   rentEstimates: Record<string, unknown>; // typed as RentEstimate in useRentEstimates.ts
   csvUrl?: string; // user's own CSV stored in Vercel Blob
@@ -161,6 +165,7 @@ function parseCloudState(record: unknown): CloudState {
     skippedForDay,
     mapZones,
     finFavoriteIds: Array.isArray(r.finFavoriteIds) ? (r.finFavoriteIds as string[]) : [],
+    favoriteIds: Array.isArray(r.favoriteIds) ? (r.favoriteIds as string[]).filter((k) => typeof k === "string") : [],
     amenities,
     rentEstimates,
     csvUrl: typeof r.csvUrl === "string" ? r.csvUrl : undefined,

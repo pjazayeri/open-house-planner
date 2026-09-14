@@ -7,10 +7,13 @@ import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import { FilterPane } from "./filters/FilterPane";
 import { countActiveFilters, SORT_LABELS } from "./filters/countActiveFilters";
 import { useIsMobile } from "../../hooks/useIsMobile";
+import { CatalogList, type CatalogListProps } from "./CatalogList";
 import "./Sidebar.css";
 
 interface SidebarProps {
   mode: "browse" | "planner";
+  /** Browse → "Catalog" tab: the shared catalog with ♥ favorites (stage b). */
+  catalog?: CatalogListProps;
   timeSlotGroups: TimeSlotGroupType[];
   totalListings: number;
   selectedId: string | null;
@@ -271,6 +274,7 @@ export function PrioritySection({
 
 export function Sidebar({
   mode,
+  catalog,
   timeSlotGroups,
   totalListings,
   selectedId,
@@ -339,6 +343,9 @@ export function Sidebar({
   // bar so the list starts near the top of the screen.
   const isMobile = useIsMobile();
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // Browse: "My listings" (CSV + hearted) vs the shared "Catalog".
+  const [source, setSource] = useState<"mine" | "catalog">("mine");
+  const showCatalog = mode === "browse" && !!catalog && source === "catalog";
   const activeFilterCount = countActiveFilters({
     mode, searchQuery, selectedAreas, statusFilter, priceMin, priceMax,
     capRateMin, capRateMax, ppsfMin, ppsfMax, timeFrom, timeTo, activeFilters, selectedDate,
@@ -347,7 +354,18 @@ export function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sidebar-content">
-        {mode === "planner" && availableDates.length > 0 && (
+        {mode === "browse" && catalog && (
+          <div className="sb-source-toggle" role="tablist" aria-label="Listing source">
+            <button role="tab" aria-selected={source === "mine"} className={`sb-source-btn${source === "mine" ? " active" : ""}`} onClick={() => setSource("mine")}>
+              My listings
+            </button>
+            <button role="tab" aria-selected={source === "catalog"} className={`sb-source-btn${source === "catalog" ? " active" : ""}`} onClick={() => setSource("catalog")}>
+              Catalog{catalog.listings ? ` · ${catalog.listings.length}` : ""}
+            </button>
+          </div>
+        )}
+        {showCatalog && catalog && <CatalogList {...catalog} />}
+        {!showCatalog && mode === "planner" && availableDates.length > 0 && (
           <div className="sb-day-banner">
             {selectedDate ? (
               <div className="sb-day-selected">
@@ -376,7 +394,7 @@ export function Sidebar({
           </div>
         )}
 
-        {mode === "planner" && (
+        {!showCatalog && mode === "planner" && (
           <div className="sidebar-geo-bar">
             {!geoWatching ? (
               <button className="geo-btn" onClick={onStartGeo}>
@@ -398,7 +416,7 @@ export function Sidebar({
          * chips) live behind "More filters ▾" so the pane
          * doesn't dominate the sidebar.
          */}
-        {isMobile && (
+        {!showCatalog && isMobile && (
           <button
             className={`sb-filter-toggle${filtersOpen ? " open" : ""}${activeFilterCount > 0 ? " has-active" : ""}`}
             onClick={() => setFiltersOpen((o) => !o)}
@@ -414,7 +432,7 @@ export function Sidebar({
             <span className="sb-filter-toggle-chev" aria-hidden="true">{filtersOpen ? "▴" : "▾"}</span>
           </button>
         )}
-        {(!isMobile || filtersOpen) && (
+        {!showCatalog && (!isMobile || filtersOpen) && (
         <div id="sb-filter-pane">
         <FilterPane
           mode={mode}
@@ -453,7 +471,7 @@ export function Sidebar({
         </div>
         )}
 
-        {mode === "planner" && priorityIds.size > 0 && (
+        {!showCatalog && mode === "planner" && priorityIds.size > 0 && (
           <button
             className={`priority-filter-btn ${showOnlyPriority ? "active" : ""}`}
             onClick={onTogglePriorityFilter}
@@ -461,7 +479,7 @@ export function Sidebar({
             ★ {showOnlyPriority ? "Showing priority only" : `Filter to priority (${priorityIds.size})`}
           </button>
         )}
-        {mode === "planner" && (
+        {!showCatalog && mode === "planner" && (
           <PrioritySection
             priorityOrder={priorityOrder}
             timeSlotGroups={timeSlotGroups}
@@ -473,7 +491,7 @@ export function Sidebar({
             onReorderPriority={onReorderPriority}
           />
         )}
-        {timeSlotGroups.map((group, idx) => (
+        {!showCatalog && timeSlotGroups.map((group, idx) => (
           <TimeSlotGroup
             key={group.label}
             group={group}
@@ -499,7 +517,7 @@ export function Sidebar({
             onSetAmenity={onSetAmenity}
           />
         ))}
-        {timeSlotGroups.length === 0 && (activeFilters.size > 0 || searchQuery.trim()) && (
+        {!showCatalog && timeSlotGroups.length === 0 && (activeFilters.size > 0 || searchQuery.trim()) && (
           <div className="sb-empty">No listings match.</div>
         )}
       </div>
