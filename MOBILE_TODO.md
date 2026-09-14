@@ -19,7 +19,6 @@ session. Humans may add items too — anything you notice on the phone goes here
 
 ## Backlog
 
-- [!] **Phone-friendly CSV upload copy + accept types** — Header "↑ Upload CSV" and CsvUploadPrompt: iOS Safari saves Redfin's export to Files as `.csv`; make sure `accept` includes `.csv,text/csv,text/comma-separated-values` and the prompt explains the phone path (Redfin → Favorites → Download → Share → Save to Files → Upload here). Test: pick a CSV from Files in the simulator → listings refresh.
 - [ ] **Finance page is unusable at phone width** — #finance on a 390px viewport: the "Finance — Buy vs Rent" title overlaps the Down/Rate/Opp.-return inputs, the input row overflows horizontally, the property list renders as a cramped two-column strip with a vertical "66 listings without a price hidden" gutter, and the detail panel is pushed below → expected: stack it — title row, assumptions as a 2×2 grid (or collapsible "Assumptions" bar), full-width list rows, detail as an expand/sheet. Test: at 390px no horizontal overflow; every input is reachable and the first listing's detail is visible without pinch-zoom.
 - [ ] **Map tiles are grey for 5+ seconds on a cold load** — open https://open-house-planner.vercel.app/#demo on a phone: markers render immediately but the OpenStreetMap basemap stays blank grey for 5–10 s (seen on two consecutive evals; tile.openstreetmap.org is slow/throttled) → expected: a faster CDN basemap (e.g. Carto Positron/Voyager via `https://{s}.basemaps.cartocdn.com/...`) or `keepBuffer`/`updateWhenIdle` tuning plus a subtle loading skeleton so the map never looks broken. Test: on a cold load at 390px, tiles visible within 2 s (throttle to Fast 3G in devtools: within 5 s).
 - [ ] **Property cards: tighter on phones** — Browse/Open Houses list: thumbnail 120px + large padding makes ~1.3 cards fit per screen. Try a horizontal card (thumb left 96×72, price/address/meta right, actions in one row) at ≤767px. Test: ≥2.5 cards visible on a 844px-tall viewport.
@@ -34,6 +33,7 @@ session. Humans may add items too — anything you notice on the phone goes here
 - [ ] **Open a CSV from the iOS Share Sheet** — native: declare a CSV document type in `ios/App/App/Info.plist` (CFBundleDocumentTypes, public.comma-separated-values-text), handle `appUrlOpen` file URLs in `src/native/native.ts` via `@capacitor/filesystem` → `uploadListings`. Needs `npm run ios:ship` after. Test: Safari download → Share → "Open House" → listings update.
 
 ## Done
+- [x] **Phone-friendly CSV upload copy + accept types** — 3995ac2
 - [x] **Favorite listings from the shared catalog in-app (no CSV needed)** — stages (a) 6771c96, (b) 96b8c08, (c) 88dcdac: hearted listings join Browse + Open Houses; "Browse the catalog instead" skips the CSV entirely
 - [x] **Catalog favorites, stage (b): Browse → Catalog view with ♥ saved to `favoriteIds`** — 96b8c08
 - [x] **Refresh listings is first-class: ↻ button + menu item, on-demand Redfin pull, status/price/open-house merge, "updated Xh ago"** — 221f052
