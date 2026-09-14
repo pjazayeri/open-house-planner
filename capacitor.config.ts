@@ -1,13 +1,20 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
-// Native iOS shell for the Open House Planner web app. The web bundle (dist/)
-// ships inside the app; API calls go to the production Vercel deployment
-// (see src/utils/apiBase.ts). Build + ship: scripts/ios-testflight.sh
+// Native iOS shell for the Open House Planner web app. By default the shell
+// loads the production site (see `server` below); API calls resolve via
+// src/utils/apiBase.ts. Build + ship: scripts/ios-testflight.sh
 const config: CapacitorConfig = {
   appId: "com.jazayeri.lifeapps.openhouse",
   appName: "Open House",
   webDir: "dist",
   backgroundColor: "#0f172a",
+  // Load the live production site instead of the bundled dist/. Every web
+  // deploy (git push → Vercel) reaches the installed app on next launch, so
+  // UI iteration never needs a new TestFlight build. dist/ is still bundled as
+  // the fallback shell. Set CAP_BUNDLED=1 when building to ship offline assets.
+  ...(process.env.CAP_BUNDLED
+    ? {}
+    : { server: { url: "https://open-house-planner.vercel.app", cleartext: false } }),
   ios: {
     contentInset: "never",
     preferredContentMode: "mobile",

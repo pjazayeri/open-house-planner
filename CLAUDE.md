@@ -196,6 +196,16 @@ npm run ios:assets   # regenerate icons/splash from assets/icon-only.png + asset
 npm run ios:ship     # scripts/ios-testflight.sh — archive, sign (automatic, via ASC API key), upload to TestFlight
 ```
 
+**The shell loads the live site.** `capacitor.config.ts` sets `server.url` to
+production, so every push to main reaches installed apps on next launch — no
+TestFlight build needed for UI work. Build with `CAP_BUNDLED=1` to ship the
+bundled `dist/` instead (offline shell). Native-only changes (plugins, Info.plist,
+icons) still need `npm run ios:ship`.
+
+**Hourly loops.** `MOBILE_TODO.md` is the shared backlog for two session-local
+cron loops (eval → re-ranks the backlog from a phone-viewport walkthrough;
+build → ships the top item, one per tick). Rules live at the top of that file.
+
 How the native shell differs from the web app:
 - **API base** — the bundle is served from `capacitor://localhost`, so every
   `/api/*` call goes through `apiUrl()` in `src/utils/apiBase.ts`, which
