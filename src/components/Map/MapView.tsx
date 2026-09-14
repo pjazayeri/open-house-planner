@@ -14,6 +14,7 @@ import { formatPrice, formatBedsBaths, formatTimeRange } from "../../utils/forma
 import { pointInPolygon } from "../../utils/geometry";
 import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import "./MapView.css";
+import { BASEMAP_URL, BASEMAP_ATTRIBUTION, BASEMAP_TILE_OPTIONS } from "../../utils/basemap";
 
 const ZONE_COLORS = ["#ef4444", "#f97316", "#22c55e", "#3b82f6", "#a855f7", "#ec4899", "#06b6d4"];
 
@@ -709,10 +710,7 @@ export function MapView({
         className="leaflet-map"
         ref={mapRef}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <TileLayer attribution={BASEMAP_ATTRIBUTION} url={BASEMAP_URL} {...BASEMAP_TILE_OPTIONS} />
         <UnmountGuard />
         <FitBounds timeSlotGroups={timeSlotGroups} />
         <PanToSelected timeSlotGroups={timeSlotGroups} selectedId={selectedId} />

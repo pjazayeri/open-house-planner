@@ -6,6 +6,9 @@
 .leaflet-map {
   width: 100%;
   height: 100%;
+  /* Paper-like ground while tiles stream in, so a cold load reads as
+     "loading the map", not "broken grey box". */
+  background: #e9eef3;
 }
 
 /* Remove default Leaflet marker icon background */

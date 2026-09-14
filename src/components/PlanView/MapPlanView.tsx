@@ -5,6 +5,7 @@ import type { TimeSlotGroup } from "../../types";
 import { formatPrice, formatBedsBaths, formatTimeRange } from "../../utils/formatters";
 import { navigationUrl } from "../../utils/mapsUrl";
 import "leaflet/dist/leaflet.css";
+import { BASEMAP_URL, BASEMAP_ATTRIBUTION, BASEMAP_TILE_OPTIONS } from "../../utils/basemap";
 
 function makeIcon(label: string, color: string) {
   return L.divIcon({
@@ -52,10 +53,7 @@ export function MapPlanView({ groups }: { groups: TimeSlotGroup[] }) {
           style={{ height: "100%", width: "100%" }}
           zoomControl={true}
         >
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          />
+          <TileLayer attribution={BASEMAP_ATTRIBUTION} url={BASEMAP_URL} {...BASEMAP_TILE_OPTIONS} />
           <FitAll groups={groups} />
           {allListings.map(({ listing: l, groupIdx, slotIdx }) => {
             if (!l.lat || !l.lng) return null;
