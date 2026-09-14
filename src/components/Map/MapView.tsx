@@ -118,6 +118,26 @@ function offsetCoords(
   return [lat + offset * Math.sin(angle), lng + offset * Math.cos(angle)];
 }
 
+/**
+ * Leaflet schedules `_onZoomTransitionEnd` via a 250 ms setTimeout after an
+ * animated zoom (fitBounds on load). If the map is removed before it fires —
+ * the user taps a bottom tab while the map is still animating, unmounting
+ * MapView — the callback dereferences the removed pane and throws
+ * "Cannot read properties of undefined (reading '_leaflet_pos')". The handler
+ * bails when `_animatingZoom` is false, so clear it (and stop any pan/fly
+ * animation) on unmount.
+ */
+function UnmountGuard() {
+  const map = useMap();
+  useEffect(() => {
+    return () => {
+      (map as unknown as { _animatingZoom?: boolean })._animatingZoom = false;
+      try { map.stop(); } catch { /* map already removed */ }
+    };
+  }, [map]);
+  return null;
+}
+
 /** Fit map bounds when listings change */
 function FitBounds({ timeSlotGroups }: { timeSlotGroups: TimeSlotGroup[] }) {
   const map = useMap();
@@ -693,6 +713,7 @@ export function MapView({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <UnmountGuard />
         <FitBounds timeSlotGroups={timeSlotGroups} />
         <PanToSelected timeSlotGroups={timeSlotGroups} selectedId={selectedId} />
         <PanToUserPosition userPosition={userPosition} />
