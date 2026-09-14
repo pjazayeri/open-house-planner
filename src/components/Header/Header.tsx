@@ -6,6 +6,7 @@ import type { SyncStatus } from "../../utils/cloudSync";
 import type { Page } from "../../App";
 import type { AuthMode } from "../../hooks/useAuth";
 import { timeAgo, describeRefresh, type RefreshResult } from "../../utils/catalog";
+import { CSV_ACCEPT } from "../../utils/csvUpload";
 import "./Header.css";
 
 interface AuthUser {
@@ -375,7 +376,7 @@ export function Header({
         <input
           ref={fileInputRef}
           type="file"
-          accept=".csv"
+          accept={CSV_ACCEPT}
           style={{ display: "none" }}
           onChange={handleFileChange}
         />
@@ -466,7 +467,7 @@ export function Header({
                 </span>
               )}
             </div>
-            <button className="app-menu-item" role="menuitem" onClick={menuAction(() => void handleRefresh())} disabled={refreshing}>
+            <button className="app-menu-item" role="menuitem" onClick={() => { setMenuOpen(false); void handleRefresh(); }} disabled={refreshing}>
               <span className="app-menu-icon"><RefreshIcon /></span>
               <span className="app-menu-item-text">
                 Refresh listings

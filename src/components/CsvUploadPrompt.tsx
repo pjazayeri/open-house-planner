@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { CSV_ACCEPT, isIOSDevice, csvInstructions } from "../utils/csvUpload";
 
 interface CsvUploadPromptProps {
   onUpload: (csvText: string) => Promise<number>;
@@ -10,6 +11,7 @@ interface CsvUploadPromptProps {
 
 export function CsvUploadPrompt({ onUpload, user, onSignOut, onSkip }: CsvUploadPromptProps) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const ios = typeof navigator !== "undefined" && isIOSDevice(navigator.userAgent, navigator.maxTouchPoints ?? 0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,9 +39,11 @@ export function CsvUploadPrompt({ onUpload, user, onSignOut, onSkip }: CsvUpload
         <div className="csv-prompt-icon">&#127968;</div>
         <h1 className="csv-prompt-title">Open House Planner</h1>
         <p className="csv-prompt-body">
-          Upload your Redfin favorites CSV to get started. Go to your Redfin favorites page,
-          click <strong>Download all (CSV)</strong>, then upload it here.
+          Upload your Redfin favorites CSV to get started.
         </p>
+        <ol className="csv-prompt-steps" aria-label="How to get the CSV">
+          {csvInstructions(ios).map((step) => <li key={step}>{step}</li>)}
+        </ol>
         <div className="csv-prompt-actions">
           <button
             className="csv-prompt-btn csv-prompt-btn--primary"
@@ -64,7 +68,7 @@ export function CsvUploadPrompt({ onUpload, user, onSignOut, onSkip }: CsvUpload
           </button>
         )}
         {error && <p className="csv-prompt-error">{error}</p>}
-        <input ref={fileRef} type="file" accept=".csv" style={{ display: "none" }} onChange={handleFile} />
+        <input ref={fileRef} type="file" accept={CSV_ACCEPT} style={{ display: "none" }} onChange={handleFile} />
         {user && onSignOut && (
           <p className="csv-prompt-signout">
             Signed in as {user.displayName ?? user.email}.{" "}
