@@ -383,6 +383,9 @@ function App() {
     clearVisit,
     importData,
     uploadListings,
+    refreshListings,
+    listingsUpdatedAt,
+    refreshing,
     geoPosition,
     nearbyId,
     geoWatching,
@@ -730,6 +733,9 @@ function App() {
         }}
         theme={theme}
         onToggleTheme={toggleTheme}
+        onRefreshListings={refreshListings}
+        listingsUpdatedAt={listingsUpdatedAt}
+        refreshing={refreshing}
       />
       {page === "analytics" && (
         <AnalyticsPage

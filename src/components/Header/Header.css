@@ -50,6 +50,10 @@
   min-width: 32px;
 }
 .nav-tab--theme:hover { border-color: #fbbf24 !important; color: #fbbf24 !important; }
+.nav-tab--refresh { color: #60a5fa; display: inline-flex; align-items: center; gap: 6px; }
+.nav-tab--refresh:hover { border-color: #60a5fa !important; color: #93c5fd !important; }
+.nav-tab--refresh svg { width: 14px; height: 14px; }
+.is-refreshing svg { animation: spin 0.9s linear infinite; }
 .nav-tab--upload { color: #34d399; }
 .nav-tab--upload:hover { border-color: #34d399 !important; color: #34d399 !important; }
 .nav-tab--redfin { color: #f97316; text-decoration: none; }
@@ -104,6 +108,25 @@
   color: var(--text-dim);
 }
 .header-stats-short { display: none; }
+.city-select--title { display: none; }
+.header-freshness { color: var(--text-faint); }
+
+/* Round refresh button (phones; hidden on desktop where the nav has one) */
+.refresh-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--accent);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.refresh-btn:disabled { opacity: 0.6; }
+.refresh-btn svg { width: 18px; height: 18px; }
 
 .header-right {
   display: flex;
@@ -225,6 +248,31 @@
   .header-stats-long { display: none; }
   .header-stats-short { display: inline; }
 
+  /* City selector doubles as the title on phones */
+  .header-title--desktop { display: none; }
+  .city-select--title {
+    display: block;
+    max-width: 100%;
+    padding: 0 18px 0 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='7' viewBox='0 0 12 7'><path d='M1 1l5 5 5-5' fill='none' stroke='%2394a3b8' stroke-width='1.8' stroke-linecap='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 2px center;
+    -webkit-appearance: none;
+    appearance: none;
+    color: var(--text);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .header-right .city-select { display: none; }
+
   /* Lives in the avatar menu on phones */
   .header-left .restore-btn { display: none; }
 
@@ -257,6 +305,7 @@
 
   .user-signout { display: none; }
   .user-avatar { width: 34px; height: 34px; }
+  .refresh-btn { display: inline-flex; }
 }
 
 /* ── User menu ─────────────────────────────────── */
@@ -365,6 +414,10 @@
 }
 .app-menu-item:hover, .app-menu-item:active { background: var(--surface-hover); }
 .app-menu-item--danger { color: var(--bad); }
+.app-menu-item:disabled { opacity: 0.6; }
+.app-menu-item-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.app-menu-item-sub { font-size: 12px; font-weight: 400; color: var(--text-dim); }
+.app-menu-icon svg { width: 16px; height: 16px; vertical-align: middle; }
 .app-menu-icon {
   width: 22px;
   text-align: center;

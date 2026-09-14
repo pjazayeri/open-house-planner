@@ -37,7 +37,7 @@ user's Redfin CSV  (signed-in: Vercel Blob via /api/csv · dev: bundled public/*
 
 `allListings` contains all active listings regardless of open house date — used by Browse, Data, Finance, Analytics. `timeSlotGroups` (for the Planner) derives from `cityListings` which filters to `openHouseEnd > now`.
 
-**Updating for a new weekend:** open-house *times* self-refresh from the catalog (daily cron) — re-uploading is only needed to change *which* homes are favorited. Upload a new Redfin CSV via the "↑ Upload CSV" button (stored in Vercel Blob via `/api/ingest` for signed-in users).
+**Refreshing listing data is a first-class action.** `POST /api/listings { addressKeys, refresh }` returns the current catalog row (status, price, DOM, soonest upcoming open house — or cleared times) for each address; with `refresh: true` it first re-runs the Redfin ingest server-side (`/api/cron-listings` via `CRON_SECRET`, at most every 10 min). `useListings` merges this onto the user's CSV rows on load, on upload, and via `refreshListings()` (Header ↻ button / menu item, with an "updated Xh ago" label from `listingsUpdatedAt`). The CSV only defines *which* homes are favorites; re-uploading is only needed to change that set. Upload a new Redfin CSV via the "↑ Upload CSV" button (stored in Vercel Blob via `/api/ingest` for signed-in users).
 
 ### Pages & routing
 

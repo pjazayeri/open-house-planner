@@ -103,13 +103,38 @@ function localApis(): Plugin {
 
       // /api/listings — serve the open-house catalog (soonest upcoming OH per address)
       server.middlewares.use('/api/listings', async (req: IncomingMessage, res: ServerResponse) => {
-        if (req.method !== 'GET') { res.writeHead(405); res.end('Method not allowed'); return; }
+        if (req.method !== 'GET' && req.method !== 'POST') { res.writeHead(405); res.end('Method not allowed'); return; }
         if (!DATABASE_URL) {
           res.writeHead(503, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Catalog not configured — set DATABASE_URL in .env.local' }));
           return;
         }
         const sql = neon(DATABASE_URL);
+        const [{ at: updatedAt }] = await sql`SELECT max(last_seen) AS at FROM listings` as { at: string | null }[];
+        if (req.method === 'POST') {
+          // Dev mirror of api/listings.ts POST. Never triggers the Redfin ingest
+          // locally — the daily cron (or prod refresh) owns that.
+          const raw = await new Promise<string>((resolve) => { let d = ''; req.on('data', (c: Buffer) => { d += c.toString(); }); req.on('end', () => resolve(d)); });
+          let body: { addressKeys?: unknown; refresh?: unknown } = {};
+          try { body = JSON.parse(raw || '{}'); } catch { /* ignore */ }
+          const addressKeys = Array.isArray(body.addressKeys) ? (body.addressKeys as unknown[]).filter((k): k is string => typeof k === 'string') : [];
+          const rows: Record<string, Record<string, string>> = {};
+          if (addressKeys.length > 0) {
+            const found = await sql`
+              SELECT l.address_key, l.raw, o.start_raw, o.end_raw
+              FROM listings l
+              LEFT JOIN LATERAL (
+                SELECT start_raw, end_raw FROM open_houses
+                WHERE address_key = l.address_key AND start_ts IS NOT NULL AND start_ts > now()
+                ORDER BY start_ts ASC LIMIT 1
+              ) o ON true
+              WHERE l.address_key = ANY(${addressKeys}) AND l.raw IS NOT NULL` as { address_key: string; raw: Record<string, string>; start_raw: string | null; end_raw: string | null }[];
+            for (const r of found) rows[r.address_key] = { ...r.raw, 'NEXT OPEN HOUSE START TIME': r.start_raw ?? '', 'NEXT OPEN HOUSE END TIME': r.end_raw ?? '' };
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ updatedAt, refreshed: false, refreshNote: body.refresh === true ? 'dev: ingest not triggered locally' : undefined, rows, matched: Object.keys(rows).length }));
+          return;
+        }
         const rows = await sql`
           SELECT DISTINCT ON (address_key) address_key, start_raw, end_raw, mls_id
           FROM open_houses
@@ -134,7 +159,7 @@ function localApis(): Plugin {
           }));
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ openHouses, count: rows.length, ...(catalog ? { catalog } : {}) }));
+        res.end(JSON.stringify({ openHouses, count: rows.length, updatedAt, ...(catalog ? { catalog } : {}) }));
       });
 
       // /api/admin-stats — observability (dev: no auth gate; Neon + Blob; Firebase skipped)

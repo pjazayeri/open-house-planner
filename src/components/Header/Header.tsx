@@ -5,6 +5,7 @@ import type { TimeSlotGroup } from "../../types";
 import type { SyncStatus } from "../../utils/cloudSync";
 import type { Page } from "../../App";
 import type { AuthMode } from "../../hooks/useAuth";
+import { timeAgo, describeRefresh, type RefreshResult } from "../../utils/catalog";
 import "./Header.css";
 
 interface AuthUser {
@@ -34,6 +35,19 @@ interface HeaderProps {
   onSharePlan: () => Promise<{ planUrl: string; mapUrl: string }>;
   theme: Theme;
   onToggleTheme: () => void;
+  /** "Refresh listings" — pulls fresh Redfin data and re-merges. null = not available (guest/demo). */
+  onRefreshListings?: () => Promise<RefreshResult | null>;
+  listingsUpdatedAt?: Date | null;
+  refreshing?: boolean;
+}
+
+function RefreshIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20 12a8 8 0 1 1-2.34-5.66" />
+      <path d="M20 4v5h-5" />
+    </svg>
+  );
 }
 
 
@@ -82,6 +96,9 @@ export function Header({
   onSharePlan,
   theme,
   onToggleTheme,
+  onRefreshListings,
+  listingsUpdatedAt = null,
+  refreshing = false,
 }: HeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [toast, setToast] = useState<{ msg: string; kind: "loading" | "ok" | "error" } | null>(null);
@@ -193,17 +210,50 @@ export function Header({
     return () => { setMenuOpen(false); fn(); };
   }
 
+  async function handleRefresh() {
+    if (refreshing) return;
+    if (!onRefreshListings || authMode !== "signed-in") {
+      showToast("Sign in to refresh listings from Redfin", "error", true);
+      return;
+    }
+    showToast("Refreshing listings from Redfin…", "loading");
+    try {
+      const r = await onRefreshListings();
+      if (!r) { showToast("Couldn't refresh listings", "error", true); return; }
+      showToast(describeRefresh(r), "ok", true);
+    } catch {
+      showToast("Couldn't refresh listings", "error", true);
+    }
+  }
+
+  const freshness = listingsUpdatedAt ? timeAgo(listingsUpdatedAt) : "";
+
   return (
     <header className="header">
       <div className="header-left">
-        <h1 className="header-title">Open House Planner</h1>
+        <h1 className={`header-title${cities.length > 1 ? " header-title--desktop" : ""}`}>Open House Planner</h1>
+        {cities.length > 1 && (
+          /* Phones: the city selector IS the title (desktop shows the pill on the right) */
+          <select
+            className="city-select city-select--title"
+            value={selectedCity}
+            onChange={(e) => onCityChange(e.target.value)}
+            aria-label="City"
+          >
+            {cities.map((city) => (
+              <option key={city} value={city}>{city}</option>
+            ))}
+          </select>
+        )}
         <span className="header-stats">
           {/* Phones show the city in the pill, so the long form is desktop-only */}
           <span className="header-stats-long">
             {cityCount} open house{cityCount === 1 ? "" : "s"} in {selectedCity} &middot; {totalListings} total
+            {freshness && <span className="header-freshness" title="When listing data was last pulled from Redfin"> &middot; updated {freshness}</span>}
           </span>
           <span className="header-stats-short">
             {cityCount} open house{cityCount === 1 ? "" : "s"} &middot; {totalListings} total
+            {freshness && <span className="header-freshness"> &middot; {freshness}</span>}
           </span>
           <SyncBadge syncStatus={syncStatus} saveFailed={saveFailed} />
         </span>
@@ -330,6 +380,14 @@ export function Header({
           onChange={handleFileChange}
         />
         <button
+          className={`nav-tab nav-tab--refresh${refreshing ? " is-refreshing" : ""}`}
+          onClick={() => void handleRefresh()}
+          disabled={refreshing}
+          title={freshness ? `Pull fresh listing data from Redfin (last updated ${freshness})` : "Pull fresh listing data from Redfin"}
+        >
+          <RefreshIcon /> Refresh
+        </button>
+        <button
           className="nav-tab nav-tab--upload"
           onClick={() => fileInputRef.current?.click()}
           title="Upload a Redfin favorites CSV to update listings"
@@ -354,6 +412,15 @@ export function Header({
       )}
 
       <div className="header-right">
+        <button
+          className={`refresh-btn${refreshing ? " is-refreshing" : ""}`}
+          onClick={() => void handleRefresh()}
+          disabled={refreshing}
+          aria-label="Refresh listings"
+          title="Refresh listings from Redfin"
+        >
+          <RefreshIcon />
+        </button>
         {cities.length > 1 && (
           <select
             className="city-select"
@@ -399,6 +466,13 @@ export function Header({
                 </span>
               )}
             </div>
+            <button className="app-menu-item" role="menuitem" onClick={menuAction(() => void handleRefresh())} disabled={refreshing}>
+              <span className="app-menu-icon"><RefreshIcon /></span>
+              <span className="app-menu-item-text">
+                Refresh listings
+                <span className="app-menu-item-sub">{freshness ? `Redfin data updated ${freshness}` : "Pull the latest from Redfin"}</span>
+              </span>
+            </button>
             <button className="app-menu-item" role="menuitem" onClick={menuAction(onShowSummary)}>
               <span className="app-menu-icon">📝</span> Tour summary
             </button>

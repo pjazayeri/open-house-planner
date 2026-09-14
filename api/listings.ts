@@ -6,6 +6,13 @@
 // shaped row for every listing with an upcoming open house (times filled in
 // from open_houses), so the phone can browse + favorite listings without a CSV.
 //
+// POST /api/listings { addressKeys: string[], refresh?: boolean } — "Refresh
+// listings" (first-class in the UI). With refresh=true it first re-runs the
+// Redfin ingest (server-to-server call to /api/cron-listings, at most once per
+// REFRESH_MIN_INTERVAL_MS), then returns the current catalog row for each
+// requested address: status, price, days on market, and the soonest upcoming
+// open house (or cleared times when there is none).
+//
 // Auth-gated like /api/sync (the data is public, but we don't want an open
 // anonymous endpoint on the deployment).
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -34,8 +41,39 @@ async function getFirebaseAdmin() {
   return admin;
 }
 
+const REFRESH_MIN_INTERVAL_MS = 10 * 60 * 1000;
+
+function readBody(req: IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let data = "";
+    req.on("data", (chunk: Buffer) => { data += chunk.toString(); });
+    req.on("end", () => resolve(data));
+    req.on("error", reject);
+  });
+}
+
+/** When the catalog was last refreshed from Redfin (max listings.last_seen). */
+async function catalogUpdatedAt(sql: ReturnType<typeof neon>): Promise<string | null> {
+  const [row] = (await sql`SELECT max(last_seen) AS at FROM listings`) as { at: string | null }[];
+  return row?.at ?? null;
+}
+
+/** Trigger the Redfin ingest (the daily cron) on demand. Non-fatal on failure. */
+async function triggerIngest(): Promise<{ ok: boolean; detail: string }> {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return { ok: false, detail: "CRON_SECRET not configured" };
+  const host = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || "open-house-planner.vercel.app";
+  try {
+    const r = await fetch(`https://${host}/api/cron-listings`, { headers: { Authorization: `Bearer ${secret}` } });
+    const text = await r.text();
+    return { ok: r.ok, detail: text.slice(0, 200) };
+  } catch (e) {
+    return { ok: false, detail: String(e) };
+  }
+}
+
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
-  if (req.method !== "GET") {
+  if (req.method !== "GET" && req.method !== "POST") {
     res.writeHead(405);
     res.end("Method not allowed");
     return;
@@ -67,6 +105,58 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   }
 
   const sql = neon(DATABASE_URL);
+
+  if (req.method === "POST") {
+    let body: { addressKeys?: unknown; refresh?: unknown } = {};
+    try {
+      body = JSON.parse((await readBody(req)) || "{}");
+    } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON body" }));
+      return;
+    }
+    const addressKeys = Array.isArray(body.addressKeys)
+      ? (body.addressKeys as unknown[]).filter((k): k is string => typeof k === "string").slice(0, 2000)
+      : [];
+    let updatedAt = await catalogUpdatedAt(sql);
+    let refreshed = false;
+    let refreshNote: string | undefined;
+    if (body.refresh === true) {
+      const ageMs = updatedAt ? Date.now() - new Date(updatedAt).getTime() : Infinity;
+      if (ageMs < REFRESH_MIN_INTERVAL_MS) {
+        refreshNote = "recent";
+      } else {
+        const r = await triggerIngest();
+        refreshed = r.ok;
+        if (!r.ok) refreshNote = r.detail;
+        else updatedAt = await catalogUpdatedAt(sql);
+      }
+    }
+    const rows: Record<string, Record<string, string>> = {};
+    if (addressKeys.length > 0) {
+      const found = (await sql`
+        SELECT l.address_key, l.raw, o.start_raw, o.end_raw
+        FROM listings l
+        LEFT JOIN LATERAL (
+          SELECT start_raw, end_raw FROM open_houses
+          WHERE address_key = l.address_key AND start_ts IS NOT NULL AND start_ts > now()
+          ORDER BY start_ts ASC LIMIT 1
+        ) o ON true
+        WHERE l.address_key = ANY(${addressKeys}) AND l.raw IS NOT NULL
+      `) as { address_key: string; raw: Record<string, string>; start_raw: string | null; end_raw: string | null }[];
+      for (const r of found) {
+        rows[r.address_key] = {
+          ...r.raw,
+          "NEXT OPEN HOUSE START TIME": r.start_raw ?? "",
+          "NEXT OPEN HOUSE END TIME": r.end_raw ?? "",
+        };
+      }
+    }
+    res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+    res.end(JSON.stringify({ updatedAt, refreshed, ...(refreshNote ? { refreshNote } : {}), rows, matched: Object.keys(rows).length }));
+    return;
+  }
+
   // Soonest still-upcoming open house per address.
   const rows = (await sql`
     SELECT DISTINCT ON (address_key) address_key, start_raw, end_raw, mls_id
@@ -102,5 +192,6 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     "Content-Type": "application/json",
     "Cache-Control": "public, max-age=300", // open-house times change at most daily
   });
-  res.end(JSON.stringify({ openHouses, count: rows.length, ...(catalog ? { catalog } : {}) }));
+  const updatedAt = await catalogUpdatedAt(sql);
+  res.end(JSON.stringify({ openHouses, count: rows.length, updatedAt, ...(catalog ? { catalog } : {}) }));
 }

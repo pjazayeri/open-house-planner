@@ -37,3 +37,54 @@ export function overlayOpenHouses(
   });
   return { rows: out, matched };
 }
+
+/** Fields the catalog is allowed to overwrite on a user's CSV row. */
+const REFRESHABLE_FIELDS = [
+  "NEXT OPEN HOUSE START TIME",
+  "NEXT OPEN HOUSE END TIME",
+  "STATUS",
+  "PRICE",
+  "DAYS ON MARKET",
+  "$/SQUARE FEET",
+  "HOA/MONTH",
+  "SOLD DATE",
+] as const satisfies readonly (keyof RawListing)[];
+
+export interface OverlayChanges {
+  matched: number;
+  status: number;
+  price: number;
+  openHouse: number;
+}
+
+/**
+ * Overlay fresh catalog rows (from `POST /api/listings`) onto the user's CSV
+ * rows, matched by normalized address. Unlike `overlayOpenHouses`, this
+ * refreshes status/price/DOM too and CLEARS stale open-house times when the
+ * catalog has no upcoming open house for the address. Identity fields
+ * (address, MLS#, FAVORITE, beds/baths/sqft…) always come from the user's row.
+ */
+export function overlayCatalogRows(
+  rows: RawListing[],
+  fresh: Record<string, Partial<RawListing>>,
+): { rows: RawListing[]; changes: OverlayChanges } {
+  const changes: OverlayChanges = { matched: 0, status: 0, price: 0, openHouse: 0 };
+  const out = rows.map((row) => {
+    const f = fresh[addressKey(row.ADDRESS ?? "", row.CITY ?? "")];
+    if (!f) return row;
+    changes.matched++;
+    const next: RawListing = { ...row };
+    for (const k of REFRESHABLE_FIELDS) {
+      const v = f[k];
+      if (v === undefined) continue;
+      if ((next[k] ?? "") !== v) {
+        if (k === "STATUS") changes.status++;
+        else if (k === "PRICE") changes.price++;
+        else if (k === "NEXT OPEN HOUSE START TIME") changes.openHouse++;
+        next[k] = v;
+      }
+    }
+    return next;
+  });
+  return { rows: out, changes };
+}

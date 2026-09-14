@@ -38,3 +38,48 @@ export function catalogEntriesToRows(
   }
   return out;
 }
+
+// ── Refresh ────────────────────────────────────────────────────────────
+
+import type { OverlayChanges } from "./overlayOpenHouses";
+
+/** `POST /api/listings` response. */
+export interface CatalogRowsResponse {
+  updatedAt: string | null;
+  refreshed: boolean;
+  refreshNote?: string;
+  rows: Record<string, RawListing>;
+  matched: number;
+}
+
+export interface RefreshResult {
+  /** True when a fresh Redfin pull actually ran (false = catalog was recent). */
+  refreshed: boolean;
+  updatedAt: Date | null;
+  changes: OverlayChanges;
+  note?: string;
+}
+
+/** "just now", "4 min ago", "3h ago", "2d ago" — for the header freshness label. */
+export function timeAgo(date: Date | null, now: Date = new Date()): string {
+  if (!date) return "";
+  const s = Math.max(0, Math.round((now.getTime() - date.getTime()) / 1000));
+  if (s < 60) return "just now";
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.round(m / 60);
+  if (h < 48) return `${h}h ago`;
+  return `${Math.round(h / 24)}d ago`;
+}
+
+/** One-line summary for the refresh toast. */
+export function describeRefresh(r: RefreshResult): string {
+  const parts: string[] = [];
+  if (r.changes.status) parts.push(`${r.changes.status} status change${r.changes.status === 1 ? "" : "s"}`);
+  if (r.changes.price) parts.push(`${r.changes.price} price change${r.changes.price === 1 ? "" : "s"}`);
+  if (r.changes.openHouse) parts.push(`${r.changes.openHouse} open-house update${r.changes.openHouse === 1 ? "" : "s"}`);
+  if (parts.length === 0) {
+    return r.refreshed ? "Listings refreshed — nothing changed" : `Already up to date (Redfin pulled ${timeAgo(r.updatedAt) || "recently"})`;
+  }
+  return `${r.refreshed ? "Refreshed" : "Updated"}: ${parts.join(", ")}`;
+}

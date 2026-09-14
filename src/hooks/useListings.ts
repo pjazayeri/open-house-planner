@@ -1,11 +1,13 @@
 import { apiUrl } from "../utils/apiBase";
-import { useState, useEffect, useMemo, useCallback } from "react";
-import type { Listing, TimeSlotGroup, VisitRecord } from "../types";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import type { Listing, TimeSlotGroup, VisitRecord, RawListing } from "../types";
 import { loadCsv, loadDemoCsv, uploadCsvText } from "../utils/parseCsv";
 import { filterAndTransform, transformAll, getCities } from "../utils/filterListings";
 import { shiftListingsToFuture } from "../utils/demoSeed";
 import { relinkIds, relinkIdSet } from "../utils/relinkIds";
-import { overlayOpenHouses, type CatalogOpenHouse } from "../utils/overlayOpenHouses";
+import { overlayCatalogRows } from "../utils/overlayOpenHouses";
+import { addressKey } from "../utils/addressKey";
+import type { CatalogRowsResponse, RefreshResult } from "../utils/catalog";
 import { optimizeRoute } from "../utils/routeOptimizer";
 import { useHiddenIds } from "./useHiddenIds";
 import { useVisits } from "./useVisits";
@@ -71,6 +73,10 @@ interface UseListingsResult {
   amenities: Record<string, ListingAmenities>;
   setAmenity: (id: string, field: "parking" | "laundry", value: boolean | undefined) => void;
   uploadListings: (csvText: string) => Promise<number>;
+  // Listing data freshness ("Refresh listings" is a first-class action)
+  refreshListings: () => Promise<RefreshResult | null>;
+  listingsUpdatedAt: Date | null;
+  refreshing: boolean;
   // Geolocation
   geoPosition: { lat: number; lng: number } | null;
   nearbyId: string | null;
@@ -91,6 +97,11 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
   const [selectedCity, setSelectedCity] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  // The user's CSV rows as loaded (before any catalog overlay) — the base that
+  // every refresh re-merges onto.
+  const rawRowsRef = useRef<RawListing[]>([]);
+  const [listingsUpdatedAt, setListingsUpdatedAt] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const { hiddenIds, hide, unhide, clearHidden, priorityIds, priorityOrder, togglePriority, reorderPriority, importHiddenAndPriority, skippedForDay, skipForDay, restoreSkippedForDay, syncStatus: hiddenStatus, saveFailed: hiddenSaveFailed } = useHiddenIds(authMode);
   const { saveSnapshots, archivedListings } = useListingSnapshots();
@@ -103,6 +114,54 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
     hiddenStatus === "unconfigured"                            ? "unconfigured" :
     hiddenStatus === "degraded" || visitsStatus === "degraded" ? "degraded" :
     "ok";
+
+  /**
+   * Ask the catalog for the current row of every address in `rows` and merge
+   * it in. `refresh=true` also triggers a fresh Redfin pull server-side
+   * (rate-limited there). Returns null when the catalog is unavailable.
+   */
+  const mergeCatalog = useCallback(async (rows: RawListing[], refresh: boolean): Promise<{ rows: RawListing[]; result: RefreshResult } | null> => {
+    const authHeaders = await getAuthHeaders();
+    const addressKeys = Array.from(new Set(rows.map((r) => addressKey(r.ADDRESS ?? "", r.CITY ?? ""))));
+    const res = await fetch(apiUrl("/api/listings"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders },
+      body: JSON.stringify({ addressKeys, refresh }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as CatalogRowsResponse;
+    const { rows: merged, changes } = overlayCatalogRows(rows, data.rows);
+    const updatedAt = data.updatedAt ? new Date(data.updatedAt) : null;
+    setListingsUpdatedAt(updatedAt);
+    console.info(`[useListings] catalog merged ${changes.matched}/${rows.length} favorites (status ${changes.status}, price ${changes.price}, open house ${changes.openHouse})`);
+    return { rows: merged, result: { refreshed: data.refreshed, updatedAt, changes, note: data.refreshNote } };
+  }, []);
+
+  const applyRows = useCallback((rows: RawListing[], demo: boolean) => {
+    let filtered = filterAndTransform(rows);
+    let all = transformAll(rows);
+    if (demo) {
+      filtered = shiftListingsToFuture(filtered);
+      all = shiftListingsToFuture(all);
+    }
+    setAllListings(filtered);
+    setAllFavoritesListings(all);
+    return filtered;
+  }, []);
+
+  /** First-class "Refresh listings": fresh Redfin pull + re-merge. Signed-in only. */
+  const refreshListings = useCallback(async (): Promise<RefreshResult | null> => {
+    if (authMode !== "signed-in" || rawRowsRef.current.length === 0) return null;
+    setRefreshing(true);
+    try {
+      const merged = await mergeCatalog(rawRowsRef.current, true);
+      if (!merged) return null;
+      applyRows(merged.rows, false);
+      return merged.result;
+    } finally {
+      setRefreshing(false);
+    }
+  }, [authMode, mergeCatalog, applyRows]);
   const saveFailed = hiddenSaveFailed || visitsSaveFailed;
   const { position: geoPosition, error: geoError, watching: geoWatching, startWatching: startGeo } = useGeolocation();
 
@@ -129,22 +188,18 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
           const csvUrl = stateResult?.csvUrl;
           rows = await loadCsv(csvUrl, Object.keys(authHeaders).length ? authHeaders : undefined);
 
-          // Overlay fresh open-house times from the shared catalog onto the
-          // user's favorites (matched by address). This is why uploads no longer
-          // need to happen weekly: the daily cron keeps the catalog current and
-          // we self-refresh stale CSV times here. Non-fatal — falls back to the
-          // CSV's own times if the catalog is unavailable.
+          // Merge current catalog data (status, price, DOM, open-house times)
+          // onto the user's favorites, matched by address. The CSV defines WHICH
+          // homes; the shared catalog (daily cron + on-demand refresh) keeps
+          // them current, so the CSV never needs re-exporting for freshness.
+          // Non-fatal — falls back to the CSV's own values if unavailable.
+          rawRowsRef.current = rows;
           if (authMode === "signed-in") {
             try {
-              const res = await fetch(apiUrl("/api/listings"), { headers: authHeaders });
-              if (res.ok) {
-                const data = (await res.json()) as { openHouses: Record<string, CatalogOpenHouse> };
-                const { rows: overlaid, matched } = overlayOpenHouses(rows, data.openHouses);
-                rows = overlaid;
-                console.info(`[useListings] catalog refreshed open-house times for ${matched}/${rows.length} favorites`);
-              }
+              const merged = await mergeCatalog(rows, false);
+              if (merged) rows = merged.rows;
             } catch (e) {
-              console.warn("[useListings] catalog overlay skipped:", e);
+              console.warn("[useListings] catalog merge skipped:", e);
             }
           }
         }
@@ -290,8 +345,20 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
       importHiddenAndPriority(h, p);
       importVisits(v);
     },
+    refreshListings,
+    listingsUpdatedAt,
+    refreshing,
     uploadListings: async (csvText: string) => {
-      const rows = await uploadCsvText(csvText);
+      let rows = await uploadCsvText(csvText);
+      rawRowsRef.current = rows;
+      if (authMode === "signed-in") {
+        try {
+          const merged = await mergeCatalog(rows, false);
+          if (merged) rows = merged.rows;
+        } catch (e) {
+          console.warn("[uploadListings] catalog merge skipped:", e);
+        }
+      }
       const filtered = filterAndTransform(rows);
       setAllListings(filtered);
       setAllFavoritesListings(transformAll(rows));
