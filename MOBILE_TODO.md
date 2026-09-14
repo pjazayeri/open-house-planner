@@ -19,7 +19,6 @@ session. Humans may add items too — anything you notice on the phone goes here
 
 ## Backlog
 
-- [ ] **Map tiles are grey for 5+ seconds on a cold load** — open https://open-house-planner.vercel.app/#demo on a phone: markers render immediately but the OpenStreetMap basemap stays blank grey for 5–10 s (seen on two consecutive evals; tile.openstreetmap.org is slow/throttled) → expected: a faster CDN basemap (e.g. Carto Positron/Voyager via `https://{s}.basemaps.cartocdn.com/...`) or `keepBuffer`/`updateWhenIdle` tuning plus a subtle loading skeleton so the map never looks broken. Test: on a cold load at 390px, tiles visible within 2 s (throttle to Fast 3G in devtools: within 5 s).
 - [ ] **Property cards: tighter on phones** — Browse/Open Houses list: thumbnail 120px + large padding makes ~1.3 cards fit per screen. Try a horizontal card (thumb left 96×72, price/address/meta right, actions in one row) at ≤767px. Test: ≥2.5 cards visible on a 844px-tall viewport.
 - [ ] **Planner top stack pushes the first card ~300px down** — Open Houses list at 390px: "Plan a day" chips row (≈50px) + "Use my location" (≈44px) + "Filters & sort" bar (≈44px) + the pill spacer, so the first card starts below the fold → expected: one compact row — day chips inline with a 📍 icon button, filters bar collapsed into the same row as "All Properties"/slot header (or sticky). Test: at 390×844 the first property card's top edge is within 220px of the header bottom.
 - [ ] **Page switches keep the old scroll position; floating Map/List pill covers content** — scroll the Browse list, tap "Open Houses" in the bottom bar → the planner opens mid-list ("Plan a day" out of view); when scrolled, the pill sits over card headers (the "✓ Visited" badge is hidden behind it) → expected: scroll the sidebar to top on page change; shrink/fade the pill while scrolling or reserve its height. Test: Browse scrolled → Open Houses → list starts at "Plan a day"; a visited card's badge is fully visible at the top of the list.
@@ -33,6 +32,7 @@ session. Humans may add items too — anything you notice on the phone goes here
 - [ ] **Open a CSV from the iOS Share Sheet** — native: declare a CSV document type in `ios/App/App/Info.plist` (CFBundleDocumentTypes, public.comma-separated-values-text), handle `appUrlOpen` file URLs in `src/native/native.ts` via `@capacitor/filesystem` → `uploadListings`. Needs `npm run ios:ship` after. Test: Safari download → Share → "Open House" → listings update.
 
 ## Done
+- [x] **Map tiles are grey for 5+ seconds on a cold load** — 6958a7c: Esri CDN basemap + keepBuffer + light loading ground
 - [x] **Leaving the map during its zoom animation throws a Leaflet exception** — 6baa767. Note for evals: the "first tap swallowed" part was a browser-automation artifact (the first synthetic click after a navigation never lands, at any delay; a `find`/screenshot first fixes it) — not an app bug.
 - [x] **Finance page is unusable at phone width** — a90be05: assumptions bar + stacked list/detail
 - [x] **Phone-friendly CSV upload copy + accept types** — 3995ac2
