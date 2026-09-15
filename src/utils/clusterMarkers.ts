@@ -41,3 +41,11 @@ export function clusterByGrid(points: ClusterPoint[], cell = CLUSTER_CELL_PX): {
   }
   return { clusters, singles };
 }
+
+/** "3–7" for a cluster of tour stops (min–max), or the single number. */
+export function stopRangeLabel(stopNumbers: number[]): string {
+  const nums = stopNumbers.filter((n) => Number.isFinite(n));
+  if (nums.length === 0) return "";
+  const min = Math.min(...nums), max = Math.max(...nums);
+  return min === max ? String(min) : `${min}–${max}`;
+}

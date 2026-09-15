@@ -560,3 +560,4 @@
 }
 .cluster-bubble--priority { background: #b45309; }
 .cluster-x { font-size: 11px; font-weight: 600; opacity: 0.75; margin-right: 1px; }
+.cluster-bubble--range { border-radius: 999px; padding: 0 10px; font-size: 13px; letter-spacing: 0.2px; white-space: nowrap; }

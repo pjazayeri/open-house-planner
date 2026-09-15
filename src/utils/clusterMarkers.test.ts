@@ -26,3 +26,13 @@ describe("clusterByGrid", () => {
     expect(singles.sort()).toEqual(["m", "n"]);
   });
 });
+
+import { stopRangeLabel } from "./clusterMarkers";
+
+describe("stopRangeLabel", () => {
+  it("shows a min–max range for tour stops in a cluster", () => {
+    expect(stopRangeLabel([7, 3, 5])).toBe("3–7");
+    expect(stopRangeLabel([4])).toBe("4");
+    expect(stopRangeLabel([])).toBe("");
+  });
+});

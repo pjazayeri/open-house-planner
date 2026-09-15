@@ -16,7 +16,7 @@ import { pointInPolygon } from "../../utils/geometry";
 import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import "./MapView.css";
 import { BASEMAP_URL, BASEMAP_ATTRIBUTION, BASEMAP_TILE_OPTIONS } from "../../utils/basemap";
-import { clusterByGrid, CLUSTER_MAX_ZOOM } from "../../utils/clusterMarkers";
+import { clusterByGrid, CLUSTER_MAX_ZOOM, stopRangeLabel } from "../../utils/clusterMarkers";
 import { useIsMobile } from "../../hooks/useIsMobile";
 
 const ZONE_COLORS = ["#ef4444", "#f97316", "#22c55e", "#3b82f6", "#a855f7", "#ec4899", "#06b6d4"];
@@ -132,8 +132,21 @@ function ViewTracker({ onChange }: { onChange: (zoom: number) => void }) {
   return null;
 }
 
-function createClusterIcon(count: number, hasPriority: boolean): L.DivIcon {
+/**
+ * Count bubble ("×12") for Browse; on the planner (route) map a stop-range
+ * label ("3–7") so the tour order stays readable while clustered.
+ */
+function createClusterIcon(count: number, hasPriority: boolean, rangeLabel?: string): L.DivIcon {
   const size = count >= 10 ? 44 : 38;
+  if (rangeLabel) {
+    const width = Math.max(size, 22 + rangeLabel.length * 10);
+    return L.divIcon({
+      className: "cluster-marker",
+      html: `<div class="cluster-bubble cluster-bubble--range${hasPriority ? " cluster-bubble--priority" : ""}" style="min-width:${width}px;height:${size}px" title="Stops ${rangeLabel} (${count} homes) — tap to zoom">${rangeLabel}</div>`,
+      iconSize: [width, size],
+      iconAnchor: [width / 2, size / 2],
+    });
+  }
   return L.divIcon({
     className: "cluster-marker",
     html: `<div class="cluster-bubble${hasPriority ? " cluster-bubble--priority" : ""}" style="width:${size}px;height:${size}px" title="${count} homes — tap to zoom"><span class="cluster-x">×</span>${count}</div>`,
@@ -861,9 +874,15 @@ export function MapView({
           }
           void view.tick; // re-project on every zoom/move
           const byId = new Map(entries.map((e) => [e.listing.id, e]));
+          // Planner (route) map: bubbles show the stop range ("3–7") and the
+          // next unvisited stop always stays an individual numbered pin.
+          const routeMap = showRoute && routeCoords.length > 1;
+          const nextStop = routeMap
+            ? entries.filter((e) => e.visitStatus === "unvisited").sort((a, b) => a.markerNum - b.markerNum)[0]
+            : undefined;
           const points = entries.map((e) => {
             const pt = map.latLngToContainerPoint(e.pos as L.LatLngExpression);
-            return { id: e.listing.id, x: pt.x, y: pt.y, pinned: e.isPriority || e.isActive };
+            return { id: e.listing.id, x: pt.x, y: pt.y, pinned: e.isPriority || e.isActive || e === nextStop };
           });
           const { clusters, singles } = clusterByGrid(points);
           return [
@@ -877,7 +896,7 @@ export function MapView({
                 <Marker
                   key={`cluster-${c.key}-${c.ids.length}`}
                   position={[lat, lng]}
-                  icon={createClusterIcon(members.length, false)}
+                  icon={createClusterIcon(members.length, false, routeMap ? stopRangeLabel(members.map((m) => m.markerNum)) : undefined)}
                   zIndexOffset={200}
                   eventHandlers={{
                     click: () => map.fitBounds(bounds.pad(0.4), { maxZoom: Math.max(CLUSTER_MAX_ZOOM, map.getZoom() + 2) }),
