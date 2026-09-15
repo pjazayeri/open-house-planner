@@ -16,7 +16,7 @@ import { pointInPolygon } from "../../utils/geometry";
 import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import "./MapView.css";
 import { BASEMAP_URL, BASEMAP_ATTRIBUTION, BASEMAP_TILE_OPTIONS } from "../../utils/basemap";
-import { clusterByGrid, CLUSTER_MAX_ZOOM, stopRangeLabel } from "../../utils/clusterMarkers";
+import { clusterByGrid, mergeNearby, CLUSTER_MAX_ZOOM, stopRangeLabel } from "../../utils/clusterMarkers";
 import { useIsMobile } from "../../hooks/useIsMobile";
 
 const ZONE_COLORS = ["#ef4444", "#f97316", "#22c55e", "#3b82f6", "#a855f7", "#ec4899", "#06b6d4"];
@@ -884,7 +884,8 @@ export function MapView({
             const pt = map.latLngToContainerPoint(e.pos as L.LatLngExpression);
             return { id: e.listing.id, x: pt.x, y: pt.y, pinned: e.isPriority || e.isActive || e === nextStop };
           });
-          const { clusters, singles } = clusterByGrid(points);
+          // Grid pass, then merge bubbles from adjacent cells that would overlap.
+          const { clusters, singles } = mergeNearby(points, clusterByGrid(points));
           return [
             ...singles.map((id) => renderPin(byId.get(id)!)),
             ...clusters.map((c) => {
