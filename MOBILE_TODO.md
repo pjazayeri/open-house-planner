@@ -19,7 +19,6 @@ session. Humans may add items too — anything you notice on the phone goes here
 
 ## Backlog
 
-- [ ] **Summary modal on phones: half-height sheet, text overflows, button clipped** — menu → Tour summary at 390px: the modal is a bottom-anchored sheet ~45% tall, the monospace summary runs off the right edge (rule lines are cut), and the "Generate insights" button sits behind the bottom tab bar → expected: full-height sheet above the tab bar (bottom: safe-area + nav height), `white-space: pre-wrap` text, sticky footer with the insights button. Test: no horizontal scroll inside the modal; the button is fully tappable.
 - [ ] **Light theme is only half-applied on phones** — menu → "Light mode" at 390px: the bottom sheet, cards and filter pane turn light but the header (city title + stats) and the bottom tab bar stay dark navy, so the label flips to "Dark mode" while the shell still looks dark → expected: header, bottom nav, floating Map/List pill and status bar all follow `data-theme` (they read `var(--bg)`; check for a hard-coded background or a stale `data-theme` write on <html>). Test: after tapping Light mode, `getComputedStyle(header).backgroundColor` is the light `--bg` and the bottom nav text is dark.
 - [ ] **Cluster bubbles in adjacent grid cells overlap each other and nearby pins** — Browse map at 390px, default zoom: bubbles like ×16 / ×13 / ×2 sit in neighbouring 56px cells and half-cover each other and single pins (e.g. #38, #9) → expected: merge clusters whose centroids are < 44px apart (second pass) or scale the cell size with pin density at low zoom, so no two bubbles/pins overlap by more than 30%. Test: at default zoom every bubble's centre is ≥ 44px from any other marker centre.
 - [ ] **Rating stars are ~28px tap targets** — Open Houses → "Mark as visited" on a card → the 1–5 ★ row: each star is ~28px wide with no padding, the 👍/👎 buttons are 40px → expected: ≥44px hit area per star (padding, not glyph size), 4–6px gaps, and a pressed state. Test: at 390px, tapping between two stars never selects the wrong one; hit area measured ≥40px in devtools.
@@ -30,6 +29,7 @@ session. Humans may add items too — anything you notice on the phone goes here
 - [ ] **Open a CSV from the iOS Share Sheet** — native: declare a CSV document type in `ios/App/App/Info.plist` (CFBundleDocumentTypes, public.comma-separated-values-text), handle `appUrlOpen` file URLs in `src/native/native.ts` via `@capacitor/filesystem` → `uploadListings`. Needs `npm run ios:ship` after. Test: Safari download → Share → "Open House" → listings update.
 
 ## Done
+- [x] **Summary modal on phones: half-height sheet, text overflows, button clipped** — 2e61ee9
 - [x] **Planner map: clusters hide the tour-stop numbers along the route** — 8aaa039: stop-range bubbles + next stop pinned
 - [x] **Page switches keep the old scroll position; floating Map/List pill covers content** — da23921: scroll-to-top on page change, hide-on-scroll pill
 - [x] **Planner top stack pushes the first card ~300px down** — b709cad: one-row day chips + 📍 icon
