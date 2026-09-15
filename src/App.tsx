@@ -28,6 +28,7 @@ import { PlanView } from "./components/PlanView/PlanView";
 import { MapPlanView } from "./components/PlanView/MapPlanView";
 import type { TimeSlotGroup, Listing } from "./types";
 import { listingAddressKey } from "./utils/catalog";
+import type { ScrollState } from "./utils/scrollDirection";
 import "./App.css";
 
 type MobileTab = "map" | "list";
@@ -199,6 +200,8 @@ function App() {
   const [page, setPageState] = useState<Page>(pageFromHash);
   const [financeInitId, setFinanceInitId] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>("map");
+  // Phones: list scroll state → hide the floating Map/List pill while scrolling down.
+  const [listScroll, setListScroll] = useState<ScrollState>("top");
   const showOnlyPriority = page === "priority";
 
   // Initialize filter state from URL
@@ -792,7 +795,7 @@ function App() {
       <>
       <div className={`app-body show-${mobileTab}`}>
         {/* Phone-only floating Map/List switch (hidden on desktop via CSS) */}
-        <div className="view-toggle" role="tablist" aria-label="Map or list">
+        <div className={`view-toggle${mobileTab === "list" && listScroll === "down" ? " view-toggle--hidden" : ""}`} role="tablist" aria-label="Map or list">
           <button
             role="tab"
             aria-selected={mobileTab === "map"}
@@ -814,6 +817,7 @@ function App() {
         </div>
         <Sidebar
           mode={page === "planner" || page === "priority" ? "planner" : "browse"}
+          onScrollStateChange={setListScroll}
           catalog={{
             signedIn: authMode === "signed-in",
             listings: catalog.listings,

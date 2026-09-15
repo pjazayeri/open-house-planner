@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { nextScrollState, type ScrollState } from "../../utils/scrollDirection";
 import type { TimeSlotGroup as TimeSlotGroupType, Listing, VisitRecord, MapZone } from "../../types";
 import type { ListingAmenities } from "../../utils/cloudSync";
 import { TimeSlotGroup } from "./TimeSlotGroup";
@@ -12,6 +13,8 @@ import "./Sidebar.css";
 
 interface SidebarProps {
   mode: "browse" | "planner";
+  /** Phones: reports list scroll state so App can hide the floating Map/List pill while scrolling down. */
+  onScrollStateChange?: (state: ScrollState) => void;
   /** Browse → "Catalog" tab: the shared catalog with ♥ favorites (stage b). */
   catalog?: CatalogListProps;
   timeSlotGroups: TimeSlotGroupType[];
@@ -274,6 +277,7 @@ export function PrioritySection({
 
 export function Sidebar({
   mode,
+  onScrollStateChange,
   catalog,
   timeSlotGroups,
   totalListings,
@@ -346,13 +350,41 @@ export function Sidebar({
   // Browse: "My listings" (CSV + hearted) vs the shared "Catalog".
   const [source, setSource] = useState<"mine" | "catalog">(() => (mode === "browse" && catalog && totalListings === 0 ? "catalog" : "mine"));
   const showCatalog = mode === "browse" && !!catalog && source === "catalog";
+
+  // Scroll to top whenever the list's content changes wholesale (page switch
+  // Browse ↔ Open Houses, My listings ↔ Catalog); report direction while
+  // scrolling so the floating Map/List pill can get out of the way.
+  const asideRef = useRef<HTMLElement>(null);
+  const scrollStateRef = useRef<{ top: number; state: ScrollState }>({ top: 0, state: "top" });
+  useEffect(() => {
+    asideRef.current?.scrollTo({ top: 0 });
+    scrollStateRef.current = { top: 0, state: "top" };
+    onScrollStateChange?.("top");
+  }, [mode, source, onScrollStateChange]);
+  useEffect(() => {
+    const el = asideRef.current;
+    if (!el || !onScrollStateChange) return;
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const top = el.scrollTop;
+        const next = nextScrollState(scrollStateRef.current.top, top, scrollStateRef.current.state);
+        if (next !== scrollStateRef.current.state) onScrollStateChange(next);
+        scrollStateRef.current = { top, state: next };
+      });
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => { el.removeEventListener("scroll", onScroll); if (raf) cancelAnimationFrame(raf); };
+  }, [onScrollStateChange]);
   const activeFilterCount = countActiveFilters({
     mode, searchQuery, selectedAreas, statusFilter, priceMin, priceMax,
     capRateMin, capRateMax, ppsfMin, ppsfMax, timeFrom, timeTo, activeFilters, selectedDate,
   });
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" ref={asideRef}>
       <div className="sidebar-content">
         {mode === "browse" && catalog && (
           <div className="sb-source-toggle" role="tablist" aria-label="Listing source">

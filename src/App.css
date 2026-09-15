@@ -315,6 +315,15 @@ html, body, #root {
     transition: background 0.15s, color 0.15s;
   }
   .view-toggle-btn svg { width: 16px; height: 16px; }
+  /* Hide-on-scroll (list view): slide up out of the way while scrolling down */
+  .view-toggle {
+    transition: transform 0.22s ease, opacity 0.22s ease;
+  }
+  .view-toggle--hidden {
+    transform: translate(-50%, -140%);
+    opacity: 0;
+    pointer-events: none;
+  }
   .view-toggle-btn.active {
     background: var(--accent);
     color: var(--accent-fg);
