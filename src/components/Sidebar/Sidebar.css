@@ -756,3 +756,37 @@
   -webkit-tap-highlight-color: transparent;
 }
 .catalog-heart:active { background: #ffe4e6; }
+
+
+/* ── Planner top row (phones): day chips + location icon on one line ── */
+.sb-planner-top { display: contents; }
+@media (max-width: 767px) {
+  .sb-planner-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sb-planner-top .sb-day-banner {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #fff;
+  }
+  .sb-planner-top .sb-day-pick { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .sb-planner-top .sb-day-pick::-webkit-scrollbar { display: none; }
+  .sb-planner-top .sb-day-pick-label { display: none; }
+  .sb-planner-top .sb-chips { flex-wrap: nowrap; }
+  .sb-planner-top .sidebar-geo-bar { flex-shrink: 0; gap: 6px; }
+  .sb-planner-top .geo-btn {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 18px;
+    line-height: 1;
+  }
+  .sb-planner-top .geo-btn-label { display: none; }
+  .sb-planner-top .geo-status { font-size: 11px; max-width: 120px; }
+}

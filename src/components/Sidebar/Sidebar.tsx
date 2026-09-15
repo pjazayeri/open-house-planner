@@ -365,7 +365,9 @@ export function Sidebar({
           </div>
         )}
         {showCatalog && catalog && <CatalogList {...catalog} />}
-        {!showCatalog && mode === "planner" && availableDates.length > 0 && (
+        {!showCatalog && mode === "planner" && (
+        <div className="sb-planner-top">
+        {availableDates.length > 0 && (
           <div className="sb-day-banner">
             {selectedDate ? (
               <div className="sb-day-selected">
@@ -394,11 +396,10 @@ export function Sidebar({
           </div>
         )}
 
-        {!showCatalog && mode === "planner" && (
           <div className="sidebar-geo-bar">
             {!geoWatching ? (
-              <button className="geo-btn" onClick={onStartGeo}>
-                📍 Use my location
+              <button className="geo-btn" onClick={onStartGeo} aria-label="Use my location" title="Use my location">
+                📍<span className="geo-btn-label"> Use my location</span>
               </button>
             ) : nearbyId ? (
               <span className="geo-status nearby">📍 You're at a property!</span>
@@ -407,6 +408,7 @@ export function Sidebar({
             )}
             {geoError && <span className="geo-error">{geoError}</span>}
           </div>
+        </div>
         )}
 
         {/* ── Filter + Sort pane ───────────────────────────

@@ -136,7 +136,7 @@ function createClusterIcon(count: number, hasPriority: boolean): L.DivIcon {
   const size = count >= 10 ? 44 : 38;
   return L.divIcon({
     className: "cluster-marker",
-    html: `<div class="cluster-bubble${hasPriority ? " cluster-bubble--priority" : ""}" style="width:${size}px;height:${size}px">${count}</div>`,
+    html: `<div class="cluster-bubble${hasPriority ? " cluster-bubble--priority" : ""}" style="width:${size}px;height:${size}px" title="${count} homes — tap to zoom"><span class="cluster-x">×</span>${count}</div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });

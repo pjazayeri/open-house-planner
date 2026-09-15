@@ -322,7 +322,7 @@ html, body, #root {
 
   /* Leave room for the floating switch at the top of the list */
   .app-body.show-list .sidebar-content {
-    padding-top: 56px;
+    padding-top: 52px;
   }
 
   /* Show/hide panels based on active tab */
