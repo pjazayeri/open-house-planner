@@ -542,3 +542,20 @@
     top: 54px;
   }
 }
+
+
+/* ── Marker clusters (phones, below street zoom) ─────────── */
+.cluster-marker { background: none; border: none; }
+.cluster-bubble {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #1e293b;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
+}
+.cluster-bubble--priority { background: #b45309; }

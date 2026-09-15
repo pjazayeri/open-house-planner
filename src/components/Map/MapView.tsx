@@ -1,10 +1,11 @@
-import { useEffect, useRef, useMemo, useState } from "react";
+import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import {
   MapContainer,
   TileLayer,
   Marker,
   Polyline,
   useMap,
+  useMapEvents,
 } from "react-leaflet";
 import L from "leaflet";
 import type { Listing, TimeSlotGroup, VisitRecord, MapZone } from "../../types";
@@ -15,6 +16,8 @@ import { pointInPolygon } from "../../utils/geometry";
 import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import "./MapView.css";
 import { BASEMAP_URL, BASEMAP_ATTRIBUTION, BASEMAP_TILE_OPTIONS } from "../../utils/basemap";
+import { clusterByGrid, CLUSTER_MAX_ZOOM } from "../../utils/clusterMarkers";
+import { useIsMobile } from "../../hooks/useIsMobile";
 
 const ZONE_COLORS = ["#ef4444", "#f97316", "#22c55e", "#3b82f6", "#a855f7", "#ec4899", "#06b6d4"];
 
@@ -117,6 +120,26 @@ function offsetCoords(
   const angle = (myIdx * 2 * Math.PI) / dupes.length;
   const offset = 0.0002;
   return [lat + offset * Math.sin(angle), lng + offset * Math.cos(angle)];
+}
+
+/** Reports zoom/move so marker clustering can re-project on each view change. */
+function ViewTracker({ onChange }: { onChange: (zoom: number) => void }) {
+  const map = useMapEvents({
+    zoomend: () => onChange(map.getZoom()),
+    moveend: () => onChange(map.getZoom()),
+  });
+  useEffect(() => { onChange(map.getZoom()); }, [map, onChange]);
+  return null;
+}
+
+function createClusterIcon(count: number, hasPriority: boolean): L.DivIcon {
+  const size = count >= 10 ? 44 : 38;
+  return L.divIcon({
+    className: "cluster-marker",
+    html: `<div class="cluster-bubble${hasPriority ? " cluster-bubble--priority" : ""}" style="width:${size}px;height:${size}px">${count}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
 }
 
 /**
@@ -553,6 +576,10 @@ export function MapView({
   allListings,
 }: MapViewProps) {
   const mapRef = useRef<L.Map | null>(null);
+  // Phones: cluster overlapping pins below street zoom (see clusterMarkers.ts).
+  const isMobile = useIsMobile();
+  const [view, setView] = useState({ zoom: 13, tick: 0 });
+  const onViewChange = useCallback((zoom: number) => setView((v) => ({ zoom, tick: v.tick + 1 })), []);
 
   // Zone management local state
   const [showZonePanel, setShowZonePanel] = useState(false);
@@ -712,6 +739,7 @@ export function MapView({
       >
         <TileLayer attribution={BASEMAP_ATTRIBUTION} url={BASEMAP_URL} {...BASEMAP_TILE_OPTIONS} />
         <UnmountGuard />
+        <ViewTracker onChange={onViewChange} />
         <FitBounds timeSlotGroups={timeSlotGroups} />
         <PanToSelected timeSlotGroups={timeSlotGroups} selectedId={selectedId} />
         <PanToUserPosition userPosition={userPosition} />
@@ -787,7 +815,7 @@ export function MapView({
           const filteredPriorityOrder = priorityOrder.filter((id) => visibleIds.has(id));
           const priorityRankById = new Map(filteredPriorityOrder.map((id, idx) => [id, idx + 1]));
           let coordIdx = 0;
-          return timeSlotGroups.flatMap((group, groupIdx) => {
+          const entries = timeSlotGroups.flatMap((group, groupIdx) => {
             const color = SLOT_COLORS[groupIdx % SLOT_COLORS.length];
             return group.listings.map((listing) => {
               const pos = offsetCoords(listing.lat, listing.lng, coordIdx, allCoords);
@@ -808,20 +836,56 @@ export function MapView({
                 showPriorityNumbers
               );
               const markerColor = isPriority ? "#f59e0b" : color;
+              return { listing, pos, isActive, visitStatus, isPriority, markerNum, markerColor };
+            });
+          });
+
+          const renderPin = (e: (typeof entries)[number]) => (
+            <Marker
+              key={`${e.listing.id}-${e.markerNum}`}
+              position={e.pos}
+              icon={createNumberedIcon(e.markerNum, e.markerColor, e.isActive, e.visitStatus, e.isPriority)}
+              eventHandlers={{
+                click: () => onSelect(e.listing.id),
+                mouseover: () => onHover(e.listing.id),
+                mouseout: () => onHover(null),
+              }}
+            />
+          );
+
+          // Phones below street zoom: bucket overlapping pins into count bubbles
+          // (priority + selected pins stay individual). Tap a bubble → zoom to it.
+          const map = mapRef.current;
+          if (!isMobile || !map || view.zoom >= CLUSTER_MAX_ZOOM || entries.length < 8) {
+            return entries.map(renderPin);
+          }
+          void view.tick; // re-project on every zoom/move
+          const byId = new Map(entries.map((e) => [e.listing.id, e]));
+          const points = entries.map((e) => {
+            const pt = map.latLngToContainerPoint(e.pos as L.LatLngExpression);
+            return { id: e.listing.id, x: pt.x, y: pt.y, pinned: e.isPriority || e.isActive };
+          });
+          const { clusters, singles } = clusterByGrid(points);
+          return [
+            ...singles.map((id) => renderPin(byId.get(id)!)),
+            ...clusters.map((c) => {
+              const members = c.ids.map((id) => byId.get(id)!);
+              const lat = members.reduce((sum, m) => sum + m.pos[0], 0) / members.length;
+              const lng = members.reduce((sum, m) => sum + m.pos[1], 0) / members.length;
+              const bounds = L.latLngBounds(members.map((m) => m.pos as [number, number]));
               return (
                 <Marker
-                  key={`${listing.id}-${markerNum}`}
-                  position={pos}
-                  icon={createNumberedIcon(markerNum, markerColor, isActive, visitStatus, isPriority)}
+                  key={`cluster-${c.key}-${c.ids.length}`}
+                  position={[lat, lng]}
+                  icon={createClusterIcon(members.length, false)}
+                  zIndexOffset={200}
                   eventHandlers={{
-                    click: () => onSelect(listing.id),
-                    mouseover: () => onHover(listing.id),
-                    mouseout: () => onHover(null),
+                    click: () => map.fitBounds(bounds.pad(0.4), { maxZoom: Math.max(CLUSTER_MAX_ZOOM, map.getZoom() + 2) }),
                   }}
                 />
               );
-            });
-          });
+            }),
+          ];
         })()}
       </MapContainer>
 
