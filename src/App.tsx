@@ -521,13 +521,20 @@ function App() {
     return dates;
   }, [timeSlotGroups]);
 
-  // Reset area + status + range filters when city changes
-  useEffect(() => {
-    setSelectedAreas(new Set()); setStatusFilter("Active");
-    setPriceMin(null); setPriceMax(null);
-    setCapRateMin(null); setCapRateMax(null);
-    setPpsfMin(null); setPpsfMax(null);
-  }, [selectedCity]);
+  // Reset area + status + range filters when the user switches city. The initial
+  // "" → first-city resolution (CSV load) is not a switch, so filters restored
+  // from the URL hash / cloud survive load — the old effect also ran on mount and
+  // on that first resolution, silently wiping them.
+  const [filtersCity, setFiltersCity] = useState(selectedCity);
+  if (filtersCity !== selectedCity) {
+    setFiltersCity(selectedCity);
+    if (filtersCity) {
+      setSelectedAreas(new Set()); setStatusFilter("Active");
+      setPriceMin(null); setPriceMax(null);
+      setCapRateMin(null); setCapRateMax(null);
+      setPpsfMin(null); setPpsfMax(null);
+    }
+  }
 
   // Apply filters + sort on top of base groups (shared between home and planner)
   const visibleGroups = useMemo(() => {
