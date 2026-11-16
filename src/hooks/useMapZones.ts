@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { USE_CLOUD, cloudFetch, cloudPatch } from "../utils/cloudSync";
+import { USE_CLOUD, cloudFetch, cloudPatch, isLocalMode } from "../utils/cloudSync";
 import type { MapZone } from "../types";
 import type { AuthMode } from "./useAuth";
 
@@ -15,13 +15,19 @@ export function useMapZones(authMode: AuthMode): UseMapZonesResult {
   const [zones, setZones] = useState<MapZone[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
-    if (authMode === "loading" || authMode === "signed-out") return;
-    if (!USE_CLOUD || authMode === "guest" || authMode === "demo") {
+  // Entering a local (no-cloud) mode starts from empty state. Done during render
+  // on each auth-mode transition (not in an effect) to avoid a cascading render.
+  const [prevAuthMode, setPrevAuthMode] = useState<AuthMode | null>(null);
+  if (prevAuthMode !== authMode) {
+    setPrevAuthMode(authMode);
+    if (isLocalMode(authMode)) {
       setZones([]);
       setLoaded(true);
-      return;
     }
+  }
+
+  useEffect(() => {
+    if (authMode === "loading" || authMode === "signed-out" || isLocalMode(authMode)) return;
     cloudFetch()
       .then((state) => {
         setZones(state.mapZones ?? []);

@@ -118,7 +118,9 @@ export function Header({
   // valid position — avoids a one-frame "invisible dropdown" flash on
   // mobile that was confusing users into thinking nothing happened.
   useLayoutEffect(() => {
-    if (!shareLinks) { setShareDropdownPos(null); return; }
+    // Closed: nothing to track. (No need to clear the position — the dropdown
+    // isn't rendered, and the open handler sets a fresh one before showing it.)
+    if (!shareLinks) return;
     function reposition() {
       const btn = shareBtnRef.current;
       if (!btn) return;

@@ -15,6 +15,12 @@ import type { VisitRecord, MapZone } from "../types";
 // Set VITE_SYNC_DISABLED=true in .env.local to run offline without errors.
 export const USE_CLOUD = import.meta.env.VITE_SYNC_DISABLED !== "true";
 
+/** Resolved auth modes whose per-user state lives in memory only (guest, demo, or sync disabled). */
+export function isLocalMode(authMode: string): boolean {
+  if (authMode === "loading" || authMode === "signed-out") return false;
+  return !USE_CLOUD || authMode === "guest" || authMode === "demo";
+}
+
 export type SyncStatus = "unconfigured" | "loading" | "ok" | "error" | "degraded";
 
 // Auth context — set by useAuth before the main app mounts.

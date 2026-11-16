@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, useMemo, useState, useCallback } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -262,15 +262,19 @@ function ZoneLayer({
 }: ZoneLayerProps) {
   const map = useMap();
 
-  // Stable refs for callbacks
+  // Stable refs for callbacks — Leaflet handlers registered in the effects below
+  // read the latest props through these. Synced in a layout effect (refs must
+  // not be written during render); it runs before any user event can fire.
   const onZoneSelectRef = useRef(onZoneSelect);
-  onZoneSelectRef.current = onZoneSelect;
   const onVertexDragEndRef = useRef(onVertexDragEnd);
-  onVertexDragEndRef.current = onVertexDragEnd;
   const onDrawVertexRef = useRef(onDrawVertex);
-  onDrawVertexRef.current = onDrawVertex;
   const onDrawFinishRef = useRef(onDrawFinish);
-  onDrawFinishRef.current = onDrawFinish;
+  useLayoutEffect(() => {
+    onZoneSelectRef.current = onZoneSelect;
+    onVertexDragEndRef.current = onVertexDragEnd;
+    onDrawVertexRef.current = onDrawVertex;
+    onDrawFinishRef.current = onDrawFinish;
+  });
 
   // ── Zone polygon overlays (excluding zone being edited) ──────
   useEffect(() => {

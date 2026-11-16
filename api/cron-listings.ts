@@ -91,7 +91,7 @@ function gisUrl(min: number, max: number | null): string {
 
 function num(v: string | undefined): number | null {
   if (v == null) return null;
-  const n = parseFloat(String(v).replace(/[^0-9.\-]/g, ""));
+  const n = parseFloat(String(v).replace(/[^0-9.-]/g, ""));
   return Number.isFinite(n) ? n : null;
 }
 const int = (v: string | undefined): number | null => {

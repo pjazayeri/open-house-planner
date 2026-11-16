@@ -296,7 +296,7 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
         setLoading(false);
       }
     })();
-  }, [authMode]);
+  }, [authMode, mergeCatalog, composeRows]); // both stable (useCallback, no deps)
 
   const hideListing = (id: string) => {
     hide(id);
@@ -362,7 +362,7 @@ export function useListings(authMode: "loading" | "signed-in" | "guest" | "demo"
     markVisited(id);
     const listing = allListings.find((l) => l.id === id);
     if (listing) saveSnapshots([listing]);
-  }, [markVisited, allListings, saveSnapshots]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [markVisited, allListings, saveSnapshots]);
 
   // Find listing within NEARBY_MILES of user's position
   const nearbyId = useMemo(() => {

@@ -22,7 +22,6 @@ const require = createRequire(import.meta.url);
 
 let adminInitialized = false;
 async function getFirebaseAdmin() {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const admin = require("firebase-admin") as typeof import("firebase-admin");
   if (!adminInitialized && admin.apps.length === 0) {
     const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;

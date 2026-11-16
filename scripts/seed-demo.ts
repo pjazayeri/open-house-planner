@@ -129,7 +129,6 @@ const plan = Array.from(groups.entries())
   .sort(([a], [b]) => a.localeCompare(b))
   .map(([, ls]) => {
     const start = ls[0]._start;
-    const endDate = new Date(ls[0].end);
     const label = start.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })
       + " · " + start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
     return {

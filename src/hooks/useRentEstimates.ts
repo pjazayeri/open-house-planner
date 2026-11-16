@@ -98,7 +98,7 @@ export function useRentEstimates() {
         });
       })
       .catch(() => {});
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   async function fetchEstimate(listing: Listing): Promise<RentEstimate | null> {
     if (estimates[listing.id]) return estimates[listing.id];

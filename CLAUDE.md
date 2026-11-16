@@ -59,7 +59,7 @@ allowlist in `App.tsx` (`pageFromHash()` resets anything else to `home`). Adding
 makes the page silently bounce back to Browse on navigation.
 
 `/#admin` and `/#design` are gated client-side by `isAdminEmail()` (`ADMIN_EMAILS`
-in `App.tsx`, currently only `pauljazayeri@gmail.com`): the nav tabs are hidden and
+in `src/utils/admin.ts`, currently only `pauljazayeri@gmail.com`): the nav tabs are hidden and
 direct navigation bounces non-admins to home. The real enforcement is server-side in
 `api/admin-stats.ts` (verified-token email vs the `ADMIN_EMAILS` env, same default).
 

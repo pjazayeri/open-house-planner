@@ -428,23 +428,21 @@ export function DataView({
   initialSelectedId,
 }: DataViewProps) {
   const cities = useMemo(() => getCities(allListings), [allListings]);
-  const [selectedCity, setSelectedCity] = useState<string>("");
-  // Keep selectedCity in sync when cities list changes
-  useEffect(() => {
-    if (cities.length > 0 && !cities.includes(selectedCity)) {
-      setSelectedCity(cities[0]);
-    }
-  }, [cities, selectedCity]);
+  const [cityChoice, setSelectedCity] = useState<string>("");
+  // Effective city: the user's choice, or the first city when that choice isn't
+  // (or is no longer) in the list.
+  const selectedCity = cities.length > 0 && !cities.includes(cityChoice) ? cities[0] : cityChoice;
 
   const neighborhoods = useMemo(
     () => getNeighborhoods(allListings.filter((l) => !selectedCity || l.city === selectedCity)),
     [allListings, selectedCity]
   );
 
-  // Reset neighborhood when city changes
-  useEffect(() => { setSelectedNeighborhood(""); }, [selectedCity]);
-
-  const [selectedNeighborhood, setSelectedNeighborhood] = useState("");
+  // A neighborhood choice only applies to the city it was made in, so switching
+  // city clears it.
+  const [neighborhoodChoice, setNeighborhoodChoice] = useState({ city: "", name: "" });
+  const selectedNeighborhood = neighborhoodChoice.city === selectedCity ? neighborhoodChoice.name : "";
+  const setSelectedNeighborhood = (name: string) => setNeighborhoodChoice({ city: selectedCity, name });
   const [mapType, setMapType] = useState<MapType>(() => {
     try { return (localStorage.getItem("dv-map-type") as MapType) ?? "street"; } catch { return "street"; }
   });
@@ -610,14 +608,13 @@ export function DataView({
     });
   }, [allListings, selectedCity, selectedNeighborhood, searchQuery, activeFilters, visitDateFilter, visits, hiddenIds, priorityIds, sortKey, sortDir]);
 
-  // Auto-select first item when sorted list changes
-  useEffect(() => {
-    if (sorted.length > 0 && (!selectedId || !sorted.some((l) => l.id === selectedId))) {
-      setSelectedId(sorted[0].id);
-    } else if (sorted.length === 0) {
-      setSelectedId(null);
-    }
-  }, [sorted, selectedId]);
+  // Auto-select first item when the selection isn't in the sorted list.
+  // Adjusted during render (converges in one pass) rather than in an effect.
+  if (sorted.length > 0 && (!selectedId || !sorted.some((l) => l.id === selectedId))) {
+    setSelectedId(sorted[0].id);
+  } else if (sorted.length === 0 && selectedId !== null) {
+    setSelectedId(null);
+  }
 
   // Arrow key navigation
   useEffect(() => {

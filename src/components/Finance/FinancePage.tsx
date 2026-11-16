@@ -1012,17 +1012,19 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
   const [mobileView, setMobileView] = useState<"list" | "detail">(initialSelectedId ? "detail" : "list");
   const [assumptionsOpen, setAssumptionsOpen] = useState(false);
   const { fetchEstimate, getEstimate } = useRentEstimates();
-  const [fetchingEstimate, setFetchingEstimate] = useState(false);
+  // Last listing whose estimate request settled (success or failure). "Fetching"
+  // is derived: the selected listing has no estimate and its request hasn't settled.
+  const [estimateSettledId, setEstimateSettledId] = useState<string | null>(null);
+  const fetchingEstimate =
+    !!selectedId && estimateSettledId !== selectedId && !getEstimate(selectedId) &&
+    allListings.some((l) => l.id === selectedId);
 
   // Auto-fetch RentCast estimate when selection changes
   useEffect(() => {
     if (!selectedId) return;
     const listing = allListings.find((l) => l.id === selectedId);
     if (!listing || getEstimate(selectedId)) return;
-    let cancelled = false;
-    setFetchingEstimate(true);
-    fetchEstimate(listing).finally(() => { if (!cancelled) setFetchingEstimate(false); });
-    return () => { cancelled = true; };
+    fetchEstimate(listing).finally(() => setEstimateSettledId(selectedId));
   }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync selected listing to URL for deep linking
@@ -1051,7 +1053,7 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
   // tracks the 15yr/30yr toggle — 15-yr fixed runs ~0.5–0.8pt below 30-yr.
   useEffect(() => {
     let cancelled = false;
-    setFetchingRate(true);
+    // fetchingRate starts true (initial state); this effect runs once on mount.
     fetch(apiUrl("/api/mortgage-rates"))
       .then((r) => (r.ok ? (r.json() as Promise<{ 30?: number | null; 15?: number | null }>) : null))
       .then((d) => {
@@ -1116,12 +1118,11 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
     });
   }, [listingsWithResults, sortKey, searchQuery, selectedZone, showFavoritesOnly, priorityIds]);
 
-  // Keep selection valid; fall back to first item only if current selection is gone
-  useEffect(() => {
-    if (sorted.length === 0) return;
-    const ids = new Set(sorted.map((x) => x.listing.id));
-    setSelectedId((prev) => (prev && ids.has(prev) ? prev : sorted[0].listing.id));
-  }, [sorted]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Keep selection valid; fall back to first item only if current selection is gone.
+  // Adjusted during render (converges in one pass) rather than in an effect.
+  if (sorted.length > 0 && !(selectedId && sorted.some((x) => x.listing.id === selectedId))) {
+    setSelectedId(sorted[0].listing.id);
+  }
 
   const selectedEntry = sorted.find((x) => x.listing.id === selectedId) ?? sorted[0];
 

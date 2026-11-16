@@ -7,6 +7,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 // useAmenities, useRentEstimates) reads through these same mocks.
 vi.mock("../utils/cloudSync", () => ({
   USE_CLOUD: true,
+  isLocalMode: (mode: string) => mode === "guest" || mode === "demo", // USE_CLOUD=true semantics
   cloudFetch: vi.fn(),
   cloudPatch: vi.fn().mockResolvedValue(undefined),
   getAuthHeaders: vi.fn().mockResolvedValue({}),

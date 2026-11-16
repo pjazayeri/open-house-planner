@@ -19,5 +19,17 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // `try { localStorage… } catch {}` is the deliberate best-effort idiom
+      // throughout the app (private mode / quota errors are non-fatal).
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      // `_`-prefixed bindings are intentionally unused (rest-omit, ignored args).
+      '@typescript-eslint/no-unused-vars': ['error', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+        ignoreRestSiblings: true,
+      }],
+    },
   },
 ])

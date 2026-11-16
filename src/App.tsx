@@ -10,7 +10,9 @@ import { isNativeLoginHandoff } from "./native/handoffFlag";
 import { CsvUploadPrompt } from "./components/CsvUploadPrompt";
 import { Header } from "./components/Header/Header";
 import { MobileNav } from "./components/MobileNav/MobileNav";
-import { Sidebar, sortListings, matchesFilter } from "./components/Sidebar/Sidebar";
+import { Sidebar } from "./components/Sidebar/Sidebar";
+import { sortListings, matchesFilter } from "./components/Sidebar/filters/listingFilters";
+import { isAdminEmail } from "./utils/admin";
 import type { SortKey, FilterKey } from "./components/Sidebar/Sidebar";
 const VALID_SORT_KEYS: SortKey[] = ["time", "price", "capRate", "ppsf"];
 const VALID_FILTER_KEYS: FilterKey[] = ["liked", "disliked", "visited", "unvisited", "priority", "notPriority", "rated"];
@@ -34,12 +36,10 @@ import "./App.css";
 type MobileTab = "map" | "list";
 export type Page = "home" | "planner" | "priority" | "data" | "finance" | "analytics" | "admin" | "design";
 
-// The sole admin account. This gates UI visibility/navigation only; real
-// authorization is enforced server-side by /api/admin-stats (ADMIN_EMAILS env,
-// same default).
-export const ADMIN_EMAILS = ["pauljazayeri@gmail.com"];
-export const isAdminEmail = (email?: string | null): boolean =>
-  !!email && ADMIN_EMAILS.includes(email.toLowerCase());
+// Shared-plan link formats (see serializePlan / api/plan).
+const SHARE_LEGACY_PREFIX = "#share?d=";
+const SHARE_BIN_PREFIX = "#share?bin=";
+const SHARE_MAP_PREFIX = "#map?bin=";
 
 function MapIcon() {
   return (
@@ -161,26 +161,25 @@ function App() {
   }, [authMode]);
 
   // Shared plan view — decode from URL hash before anything else
-  const [sharedPlan, setSharedPlan] = useState<TimeSlotGroup[] | null>(null);
-  const [sharedPlanMode, setSharedPlanMode] = useState<"plan" | "map">("plan");
+  // Legacy `#share?d=` links carry the plan inline, so they decode synchronously;
+  // `#share?bin=` / `#map?bin=` links are fetched below.
+  const [sharedPlan, setSharedPlan] = useState<TimeSlotGroup[] | null>(() => {
+    const h = window.location.hash;
+    return h.startsWith(SHARE_LEGACY_PREFIX) ? decodePlan(h.slice(SHARE_LEGACY_PREFIX.length)) : null;
+  });
+  const [sharedPlanMode] = useState<"plan" | "map">(() =>
+    window.location.hash.startsWith(SHARE_MAP_PREFIX) ? "map" : "plan"
+  );
   const [sharedPlanLoading, setSharedPlanLoading] = useState(() => {
     const h = window.location.hash;
-    return h.startsWith("#share?d=") || h.startsWith("#share?bin=") || h.startsWith("#map?bin=");
+    return h.startsWith(SHARE_BIN_PREFIX) || h.startsWith(SHARE_MAP_PREFIX);
   });
 
   useEffect(() => {
     const hash = window.location.hash;
-    const legacyPrefix = "#share?d=";
-    const binPrefix = "#share?bin=";
-    const mapPrefix = "#map?bin=";
-    if (hash.startsWith(legacyPrefix)) {
-      const plan = decodePlan(hash.slice(legacyPrefix.length));
-      setSharedPlan(plan);
-      setSharedPlanLoading(false);
-    } else if (hash.startsWith(binPrefix) || hash.startsWith(mapPrefix)) {
-      const isMap = hash.startsWith(mapPrefix);
-      const id = hash.slice((isMap ? mapPrefix : binPrefix).length);
-      if (isMap) setSharedPlanMode("map");
+    if (hash.startsWith(SHARE_BIN_PREFIX) || hash.startsWith(SHARE_MAP_PREFIX)) {
+      const isMap = hash.startsWith(SHARE_MAP_PREFIX);
+      const id = hash.slice((isMap ? SHARE_MAP_PREFIX : SHARE_BIN_PREFIX).length);
       fetch(apiUrl(`/api/plan?id=${id}`))
         .then((r) => r.ok ? r.json() : Promise.reject(r.status))
         .then((data: SerializedPlan) => {
@@ -192,10 +191,8 @@ function App() {
         })
         .catch(() => setSharedPlan(null))
         .finally(() => setSharedPlanLoading(false));
-    } else {
-      setSharedPlanLoading(false);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const [page, setPageState] = useState<Page>(pageFromHash);
   const [financeInitId, setFinanceInitId] = useState<string | null>(null);
@@ -338,10 +335,10 @@ function App() {
 
   // Admin-only pages (Admin, Design) are hidden from nav for non-admins; if one
   // is reached directly (typed URL / stale link), bounce to home once auth resolves.
-  useEffect(() => {
-    if (authMode === "loading") return;
-    if ((page === "admin" || page === "design") && !isAdmin) setPageState("home");
-  }, [page, isAdmin, authMode]);
+  // (Adjusted during render rather than in an effect so the page never paints.)
+  if (authMode !== "loading" && (page === "admin" || page === "design") && !isAdmin) {
+    setPageState("home");
+  }
 
   function setPage(p: Page) {
     setPageState(p);

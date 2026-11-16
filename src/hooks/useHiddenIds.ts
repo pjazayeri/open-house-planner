@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { USE_CLOUD, cloudFetch, cloudPatch } from "../utils/cloudSync";
+import { USE_CLOUD, cloudFetch, cloudPatch, isLocalMode } from "../utils/cloudSync";
 import type { SyncStatus } from "../utils/cloudSync";
 
 interface UseHiddenIdsResult {
@@ -28,15 +28,21 @@ export function useHiddenIds(authMode: "loading" | "signed-in" | "guest" | "demo
   );
   const [saveFailed, setSaveFailed] = useState(false);
 
-  useEffect(() => {
-    if (authMode === "loading" || authMode === "signed-out") return;
-    if (!USE_CLOUD || authMode === "guest" || authMode === "demo") {
+  // Entering a local (no-cloud) mode starts from empty state. Done during render
+  // on each auth-mode transition (not in an effect) to avoid a cascading render.
+  const [prevAuthMode, setPrevAuthMode] = useState<typeof authMode | null>(null);
+  if (prevAuthMode !== authMode) {
+    setPrevAuthMode(authMode);
+    if (isLocalMode(authMode)) {
       setHiddenIds(new Set());
       // Mark sync as "unconfigured" so the parent loading gate
       // (`syncStatus === "loading"`) doesn't keep us on the spinner forever.
       setSyncStatus("unconfigured");
-      return;
     }
+  }
+
+  useEffect(() => {
+    if (authMode === "loading" || authMode === "signed-out" || isLocalMode(authMode)) return;
     cloudFetch()
       .then((state) => {
         setHiddenIds(new Set(state.hiddenIds));

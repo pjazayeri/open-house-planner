@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import type { VisitRecord } from "../types";
-import { USE_CLOUD, cloudFetch, cloudPatch } from "../utils/cloudSync";
+import { USE_CLOUD, cloudFetch, cloudPatch, isLocalMode } from "../utils/cloudSync";
 import type { SyncStatus } from "../utils/cloudSync";
 
 interface UseVisitsResult {
@@ -23,14 +23,20 @@ export function useVisits(authMode: "loading" | "signed-in" | "guest" | "demo" |
   );
   const [saveFailed, setSaveFailed] = useState(false);
 
-  useEffect(() => {
-    if (authMode === "loading" || authMode === "signed-out") return;
-    if (!USE_CLOUD || authMode === "guest" || authMode === "demo") {
+  // Entering a local (no-cloud) mode starts from empty state. Done during render
+  // on each auth-mode transition (not in an effect) to avoid a cascading render.
+  const [prevAuthMode, setPrevAuthMode] = useState<typeof authMode | null>(null);
+  if (prevAuthMode !== authMode) {
+    setPrevAuthMode(authMode);
+    if (isLocalMode(authMode)) {
       setVisits({});
       // Flip status off "loading" so the parent App loading gate clears.
       setSyncStatus("unconfigured");
-      return;
     }
+  }
+
+  useEffect(() => {
+    if (authMode === "loading" || authMode === "signed-out" || isLocalMode(authMode)) return;
     cloudFetch()
       .then((state) => {
         setVisits(state.visits);
