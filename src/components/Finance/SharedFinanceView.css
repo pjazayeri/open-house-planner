@@ -1,0 +1,62 @@
+/* Public #analysis?bin=… view. Finance styles are dark-only, so this page
+   pins its own dark surface + text colour regardless of the viewer's theme. */
+.fs-page {
+  height: 100%;
+  overflow-y: auto;
+  background: #0f172a;
+  color: #e2e8f0;
+  -webkit-overflow-scrolling: touch;
+}
+.fs-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 24px 40px;
+}
+.fs-header { margin-bottom: 14px; }
+.fs-title { font-size: 20px; font-weight: 700; color: #f1f5f9; margin: 0 0 4px; }
+.fs-sub { font-size: 13px; color: #94a3b8; margin: 0; }
+
+.fs-assumptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.fs-assumption {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.fs-assumption dt { font-size: 11px; color: #64748b; margin: 0; }
+.fs-assumption dd { font-size: 13px; color: #e2e8f0; margin: 2px 0 0; font-weight: 600; }
+
+.fs-explore {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0 0 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.fs-reset {
+  background: transparent;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  color: #a5b4fc;
+  font-size: 12px;
+  padding: 4px 9px;
+  cursor: pointer;
+}
+.fs-reset:hover { border-color: #6366f1; }
+
+.fs-footer { margin-top: 24px; font-size: 11px; color: #475569; text-align: center; }
+
+@media (max-width: 767px) {
+  .fs-inner {
+    padding: max(16px, env(safe-area-inset-top)) 12px max(24px, env(safe-area-inset-bottom));
+  }
+  .fs-assumption { flex: 1 1 calc(50% - 8px); }
+  .fs-reset { min-height: 36px; }
+}

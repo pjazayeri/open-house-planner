@@ -1,4 +1,4 @@
-import { apiUrl } from "../../utils/apiBase";
+import { apiUrl, publicOrigin } from "../../utils/apiBase";
 import { useState, useEffect, useMemo, useRef } from "react";
 import type { Listing, VisitRecord, MapZone } from "../../types";
 import { calcBuyVsRent, calcTimeSeries, type BuyVsRentResult, type TimeSeriesPoint } from "../../utils/mortgageCalc";
@@ -12,6 +12,7 @@ import { matchesListingSearch } from "../../utils/listingSearch";
 import { thumbnailUrl } from "../../utils/thumbnailUrl";
 import "./FinancePage.css";
 import { useRentEstimates, type RentEstimate } from "../../hooks/useRentEstimates";
+import { ANALYSIS_SHARE_PREFIX, buildFinanceShare, mortgageParamsFrom, type FinanceInputs } from "../../utils/financeShare";
 
 interface FinancePageProps {
   allListings: Listing[];
@@ -451,9 +452,85 @@ interface DetailProps {
   setSellerCostPct: (n: number) => void;
   rentInflationPct: number;
   setRentInflationPct: (n: number) => void;
+  /** Public share link. `key` changes whenever the shared numbers would, so a
+   *  stale link isn't left on screen after the inputs move. Omitted in the
+   *  shared (read-only) view. */
+  share?: { key: string; create: () => Promise<string> };
 }
 
-function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, termYears, oppReturnPct, taxRatePct, appreciationPct, saltHeadroom, includePrincipal, rentOverride, onSetRentOverride, rentEstimate, fetchingEstimate, holdYears, setHoldYears, buyerClosingPct, setBuyerClosingPct, sellerCostPct, setSellerCostPct, rentInflationPct, setRentInflationPct }: DetailProps) {
+// ── Share link ───────────────────────────────────────────────────
+function ShareLink({ create }: { create: () => Promise<string> }) {
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [url, setUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+
+  async function copy(u: string) {
+    try {
+      await navigator.clipboard.writeText(u);
+      setCopied(true);
+    } catch {
+      setCopied(false); // link stays visible to copy by hand
+    }
+  }
+
+  async function handleCreate() {
+    setBusy(true);
+    setFailed(false);
+    try {
+      const u = await create();
+      setUrl(u);
+      await copy(u);
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!url) {
+    return (
+      <div className="fp-share">
+        <button
+          className="fp-share-btn"
+          onClick={handleCreate}
+          disabled={busy}
+          title="Create a link anyone can open (no sign-in) showing this analysis with your current assumptions"
+        >
+          {busy ? "Creating link…" : "↗ Share this analysis"}
+        </button>
+        {failed && <span className="fp-share-error">Couldn’t create link — try again</span>}
+      </div>
+    );
+  }
+  return (
+    <div className="fp-share fp-share--ready">
+      <div className="fp-share-row">
+        <input
+          className="fp-share-url"
+          readOnly
+          value={url}
+          aria-label="Share link"
+          onFocus={(e) => e.currentTarget.select()}
+        />
+        <button className="fp-share-action" onClick={() => copy(url)}>{copied ? "Copied" : "Copy"}</button>
+        {canNativeShare && (
+          <button
+            className="fp-share-action"
+            onClick={() => { navigator.share({ title: "Buy vs rent analysis", url }).catch(() => {}); }}
+          >Send…</button>
+        )}
+        <a className="fp-share-action" href={url} target="_blank" rel="noopener noreferrer">Open</a>
+      </div>
+      <div className="fp-share-hint">
+        Anyone with this link can view it without signing in. It’s a snapshot — later changes here won’t update it.
+      </div>
+    </div>
+  );
+}
+
+export function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, termYears, oppReturnPct, taxRatePct, appreciationPct, saltHeadroom, includePrincipal, rentOverride, onSetRentOverride, rentEstimate, fetchingEstimate, holdYears, setHoldYears, buyerClosingPct, setBuyerClosingPct, sellerCostPct, setSellerCostPct, rentInflationPct, setRentInflationPct, share }: DetailProps) {
   const [thumbError, setThumbError] = useState(false);
   const [thumbRetry, setThumbRetry] = useState(0);
   const thumbSrc = thumbnailUrl(listing.id, listing.url, thumbRetry);
@@ -677,6 +754,7 @@ function DetailPanel({ listing, result, effectiveCapRate, downPct, ratePct, term
           </div>
         </div>
       </div>
+      {share && <ShareLink key={share.key} create={share.create} />}
 
       <div className="fp-breakdown">
         <div className="fp-bd-section">Loan</div>
@@ -1068,10 +1146,11 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
   const liveRate = liveRates[termYears];
   const rate = rateEdited || liveRate === undefined ? ratePct : liveRate;
 
-  const params = useMemo(
-    () => ({ downPaymentPct: downPct / 100, annualRatePct: rate, termYears, opportunityReturnPct: oppReturnPct, includePrincipal, marginalTaxRatePct: taxRatePct, appreciationRatePct: includeAppreciation ? appreciationPct : 0, saltHeadroomAnnual: saltHeadroom * 1000, buyerClosingCostPct: buyerClosingPct }),
-    [downPct, rate, termYears, oppReturnPct, includePrincipal, taxRatePct, appreciationPct, includeAppreciation, saltHeadroom, buyerClosingPct]
+  const inputs = useMemo<FinanceInputs>(
+    () => ({ downPct, ratePct: rate, termYears, oppReturnPct, taxRatePct, appreciationPct, includeAppreciation, saltHeadroomK: saltHeadroom, includePrincipal, holdYears, buyerClosingPct, sellerCostPct, rentInflationPct }),
+    [downPct, rate, termYears, oppReturnPct, taxRatePct, appreciationPct, includeAppreciation, saltHeadroom, includePrincipal, holdYears, buyerClosingPct, sellerCostPct, rentInflationPct]
   );
+  const params = useMemo(() => mortgageParamsFrom(inputs), [inputs]);
 
   const listingsWithResults = useMemo(() => {
     return allListings.map((l) => {
@@ -1156,6 +1235,21 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
     // D = 1 - (rent - fixedCosts) / (price * k)
     const D = (1 - (rent - fixedCosts) / (price * k)) * 100;
     setDownPct(Math.round(Math.min(100, Math.max(0, D)) * 10) / 10);
+  }
+
+  // Snapshot this listing + the current assumptions into the public share
+  // store (same JSONBin-backed /api/share as tour plans) → a no-sign-in link.
+  async function createShareLink(listing: Listing): Promise<string> {
+    const snapshot = buildFinanceShare(listing, inputs, rentOverrides[listing.id] ?? null, getEstimate(listing.id));
+    const r = await fetch(apiUrl("/api/share"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(snapshot),
+    });
+    if (!r.ok) throw new Error(`share failed: ${r.status}`);
+    const { id } = (await r.json()) as { id?: string };
+    if (!id) throw new Error("share failed: no id");
+    return `${publicOrigin()}/${ANALYSIS_SHARE_PREFIX}${encodeURIComponent(id)}`;
   }
 
   function setRentOverride(id: string, rent: number | null) {
@@ -1367,6 +1461,10 @@ export function FinancePage({ allListings, initialSelectedId, priorityIds, toggl
               setSellerCostPct={setSellerCostPct}
               rentInflationPct={rentInflationPct}
               setRentInflationPct={setRentInflationPct}
+              share={{
+                key: `${selectedEntry.listing.id}|${JSON.stringify(inputs)}|${rentOverrides[selectedEntry.listing.id] ?? ""}`,
+                create: () => createShareLink(selectedEntry.listing),
+              }}
             />
           ) : (
             <div className="fp-empty">Select a property.</div>

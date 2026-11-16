@@ -748,3 +748,54 @@
   .fp-sell-table .fp-bd-label,
   .fp-sell-table .fp-bd-val { font-size: 12px; }
 }
+
+/* ── Share link (detail panel) ───────────────────── */
+.fp-share {
+  margin: -8px 0 18px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.fp-share-btn {
+  background: transparent;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  color: #a5b4fc;
+  font-size: 12px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.fp-share-btn:hover:not(:disabled) { border-color: #6366f1; color: #c7d2fe; }
+.fp-share-btn:disabled { opacity: 0.6; cursor: default; }
+.fp-share-error { font-size: 12px; color: #f87171; }
+.fp-share--ready { flex-direction: column; align-items: stretch; gap: 6px; }
+.fp-share-row { display: flex; gap: 6px; }
+.fp-share-url {
+  flex: 1;
+  min-width: 0;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-size: 12px;
+  padding: 5px 8px;
+}
+.fp-share-url:focus { outline: none; border-color: #6366f1; }
+.fp-share-action {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  color: #cbd5e1;
+  font-size: 12px;
+  padding: 5px 9px;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.fp-share-action:hover { border-color: #6366f1; color: #fff; }
+.fp-share-hint { font-size: 11px; color: #64748b; line-height: 1.4; }
+@media (max-width: 767px) {
+  .fp-share-btn, .fp-share-action { min-height: 36px; }
+  .fp-share-url { font-size: 16px; } /* no iOS zoom-on-focus */
+}

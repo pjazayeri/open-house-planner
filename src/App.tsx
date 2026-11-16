@@ -28,6 +28,8 @@ import type { SerializedPlan } from "./utils/serializePlan";
 import { DEMO_BIN_ID } from "./components/Auth/AuthScreen";
 import { PlanView } from "./components/PlanView/PlanView";
 import { MapPlanView } from "./components/PlanView/MapPlanView";
+import { SharedFinanceView } from "./components/Finance/SharedFinanceView";
+import { ANALYSIS_SHARE_PREFIX, parseFinanceShare, type FinanceShareSnapshot } from "./utils/financeShare";
 import type { TimeSlotGroup, Listing } from "./types";
 import { listingAddressKey } from "./utils/catalog";
 import type { ScrollState } from "./utils/scrollDirection";
@@ -175,6 +177,25 @@ function App() {
     return h.startsWith(SHARE_BIN_PREFIX) || h.startsWith(SHARE_MAP_PREFIX);
   });
 
+  // Shared single-property finance analysis (`#analysis?bin=…`, public).
+  const [sharedAnalysis, setSharedAnalysis] = useState<FinanceShareSnapshot | null>(null);
+  const [sharedAnalysisState, setSharedAnalysisState] = useState<"none" | "loading" | "missing">(() =>
+    window.location.hash.startsWith(ANALYSIS_SHARE_PREFIX) ? "loading" : "none"
+  );
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash.startsWith(ANALYSIS_SHARE_PREFIX)) return;
+    const id = decodeURIComponent(hash.slice(ANALYSIS_SHARE_PREFIX.length));
+    fetch(apiUrl(`/api/plan?id=${encodeURIComponent(id)}`))
+      .then((r) => r.ok ? r.json() : Promise.reject(r.status))
+      .then((data: unknown) => {
+        const snap = parseFinanceShare(data);
+        setSharedAnalysis(snap);
+        setSharedAnalysisState(snap ? "none" : "missing");
+      })
+      .catch(() => setSharedAnalysisState("missing"));
+  }, []);
+
   useEffect(() => {
     const hash = window.location.hash;
     if (hash.startsWith(SHARE_BIN_PREFIX) || hash.startsWith(SHARE_MAP_PREFIX)) {
@@ -219,7 +240,7 @@ function App() {
   const [ppsfMax, setPpsfMax] = useState<number | null>(_init.ppsfMax);
 
   function isSharedView(hash: string) {
-    return hash.startsWith("#share") || hash.startsWith("#map?bin=");
+    return hash.startsWith("#share") || hash.startsWith("#map?bin=") || hash.startsWith(ANALYSIS_SHARE_PREFIX);
   }
 
   // Keep hash in sync with page + filter state
@@ -644,7 +665,19 @@ function App() {
     [baseGroups]
   );
 
-  // Render shared plan view (no auth / cloud state needed)
+  // Render shared analysis / plan views (no auth / cloud state needed)
+  if (sharedAnalysis) return <SharedFinanceView snapshot={sharedAnalysis} />;
+  if (sharedAnalysisState === "loading") return (
+    <div className="loading-screen">
+      <div className="loading-spinner" />
+      <p>Loading analysis…</p>
+    </div>
+  );
+  if (sharedAnalysisState === "missing") return (
+    <div className="error-screen">
+      <p>This analysis link is invalid or has expired.</p>
+    </div>
+  );
   if (sharedPlanLoading) return (
     <div className="loading-screen">
       <div className="loading-spinner" />
